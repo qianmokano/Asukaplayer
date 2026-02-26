@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">Asuka Player</string>
+    <string name="launcher_title">Asuka Player</string>
+    <string name="open_local_video">Open local video</string>
+    <string name="permission_hint">Allow video access to build your local library.</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="refresh">Refresh</string>
+    <string name="empty_video_list">No local videos found.</string>
+    <string name="video_meta">%1$s • %2$s</string>
+    <string name="video_meta_with_folder">%1$s • %2$s</string>
+    <string name="folder_video_count">%1$d 个视频</string>
+    <string name="folder_meta">%1$d 个视频 • %2$s • %3$s</string>
+    <string name="folder_meta_no_size">%1$d 视频 • %2$s</string>
+    <string name="unknown_folder">Unknown folder</string>
+    <string name="tab_folders">Folders</string>
+    <string name="tab_all_videos">All Videos</string>
+    <string name="back_to_folders">Back to folders</string>
+    <string name="all_videos_count">媒体库共 %1$d 个视频</string>
+    <string name="permission_required_title">Permission Required</string>
+    <string name="open_video_without_permission_hint">Choose one video file directly for playback.</string>
+    <string name="library_actions_title">Library</string>
+    <string name="refresh_library_hint">Rescan local videos and folders.</string>
+    <string name="open_local_video_hint">Pick a single local video to play now.</string>
+    <string name="browse_mode_title">Browse Mode</string>
+    <string name="mode_folders_desc">Group videos by folders.</string>
+    <string name="mode_all_desc">Show every video in one list.</string>
+    <string name="folders_group_title">文件夹（%1$d）</string>
+    <string name="videos_group_title">全部视频（%1$d）</string>
+    <string name="selected_folder_group_title">视频（%1$d）</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_general_title">General</string>
+    <string name="settings_about_title">About Asuka Player</string>
+    <string name="settings_about_desc">Version %1$s</string>
+    <string name="settings_refresh_title">Pull to Refresh</string>
+    <string name="settings_refresh_desc">Pull down in any library page to refresh media scan.</string>
+    <string name="refresh_done">刷新完成：%1$d 个视频</string>
+</resources>

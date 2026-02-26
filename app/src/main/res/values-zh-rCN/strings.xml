@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">Asuka 播放器</string>
+    <string name="launcher_title">Asuka 播放器</string>
+    <string name="open_local_video">打开本地视频</string>
+    <string name="permission_hint">请授予视频读取权限以构建本地媒体库。</string>
+    <string name="grant_permission">授予权限</string>
+    <string name="refresh">刷新</string>
+    <string name="empty_video_list">未找到本地视频。</string>
+    <string name="video_meta">%1$s • %2$s</string>
+    <string name="video_meta_with_folder">%1$s • %2$s</string>
+    <string name="folder_video_count">%1$d 个视频</string>
+    <string name="folder_meta">%1$d 个视频 • %2$s • %3$s</string>
+    <string name="unknown_folder">未知文件夹</string>
+    <string name="tab_folders">文件夹</string>
+    <string name="tab_all_videos">全部视频</string>
+    <string name="back_to_folders">返回文件夹</string>
+    <string name="all_videos_count">媒体库共 %1$d 个视频</string>
+    <string name="permission_required_title">需要权限</string>
+    <string name="open_video_without_permission_hint">可直接选择单个视频文件播放。</string>
+    <string name="library_actions_title">媒体库</string>
+    <string name="refresh_library_hint">重新扫描本地视频与文件夹。</string>
+    <string name="open_local_video_hint">直接选择一个本地视频立即播放。</string>
+    <string name="browse_mode_title">浏览模式</string>
+    <string name="mode_folders_desc">按文件夹查看视频。</string>
+    <string name="mode_all_desc">将所有视频放在同一列表。</string>
+    <string name="folders_group_title">文件夹（%1$d）</string>
+    <string name="videos_group_title">全部视频（%1$d）</string>
+    <string name="selected_folder_group_title">视频（%1$d）</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_general_title">通用</string>
+    <string name="settings_about_title">关于 Asuka Player</string>
+    <string name="settings_about_desc">版本 %1$s</string>
+    <string name="settings_refresh_title">下拉刷新</string>
+    <string name="settings_refresh_desc">在任意媒体列表页面下拉即可重新扫描媒体库。</string>
+    <string name="refresh_done">刷新完成：%1$d 个视频</string>
+</resources>
