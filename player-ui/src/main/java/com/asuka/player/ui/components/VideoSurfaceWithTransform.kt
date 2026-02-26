@@ -50,19 +50,19 @@ fun VideoSurfaceWithTransform(
                     sourceSizeDp = measuredSourceSize,
                 )
                 .graphicsLayer {
-                    scaleX = zoomState.zoom
-                    scaleY = zoomState.zoom
-                    translationX = zoomState.offset.x
-                    translationY = zoomState.offset.y
+                    scaleX = zoomState.scale
+                    scaleY = zoomState.scale
+                    translationX = zoomState.panOffset.x
+                    translationY = zoomState.panOffset.y
                 }
         } else {
             modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = zoomState.zoom
-                    scaleY = zoomState.zoom
-                    translationX = zoomState.offset.x
-                    translationY = zoomState.offset.y
+                    scaleX = zoomState.scale
+                    scaleY = zoomState.scale
+                    translationX = zoomState.panOffset.x
+                    translationY = zoomState.panOffset.y
                     alpha = 0f
                 }
         },

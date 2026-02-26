@@ -15,9 +15,9 @@ fun ZoomIndicator(
     modifier: Modifier = Modifier,
     zoomState: ZoomState,
 ) {
-    if (!zoomState.isZooming) return
+    if (!zoomState.pinching) return
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val percent = (zoomState.zoom * 100).toInt()
+        val percent = (zoomState.scale * 100).toInt()
         Text(text = "$percent%", color = Color.White, style = MaterialTheme.typography.headlineMedium)
     }
 }

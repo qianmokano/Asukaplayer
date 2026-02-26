@@ -95,7 +95,7 @@ fun PlayerScreen(
 
     val scope = rememberCoroutineScope()
     val controlsState = remember(settings.controllerTimeoutSec) {
-        ControlsState(scope = scope, hideAfter = settings.controllerTimeoutSec.coerceIn(1, 60).seconds)
+        ControlsState(scope = scope, autoHideDelay = settings.controllerTimeoutSec.coerceIn(1, 60).seconds)
     }
     val volumeBrightnessState = remember { VolumeBrightnessState() }
     val seekState = remember { SeekState() }
@@ -149,7 +149,7 @@ fun PlayerScreen(
         val mediaId = mediaIdState.value ?: return@LaunchedEffect
         val resume = PlaybackStateRestorer(store).read(mediaId)
         val zoom = resume.zoom ?: 1f
-        zoomState.update(zoom, androidx.compose.ui.geometry.Offset.Zero, isZooming = false)
+        zoomState.setTransform(zoom, androidx.compose.ui.geometry.Offset.Zero, pinching = false)
     }
     val pointerDetector = remember(settings.seekSensitivity, audioManager, activity) {
         PointerGestureDetector(

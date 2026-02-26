@@ -209,7 +209,7 @@ class GestureCoordinator(
         val effectivePanChange = if (enablePanGesture) panChange else Offset.Zero
         val newZoom = GestureAlgorithms.clampZoom(
             GestureAlgorithms.ZoomInput(
-                currentZoom = zoomState.zoom,
+                currentZoom = zoomState.scale,
                 zoomChange = zoomChange,
             ),
         )
@@ -218,21 +218,21 @@ class GestureCoordinator(
                 zoom = newZoom,
                 viewWidth = viewWidth,
                 viewHeight = viewHeight,
-                currentX = zoomState.offset.x,
-                currentY = zoomState.offset.y,
+                currentX = zoomState.panOffset.x,
+                currentY = zoomState.panOffset.y,
                 panX = effectivePanChange.x,
                 panY = effectivePanChange.y,
             ),
         )
-        zoomState.update(newZoom, Offset(pan.clampedX, pan.clampedY), isZooming = true)
+        zoomState.setTransform(newZoom, Offset(pan.clampedX, pan.clampedY), pinching = true)
     }
 
     fun onTransformEnd() {
         transformGestureStarted = false
         if (machine.state != GestureStateMachine.State.TRANSFORM_ZOOM) return
         machine.onEvent(GestureStateMachine.Event.TransformEnd)
-        zoomState.update(zoomState.zoom, zoomState.offset, isZooming = false)
-        onZoomEnd(zoomState.zoom)
+        zoomState.setTransform(zoomState.scale, zoomState.panOffset, pinching = false)
+        onZoomEnd(zoomState.scale)
     }
 
     fun disableAllGestures() {

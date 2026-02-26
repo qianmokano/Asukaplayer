@@ -6,19 +6,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 
+/**
+ * Holds the current video transform (scale + pan) for a pinch-zoom / pan session.
+ *
+ * [scale]     – multiplicative zoom factor; 1.0 = fit to viewport.
+ * [panOffset] – translation applied after scaling, in display pixels.
+ * [pinching]  – true while a pinch-zoom gesture is in progress.
+ */
 class ZoomState {
-    var zoom: Float by mutableFloatStateOf(1f)
+    var scale: Float by mutableFloatStateOf(1f)
         private set
 
-    var offset: Offset by mutableStateOf(Offset.Zero)
+    var panOffset: Offset by mutableStateOf(Offset.Zero)
         private set
 
-    var isZooming: Boolean by mutableStateOf(false)
+    var pinching: Boolean by mutableStateOf(false)
         private set
 
-    fun update(zoom: Float, offset: Offset, isZooming: Boolean) {
-        this.zoom = zoom
-        this.offset = offset
-        this.isZooming = isZooming
+    fun setTransform(scale: Float, panOffset: Offset, pinching: Boolean) {
+        this.scale = scale
+        this.panOffset = panOffset
+        this.pinching = pinching
     }
 }

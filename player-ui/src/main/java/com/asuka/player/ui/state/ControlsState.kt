@@ -4,16 +4,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlin.time.Duration
 
+/**
+ * Manages the visibility and lock state of the playback controls overlay.
+ *
+ * Auto-hide is implemented with a **generation counter**: each call to [show]
+ * increments [generation] and launches a delayed dismissal that checks whether
+ * the generation has changed before hiding. This avoids coroutine-job bookkeeping
+ * and naturally coalesces rapid show/hide calls.
+ *
+ * @param scope          Coroutine scope for auto-hide timers (typically the
+ *                       enclosing Composable's [rememberCoroutineScope]).
+ * @param autoHideDelay  How long after the last [show] call the controls will
+ *                       automatically dismiss themselves.
+ */
 class ControlsState(
     private val scope: CoroutineScope,
-    private val hideAfter: Duration,
+    private val autoHideDelay: Duration,
 ) {
-    private var hideJob: Job? = null
+    private var generation = 0
 
     var visible: Boolean by mutableStateOf(true)
         private set
@@ -23,11 +35,11 @@ class ControlsState(
 
     fun show() {
         visible = true
-        scheduleHide()
+        armAutoDismiss()
     }
 
     fun hide() {
-        hideJob?.cancel()
+        generation++          // invalidate any in-flight auto-dismiss
         visible = false
     }
 
@@ -45,11 +57,11 @@ class ControlsState(
         show()
     }
 
-    private fun scheduleHide() {
-        hideJob?.cancel()
-        hideJob = scope.launch {
-            delay(hideAfter)
-            if (!locked) {
+    private fun armAutoDismiss() {
+        val snapshot = ++generation
+        scope.launch {
+            delay(autoHideDelay)
+            if (generation == snapshot && !locked) {
                 visible = false
             }
         }
