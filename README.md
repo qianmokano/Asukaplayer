@@ -1,34 +1,62 @@
-# Asuka Player（清洁室重写）
+# Asuka Player
 
-This folder contains a clean-room rewrite based on `docs/PLAYER_REWRITE_REPORT.md`.
-No code/assets are copied from the original project.
+一款 Android 本地视频播放器，基于 Jetpack Compose + Media3/ExoPlayer 构建。
 
-本目录是基于 `docs/PLAYER_REWRITE_REPORT.md` 的清洁室重写实现。
-未复制原项目代码或资源。
+---
 
-## Milestones（里程碑）
-- M0: base playback skeleton (service + controller + minimal UI)
-- M1: gestures + controls state
-- M2: full UI layout skeleton
-- M3: persistence + queue + track selection + PIP/background behavior
-- M4: tests + perf checklist + release docs
+## 特性
 
-## Current Status（当前状态）
-- M0 ✅
-- M1 ✅
-- M2 ✅
-- M3 ✅ (core features done; notification foregrounding pending)
-- M4 ✅ (initial test coverage + checklists)
+- 手势控制：左右拖动快进/快退，左侧上下调亮度，右侧上下调音量，双指缩放
+- 双击快进/快退，长按加速播放
+- 音频轨道 / 字幕轨道选择
+- 视频缩放模式切换
+- 画中画（PiP）& 后台播放
+- 播放状态持久化（位置、速度、音轨、缩放）
+- 队列播放（支持 ClipData 多文件）
+- 深色模式完整适配
 
-## Modules (scaffold)（模块脚手架）
-- player-core: playback engine/service interfaces
-- player-domain: use cases + gesture algorithms (pure functions)
-- player-data: persistence abstractions
-- player-ui: Compose UI + interaction layer
+## 技术栈
 
-## Test（测试）
-- Unit tests: player-domain, player-core
-- UI tests: player-ui androidTest
+| 层 | 技术 |
+|---|---|
+| UI | Jetpack Compose + Material3 |
+| 播放引擎 | Media3 / ExoPlayer 1.9.1 |
+| 语言 | Kotlin 2.3.0 |
+| 最低版本 | Android 6.0（API 23）|
+| 目标版本 | Android 16（API 36）|
 
-## Notes（备注）
-- Background playback does not yet promote the service to foreground.
+## 模块结构
+
+```
+app/            → 媒体库浏览、文件选择、设置页，启动播放
+player-ui/      → Compose UI、手势协调、UI 状态管理
+player-core/    → Media3/ExoPlayer 封装、MediaSessionService、队列逻辑
+player-domain/  → 纯 JVM 算法（手势数学、状态机），无 Android 依赖
+player-data/    → 播放状态持久化接口
+```
+
+依赖方向：`app` → `player-ui` → `player-core` → `player-data`；`player-ui` → `player-domain`
+
+## 构建
+
+```bash
+# 编译
+./gradlew :app:compileDebugKotlin
+
+# 安装到设备
+./gradlew :app:installDebug
+
+# 单元测试
+./gradlew :player-domain:test :player-core:test
+
+# UI 测试（需连接设备/模拟器）
+./gradlew :player-ui:connectedAndroidTest
+```
+
+## 开发进度
+
+- M0 基础播放骨架 ✅
+- M1 手势与控制栏状态 ✅
+- M2 完整 UI 布局 ✅
+- M3 持久化、队列、轨道选择、PiP ✅
+- M4 测试、性能检查、发布文档 ✅
