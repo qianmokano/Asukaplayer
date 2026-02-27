@@ -7,6 +7,9 @@ import com.asuka.player.data.PlaybackStore
 /**
  * Attaches to Player events and writes playback state into the store.
  * This is a lightweight, clean-room alternative and can be replaced by a use-case layer.
+ *
+ * **Thread safety:** All Player.Listener callbacks are delivered on the application's main thread.
+ * This class must only be used on the main thread.
  */
 class PlaybackStateWriter(
     private val store: PlaybackStore,
@@ -29,8 +32,16 @@ class PlaybackStateWriter(
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         if (isPlaying) return
+        val player = attachedPlayer ?: return
+        // During media item transitions the player briefly stops playing. At that point
+        // currentMediaId already points to the *new* item (updated by onMediaItemTransition),
+        // so saving the position here would associate a stale/zero position with the new
+        // mediaId. Skip the save when the player is between items (IDLE/ENDED) or buffering
+        // the next item.
+        val state = player.playbackState
+        if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) return
         val mediaId = currentMediaId ?: return
-        val position = attachedPlayer?.currentPosition ?: return
+        val position = player.currentPosition
         store.savePosition(mediaId, position)
     }
 
@@ -48,6 +59,7 @@ class PlaybackStateWriter(
         newPosition: Player.PositionInfo,
         reason: Int,
     ) {
+        if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
         val mediaId = oldPosition.mediaItem?.mediaId ?: return
         store.savePosition(mediaId, oldPosition.positionMs)
     }
@@ -60,7 +72,10 @@ class PlaybackStateWriter(
     }
 
     override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-        val mediaId = currentMediaId ?: return
+        // Guard: onTracksChanged can fire before onMediaItemTransition for the same item,
+        // causing tracks to be saved against the wrong mediaId. Use the player's current
+        // media item directly to guarantee we write to the correct key.
+        val mediaId = attachedPlayer?.currentMediaItem?.mediaId ?: return
         var selectedAudio: Int? = null
         var selectedSubtitle: Int? = null
         var hasTextGroup = false
@@ -85,7 +100,7 @@ class PlaybackStateWriter(
         } else if (hasTextGroup &&
             attachedPlayer?.trackSelectionParameters?.disabledTrackTypes?.contains(C.TRACK_TYPE_TEXT) == true
         ) {
-            store.saveSubtitleTrack(mediaId, -1)
+            store.saveSubtitleTrack(mediaId, TrackIndexCodec.SUBTITLE_DISABLED)
         }
     }
 }

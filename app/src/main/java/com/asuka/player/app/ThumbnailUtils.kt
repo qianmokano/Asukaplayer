@@ -1,0 +1,266 @@
+package com.asuka.player.app
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.util.LruCache
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+
+internal object VideoThumbnailCache {
+    private val cache = object : LruCache<String, Bitmap>(48 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    }
+    val loadSemaphore = Semaphore(2)
+
+    fun get(key: String): Bitmap? = cache.get(key)
+
+    fun put(key: String, bitmap: Bitmap) {
+        cache.put(key, bitmap)
+    }
+}
+
+internal const val VIDEO_THUMB_VERSION = 2
+internal const val INITIAL_THUMB_WARMUP_LIMIT = 80
+
+@Composable
+internal fun rememberVideoThumbnail(
+    uri: Uri?,
+    thumbnailId: Long?,
+): ImageBitmap? {
+    val context = LocalContext.current
+    val cacheKey = thumbnailCacheKey(thumbnailId = thumbnailId, uri = uri)
+    val cached = cacheKey?.let { VideoThumbnailCache.get(it) }
+    val bitmap by produceState<Bitmap?>(initialValue = cached, cacheKey) {
+        if (cacheKey == null || uri == null || value != null) return@produceState
+        value = withContext(Dispatchers.IO) {
+            VideoThumbnailCache.loadSemaphore.withPermit {
+                loadOrCreateVideoThumbnail(
+                    context = context,
+                    uri = uri,
+                    thumbnailId = thumbnailId,
+                )
+            }
+        }?.also { loaded ->
+            VideoThumbnailCache.put(cacheKey, loaded)
+        }
+    }
+    return bitmap?.asImageBitmap()
+}
+
+internal fun loadOrCreateVideoThumbnail(
+    context: Context,
+    uri: Uri,
+    thumbnailId: Long?,
+): Bitmap? {
+    val cachedFile = thumbnailId?.let { videoThumbnailFile(context, it) }
+    cachedFile?.takeIf { it.exists() }?.let { file ->
+        BitmapFactory.decodeFile(file.absolutePath)?.let { return it }
+    }
+
+    val generated = loadVideoThumbnail(context, uri) ?: return null
+    if (cachedFile != null) {
+        runCatching {
+            FileOutputStream(cachedFile).use { out ->
+                generated.compress(Bitmap.CompressFormat.JPEG, 88, out)
+            }
+        }
+    }
+    return generated
+}
+
+internal fun videoThumbnailFile(context: Context, thumbnailId: Long): File {
+    val dir = File(context.cacheDir, "video_thumb_cache").apply { mkdirs() }
+    return File(dir, "${thumbnailId}_v$VIDEO_THUMB_VERSION.jpg")
+}
+
+internal fun thumbnailCacheKey(thumbnailId: Long?, uri: Uri?): String? {
+    return when {
+        thumbnailId != null -> "${thumbnailId}_v$VIDEO_THUMB_VERSION"
+        uri != null -> "u_${uri.hashCode()}_v$VIDEO_THUMB_VERSION"
+        else -> null
+    }
+}
+
+internal suspend fun prefetchFolderThumbnails(
+    context: Context,
+    folder: LocalVideoFolder?,
+    limit: Int,
+) {
+    val videos = folder?.videos.orEmpty().take(limit.coerceAtLeast(1))
+    videos.forEach { video ->
+        val key = thumbnailCacheKey(thumbnailId = video.id, uri = video.uri) ?: return@forEach
+        if (VideoThumbnailCache.get(key) != null) return@forEach
+        val loaded = VideoThumbnailCache.loadSemaphore.withPermit {
+            loadOrCreateVideoThumbnail(
+                context = context,
+                uri = video.uri,
+                thumbnailId = video.id,
+            )
+        } ?: return@forEach
+        VideoThumbnailCache.put(key, loaded)
+    }
+}
+
+internal suspend fun warmupInitialThumbnails(
+    context: Context,
+    videos: List<LocalVideoItem>,
+    limit: Int,
+) {
+    videos.take(limit.coerceAtLeast(1)).forEach { video ->
+        VideoThumbnailCache.loadSemaphore.withPermit {
+            ensureThumbnailFile(
+                context = context,
+                uri = video.uri,
+                thumbnailId = video.id,
+            )
+        }
+    }
+}
+
+internal fun ensureThumbnailFile(
+    context: Context,
+    uri: Uri,
+    thumbnailId: Long,
+) {
+    val cachedFile = videoThumbnailFile(context, thumbnailId)
+    if (cachedFile.exists()) return
+    val generated = loadVideoThumbnail(context, uri) ?: return
+    runCatching {
+        FileOutputStream(cachedFile).use { out ->
+            generated.compress(Bitmap.CompressFormat.JPEG, 88, out)
+        }
+    }
+}
+
+internal fun loadVideoThumbnail(context: Context, uri: Uri): Bitmap? {
+    val fromFrame = runCatching {
+        MediaMetadataRetriever().use { retriever ->
+            retriever.setDataSource(context, uri)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+                ?.coerceAtLeast(0L)
+                ?: 0L
+            val targetTimeUs = (durationMs * 1000L / 3L).coerceAtLeast(0L)
+            val frame = retriever.getFrameAtTime(targetTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                ?: retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            frame?.let { limitBitmapEdge(it, maxEdge = 960) }
+        }
+    }.getOrNull()
+    return fromFrame
+}
+
+internal fun limitBitmapEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
+    if (maxEdge <= 0) return bitmap
+    val width = bitmap.width
+    val height = bitmap.height
+    val longest = maxOf(width, height)
+    if (longest <= maxEdge) return bitmap
+    val scale = maxEdge.toFloat() / longest.toFloat()
+    val targetWidth = (width * scale).toInt().coerceAtLeast(1)
+    val targetHeight = (height * scale).toInt().coerceAtLeast(1)
+    return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+}
+
+@Composable
+internal fun VideoThumbOrIcon(
+    icon: ImageVector,
+    thumbnailUri: Uri?,
+    thumbnailId: Long?,
+    durationLabel: String?,
+    selected: Boolean,
+) {
+    val thumb = rememberVideoThumbnail(thumbnailUri, thumbnailId)
+    val shouldUseThumbnailSlot = thumbnailUri != null || thumbnailId != null
+    if (shouldUseThumbnailSlot) {
+        Crossfade(
+            targetState = thumb,
+            animationSpec = tween(durationMillis = 220),
+            label = "VideoThumbCrossfade",
+        ) { image ->
+            Box(
+                modifier = Modifier
+                    .size(width = VIDEO_ITEM_THUMB_WIDTH, height = VIDEO_ITEM_THUMB_HEIGHT)
+                    .clip(RoundedCornerShape(VIDEO_PAGE_CORNER_RADIUS)),
+            ) {
+                if (image != null) {
+                    Image(
+                        bitmap = image,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.matchParentSize(),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+                if (!durationLabel.isNullOrBlank()) {
+                    Text(
+                        text = durationLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 3.dp, bottom = 3.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.58f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+    } else {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}

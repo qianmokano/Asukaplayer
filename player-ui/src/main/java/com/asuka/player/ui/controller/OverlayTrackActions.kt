@@ -25,6 +25,6 @@ class OverlayTrackActions(
 
     fun disableSubtitles() {
         trackSelection.disableSubtitles()
-        mediaIdProvider()?.let { id -> store.saveSubtitleTrack(id, -1) }
+        mediaIdProvider()?.let { id -> store.saveSubtitleTrack(id, TrackIndexCodec.SUBTITLE_DISABLED) }
     }
 }

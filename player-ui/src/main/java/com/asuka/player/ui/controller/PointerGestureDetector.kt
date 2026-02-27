@@ -54,8 +54,8 @@ class PointerGestureDetector(
 
             while (true) {
                 val event = awaitPointerEvent()
-                val change = event.changes.firstOrNull { it.id == pointerId } ?: continue
-                if (!change.pressed) break
+                val change = event.changes.firstOrNull { it.id == pointerId }
+                if (change == null || !change.pressed) break
 
                 val dx = change.position.x - startPosition.x
                 val dy = change.position.y - startPosition.y

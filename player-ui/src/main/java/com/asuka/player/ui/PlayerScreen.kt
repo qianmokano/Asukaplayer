@@ -91,7 +91,14 @@ fun PlayerScreen(
     val audioManager = remember(context) {
         context.getSystemService(AudioManager::class.java)
     }
-    val activity = remember(context) { context as? Activity }
+    val activity = remember(context) {
+        var ctx = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is Activity) return@remember ctx
+            ctx = ctx.baseContext
+        }
+        null
+    }
 
     val scope = rememberCoroutineScope()
     val controlsState = remember(settings.controllerTimeoutSec) {
@@ -114,7 +121,7 @@ fun PlayerScreen(
     val durationMsState = rememberUpdatedState(uiState.durationMs)
     val mediaIdState = rememberUpdatedState(player?.currentMediaItem?.mediaId)
     val playbackSpeedState = rememberUpdatedState(player?.playbackParameters?.speed ?: 1.0f)
-    val overlayActions = remember {
+    val overlayActions = remember(controller, store) {
         OverlayActions(
             controller = controller,
             store = store,
@@ -181,7 +188,7 @@ fun PlayerScreen(
             },
         )
     }
-    val uiActions = remember { UiActions(controller) }
+    val uiActions = remember(controller) { UiActions(controller) }
     val gestureCoordinator = remember(controller, controlsState, volumeBrightnessState, seekState, zoomState, settings) {
         GestureCoordinator(
             controller = controller,
@@ -308,7 +315,11 @@ fun PlayerScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (controlsState.visible && !controlsState.locked) {
+                AnimatedVisibility(
+                    visible = controlsState.visible && !controlsState.locked,
+                    enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
+                    exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
+                ) {
                     MiddleControls(
                         controller = controller,
                         isPlaying = uiState.isPlaying,
@@ -378,8 +389,8 @@ fun PlayerScreen(
             message = visibleError,
             onRetry = {
                 dismissedErrorMessage = null
-                player?.prepare()
-                player?.play()
+                controller.prepare()
+                controller.play()
             },
             onNext = { queueActions.next() },
             onDismiss = { dismissedErrorMessage = uiState.errorMessage },

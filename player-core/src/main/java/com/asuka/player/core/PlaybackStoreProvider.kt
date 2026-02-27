@@ -5,7 +5,7 @@ import com.asuka.player.data.PlaybackStore
 
 /**
  * Provides the app-wide PlaybackStore and QueueHistoryStore.
- * Call init(context) once in both PlaybackActivity.onCreate and PlaybackService.onCreate.
+ * Call init(context) once in Application.onCreate().
  */
 object PlaybackStoreProvider {
     @Volatile private var _store: PlaybackStore? = null

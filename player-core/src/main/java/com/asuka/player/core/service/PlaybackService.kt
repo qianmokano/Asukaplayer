@@ -50,7 +50,6 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        PlaybackStoreProvider.init(this)
         val w = PlaybackStateWriter(PlaybackStoreProvider.store)
         writer = w
         val hw = QueueHistoryWriter(PlaybackStoreProvider.history)
@@ -88,14 +87,20 @@ class PlaybackService : MediaSessionService() {
         try {
             player?.let { writer?.detach(it) }
             historyWriter?.let { player?.removeListener(it) }
-            session?.release()
-            player?.release()
         } finally {
-            session = null
-            player = null
-            writer = null
-            historyWriter = null
-            super.onDestroy()
+            try {
+                session?.release()
+            } finally {
+                try {
+                    player?.release()
+                } finally {
+                    session = null
+                    player = null
+                    writer = null
+                    historyWriter = null
+                    super.onDestroy()
+                }
+            }
         }
     }
 
@@ -113,10 +118,12 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         /**
-         * Set by PlaybackActivity before connecting so the media-session notification
+         * Set in Application.onCreate() so the media-session notification
          * navigates back to the playback screen instead of the launcher activity.
-         * PlaybackActivity sets this in onCreate(), which always runs before the service
-         * is created (the service is started by the MediaController connection).
+         *
+         * **Ordering guarantee:** Application.onCreate() is guaranteed to run
+         * before any Activity, Service, or BroadcastReceiver, so this is always
+         * set before the service is created.
          */
         @Volatile var activityClass: Class<*>? = null
     }

@@ -15,7 +15,7 @@ fun SeekIndicator(
     modifier: Modifier = Modifier,
     seekState: SeekState,
 ) {
-    if (seekState.deltaMs == 0L) return
+    if (!seekState.seeking) return
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val sign = if (seekState.deltaMs > 0) "+" else "-"
         val absDelta = kotlin.math.abs(seekState.deltaMs)

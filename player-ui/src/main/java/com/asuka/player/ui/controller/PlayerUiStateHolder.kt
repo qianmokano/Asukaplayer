@@ -37,7 +37,7 @@ class PlayerUiStateHolder(
         tickerJob = null
     }
 
-    fun startProgressTicker(scope: CoroutineScope, intervalMs: Long = 500L) {
+    fun startProgressTicker(scope: CoroutineScope, intervalMs: Long = 160L) {
         tickerJob?.cancel()
         tickerJob = scope.launch {
             while (isActive) {
@@ -90,7 +90,6 @@ class PlayerUiStateHolder(
                 isBuffering = player.playbackState == Player.STATE_BUFFERING,
                 positionMs = player.currentPosition,
                 durationMs = if (player.duration > 0) player.duration else 0L,
-                bufferedMs = player.bufferedPosition,
                 errorMessage = if (clearError) null else it.errorMessage,
             )
         }

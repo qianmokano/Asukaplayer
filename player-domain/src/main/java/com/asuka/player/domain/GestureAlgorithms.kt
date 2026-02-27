@@ -42,11 +42,14 @@ object GestureAlgorithms {
     )
 
     fun calculateSeek(input: SeekInput): SeekResult {
+        require(input.sensitivity > 0f) { "sensitivity must be positive, was ${input.sensitivity}" }
+        if (input.durationMs <= 0L) return SeekResult(newPositionMs = input.startPositionMs.coerceAtLeast(0L), deltaMs = 0L)
+        val clampedStart = input.startPositionMs.coerceIn(0L, input.durationMs)
         val dragPx = input.currentX - input.startX
         val seekRateMs = input.sensitivity * BASE_SEEK_RATE_MS
-        val rawPositionMs = input.startPositionMs + (dragPx * seekRateMs).roundToLong()
+        val rawPositionMs = clampedStart + (dragPx * seekRateMs).roundToLong()
         val clampedMs = rawPositionMs.coerceIn(0L, input.durationMs)
-        return SeekResult(newPositionMs = clampedMs, deltaMs = clampedMs - input.startPositionMs)
+        return SeekResult(newPositionMs = clampedMs, deltaMs = clampedMs - clampedStart)
     }
 
     // ── Volume / Brightness ───────────────────────────────────────────────────
@@ -67,6 +70,7 @@ object GestureAlgorithms {
     )
 
     fun calculateVerticalAdjust(input: VerticalAdjustInput): VerticalAdjustResult {
+        require(input.sensitivity > 0f) { "sensitivity must be positive, was ${input.sensitivity}" }
         val verticalDragPx = input.startY - input.currentY   // positive = swipe up = increase
         val steps = (verticalDragPx * input.sensitivity / DRAG_PX_PER_UNIT).roundToInt()
         val newValue = (input.startValue + steps).coerceIn(0, input.maxValue)
@@ -111,10 +115,10 @@ object GestureAlgorithms {
     fun clampPan(input: PanClampInput): PanClampResult {
         val overhangW = (input.zoom - 1f) * input.viewWidth
         val overhangH = (input.zoom - 1f) * input.viewHeight
-        val boundX = abs(overhangW * 0.5f)
-        val boundY = abs(overhangH * 0.5f)
-        val x = (input.currentX + input.zoom * input.panX).coerceIn(-boundX, boundX)
-        val y = (input.currentY + input.zoom * input.panY).coerceIn(-boundY, boundY)
+        val boundX = (overhangW * 0.5f).coerceAtLeast(0f)
+        val boundY = (overhangH * 0.5f).coerceAtLeast(0f)
+        val x = (input.currentX + input.panX).coerceIn(-boundX, boundX)
+        val y = (input.currentY + input.panY).coerceIn(-boundY, boundY)
         return PanClampResult(clampedX = x, clampedY = y)
     }
 }

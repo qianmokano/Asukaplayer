@@ -28,7 +28,12 @@ class ControllerProvider(private val context: Context) {
     }
 
     fun release() {
-        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture?.let {
+            // If the future is already resolved, MediaController.releaseFuture()
+            // both disconnects the controller and releases the underlying service binding.
+            // If not yet resolved, it cancels the pending connection.
+            MediaController.releaseFuture(it)
+        }
         controllerFuture = null
     }
 }

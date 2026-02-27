@@ -1,5 +1,6 @@
 package com.asuka.player.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -65,6 +67,15 @@ fun BottomBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    colors = if (showBackground) {
+                        listOf(Color.Transparent, Color.Black.copy(alpha = PlayerUiTokens.Alpha.topGradientStart))
+                    } else {
+                        listOf(Color.Transparent, Color.Transparent)
+                    },
+                ),
+            )
             .navigationBarsPadding()
             .padding(horizontal = PlayerUiTokens.Spacing.md, vertical = PlayerUiTokens.Spacing.sm),
     ) {

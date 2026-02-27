@@ -1,16 +1,16 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "com.asuka.player.core"
-    compileSdk = 36
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = 23
+        minSdk = libs.versions.minSdk.get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -32,12 +32,13 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":player-data"))
-    implementation("androidx.media3:media3-common:1.9.1")
-    implementation("androidx.media3:media3-session:1.9.1")
-    implementation("androidx.media3:media3-exoplayer:1.9.1")
-    implementation("androidx.media3:media3-ui:1.9.1")
-    testImplementation(kotlin("test"))
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.12.2")
+    api(project(":player-data"))
+    implementation(libs.annotation)
+    implementation(libs.media3.common)
+    implementation(libs.media3.session)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
 }

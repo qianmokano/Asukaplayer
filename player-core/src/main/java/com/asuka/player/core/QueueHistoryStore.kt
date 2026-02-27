@@ -1,10 +1,12 @@
 package com.asuka.player.core
 
 import android.net.Uri
-import java.util.ArrayDeque
 
 /**
  * Simple in-memory history for playlist navigation.
+ *
+ * **Thread safety:** All methods must be called from the main thread.
+ * The internal [ArrayDeque] is not synchronized.
  */
 class QueueHistoryStore(private val maxSize: Int = 50) {
     private val deque = ArrayDeque<Uri>()

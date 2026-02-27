@@ -157,6 +157,9 @@ class GestureCoordinator(
             VolumeBrightnessState.Mode.VOLUME -> enableVolumeGesture
             VolumeBrightnessState.Mode.BRIGHTNESS -> enableBrightnessGesture
         }
+        // If the gesture for this side is disabled, the drag is silently ignored.
+        // This is intentional: left side = brightness, right side = volume, and each
+        // can be independently toggled. There is no fallback to the other side.
         if (!enabled) return
         machine.onEvent(GestureStateMachine.Event.VerticalStart)
         volumeBrightnessState.start(mode, currentVolume, currentBrightness)
@@ -241,5 +244,26 @@ class GestureCoordinator(
 
     fun enableAllGestures() {
         machine.onEvent(GestureStateMachine.Event.Enable)
+    }
+
+    fun cancelActiveGesture() {
+        if (longPressActive) {
+            longPressActive = false
+            controller.setPlaybackSpeed(savedSpeed)
+            onLongPressFeedback(false, savedSpeed)
+        }
+        if (machine.state == GestureStateMachine.State.HORIZONTAL_SEEK) {
+            pendingSeekPositionMs = null
+            seekState.end()
+        }
+        if (machine.state == GestureStateMachine.State.VERTICAL_ADJUST) {
+            volumeBrightnessState.end()
+        }
+        if (machine.state == GestureStateMachine.State.TRANSFORM_ZOOM) {
+            transformGestureStarted = false
+            zoomState.setTransform(zoomState.scale, zoomState.panOffset, pinching = false)
+            onZoomEnd(zoomState.scale)
+        }
+        machine.onEvent(GestureStateMachine.Event.Cancel)
     }
 }

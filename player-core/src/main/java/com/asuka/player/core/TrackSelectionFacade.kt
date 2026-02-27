@@ -15,7 +15,12 @@ class TrackSelectionFacade(private val player: Player) {
             player.trackSelectionParameters = builder.build()
             return
         }
-        val group = player.currentTracks.groups.getOrNull(groupIndex)?.mediaTrackGroup ?: return
+        val group = player.currentTracks.groups.getOrNull(groupIndex)?.mediaTrackGroup
+        if (group == null) {
+            // Requested group no longer exists; apply the cleared-overrides state as-is.
+            player.trackSelectionParameters = builder.build()
+            return
+        }
         val override = androidx.media3.common.TrackSelectionOverride(group, listOf(trackIndex))
         builder.addOverride(override)
         builder.setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
@@ -30,7 +35,12 @@ class TrackSelectionFacade(private val player: Player) {
             player.trackSelectionParameters = builder.build()
             return
         }
-        val group = player.currentTracks.groups.getOrNull(groupIndex)?.mediaTrackGroup ?: return
+        val group = player.currentTracks.groups.getOrNull(groupIndex)?.mediaTrackGroup
+        if (group == null) {
+            // Requested group no longer exists; apply the cleared-overrides state as-is.
+            player.trackSelectionParameters = builder.build()
+            return
+        }
         val override = androidx.media3.common.TrackSelectionOverride(group, listOf(trackIndex))
         builder.addOverride(override)
         builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)

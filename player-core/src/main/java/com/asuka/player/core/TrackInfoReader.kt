@@ -20,16 +20,19 @@ class TrackInfoReader(private val player: Player) {
     fun listTracks(): List<TrackInfo> {
         val tracks = player.currentTracks
         val results = mutableListOf<TrackInfo>()
+        val typeCounters = mutableMapOf<Int, Int>()
         tracks.groups.forEachIndexed { groupIndex, group ->
             val type = group.type
             val trackGroup = group.mediaTrackGroup
             val count = trackGroup.length
             for (trackIndex in 0 until count) {
                 val format = trackGroup.getFormat(trackIndex)
+                val typeOrdinal = typeCounters.getOrDefault(type, 0) + 1
+                typeCounters[type] = typeOrdinal
                 val label = format.label ?: when (type) {
-                    C.TRACK_TYPE_AUDIO -> "Audio ${groupIndex + 1}"
-                    C.TRACK_TYPE_TEXT -> "Sub ${groupIndex + 1}"
-                    else -> "Track ${groupIndex + 1}"
+                    C.TRACK_TYPE_AUDIO -> "Audio $typeOrdinal"
+                    C.TRACK_TYPE_TEXT -> "Sub $typeOrdinal"
+                    else -> "Track $typeOrdinal"
                 }
                 results += TrackInfo(
                     groupIndex = groupIndex,

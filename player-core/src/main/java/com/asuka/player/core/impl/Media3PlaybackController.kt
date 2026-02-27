@@ -24,17 +24,24 @@ class Media3PlaybackController(
 ) : PlaybackController {
 
     private val trackSelection = TrackSelectionFacade(controller)
-    override fun play() = controller.play()
 
-    override fun pause() = controller.pause()
+    private inline fun ifConnected(block: () -> Unit) {
+        if (controller.isConnected) block()
+    }
 
-    override fun togglePlayPause() {
+    override fun prepare() = ifConnected { controller.prepare() }
+
+    override fun play() = ifConnected { controller.play() }
+
+    override fun pause() = ifConnected { controller.pause() }
+
+    override fun togglePlayPause() = ifConnected {
         if (controller.isPlaying) controller.pause() else controller.play()
     }
 
-    override fun seekTo(positionMs: Long) = controller.seekTo(positionMs)
+    override fun seekTo(positionMs: Long) = ifConnected { controller.seekTo(positionMs) }
 
-    override fun seekBy(deltaMs: Long) {
+    override fun seekBy(deltaMs: Long) = ifConnected {
         val duration = controller.duration
         val target = if (duration == C.TIME_UNSET || duration <= 0L) {
             (controller.currentPosition + deltaMs).coerceAtLeast(0L)
@@ -44,25 +51,34 @@ class Media3PlaybackController(
         controller.seekTo(target)
     }
 
-    override fun setPlaybackSpeed(speed: Float) {
+    override fun setPlaybackSpeed(speed: Float) = ifConnected {
         controller.setPlaybackSpeed(speed)
     }
 
-    override fun setSubtitleEnabled(enabled: Boolean) {
+    override fun setSubtitleEnabled(enabled: Boolean, preferredGroupIndex: Int, preferredTrackIndex: Int) = ifConnected {
         if (!enabled) {
             trackSelection.disableSubtitles()
-            return
+            return@ifConnected
         }
+        // If the caller provided a preferred group, use it if it's still a valid text group.
+        if (preferredGroupIndex >= 0) {
+            val groups = controller.currentTracks.groups
+            if (preferredGroupIndex < groups.size && groups[preferredGroupIndex].type == C.TRACK_TYPE_TEXT) {
+                trackSelection.setSubtitleTrack(preferredGroupIndex, preferredTrackIndex)
+                return@ifConnected
+            }
+        }
+        // Fallback: pick the first text group.
         val groupIndex = controller.currentTracks.groups.indexOfFirst { it.type == C.TRACK_TYPE_TEXT }.takeIf { it >= 0 }
         if (groupIndex != null) {
             trackSelection.setSubtitleTrack(groupIndex, 0)
         }
     }
 
-    override fun addExternalSubtitle(uri: Uri, label: String?) {
+    override fun addExternalSubtitle(uri: Uri, label: String?) = ifConnected {
         val current = controller.currentMediaItem ?: run {
             Log.w(TAG, "addExternalSubtitle: no current media item, ignoring uri=$uri")
-            return
+            return@ifConnected
         }
         val builder = current.buildUpon()
         val configuration = MediaItem.SubtitleConfiguration.Builder(uri)
@@ -83,16 +99,22 @@ class Media3PlaybackController(
             else -> "application/x-subrip"
         }
 
-    override fun setVideoScaleMode(mode: VideoScaleMode) {
+    override fun setVideoScaleMode(mode: VideoScaleMode) = ifConnected {
+        // SCALE_TO_FIT         — ExoPlayer maintains aspect ratio inside the surface (FIT).
+        // SCALE_TO_FIT_WITH_CROPPING — ExoPlayer fills the surface completely (FILL / CROP / STRETCH).
+        //   For STRETCH, VideoScaleModeMapper uses ContentScale.FillBounds which resizes the surface
+        //   to the full viewport without preserving aspect ratio; SCALE_TO_FIT_WITH_CROPPING then
+        //   makes ExoPlayer fill that distorted surface, yielding a true stretch with no cropping.
         val scaleType = when (mode) {
-            VideoScaleMode.FIT, VideoScaleMode.STRETCH -> C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-            VideoScaleMode.FILL, VideoScaleMode.CROP -> C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+            VideoScaleMode.FIT -> C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+            VideoScaleMode.FILL, VideoScaleMode.CROP, VideoScaleMode.STRETCH ->
+                C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
         }
         val args = Bundle().apply { putInt(ARG_SCALE_TYPE, scaleType) }
         controller.sendCustomCommand(SessionCommand(CMD_SET_VIDEO_SCALE_TYPE, Bundle.EMPTY), args)
     }
 
-    override fun setLoopMode(mode: LoopMode) {
+    override fun setLoopMode(mode: LoopMode) = ifConnected {
         controller.repeatMode = when (mode) {
             LoopMode.OFF -> Player.REPEAT_MODE_OFF
             LoopMode.ONE -> Player.REPEAT_MODE_ONE
@@ -100,25 +122,31 @@ class Media3PlaybackController(
         }
     }
 
-    override fun setShuffleEnabled(enabled: Boolean) {
+    override fun setShuffleEnabled(enabled: Boolean) = ifConnected {
         controller.shuffleModeEnabled = enabled
     }
 
-    override fun skipToNext() {
+    override fun skipToNext() = ifConnected {
         if (controller.hasNextMediaItem()) controller.seekToNext()
     }
 
-    override fun skipToPrevious() {
+    override fun skipToPrevious() = ifConnected {
         if (controller.hasPreviousMediaItem()) controller.seekToPrevious()
     }
 
-    override fun getRepeatMode(): LoopMode = when (controller.repeatMode) {
-        Player.REPEAT_MODE_OFF -> LoopMode.OFF
-        Player.REPEAT_MODE_ONE -> LoopMode.ONE
-        else -> LoopMode.ALL
+    override fun getRepeatMode(): LoopMode {
+        if (!controller.isConnected) return LoopMode.OFF
+        return when (controller.repeatMode) {
+            Player.REPEAT_MODE_OFF -> LoopMode.OFF
+            Player.REPEAT_MODE_ONE -> LoopMode.ONE
+            else -> LoopMode.ALL
+        }
     }
 
-    override fun isShuffleEnabled(): Boolean = controller.shuffleModeEnabled
+    override fun isShuffleEnabled(): Boolean {
+        if (!controller.isConnected) return false
+        return controller.shuffleModeEnabled
+    }
 
     companion object {
         private const val TAG = "Media3PlaybackController"

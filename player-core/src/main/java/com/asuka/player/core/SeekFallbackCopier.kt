@@ -30,10 +30,10 @@ class SeekFallbackCopier(
      * @param checkSize when true, skips copying if the file exceeds [MAX_FILE_BYTES].
      * @return a `file://` URI pointing to the local copy, or null on failure.
      */
-    fun copy(uri: Uri, checkSize: Boolean = false): Uri? {
+    fun copy(uri: Uri, checkSize: Boolean = true): Uri? {
         if (checkSize) {
             val fileSize = queryFileSize(uri)
-            if (fileSize > MAX_FILE_BYTES) {
+            if (fileSize >= 0L && fileSize > MAX_FILE_BYTES) {
                 Log.w("AsukaSeekFallback", "skip fallback: file too large ($fileSize bytes)")
                 return null
             }
@@ -81,12 +81,12 @@ class SeekFallbackCopier(
     fun cleanOldFiles(folder: File) {
         val now = System.currentTimeMillis()
         val maxAgeMs = 24L * 60L * 60L * 1000L
-        folder.listFiles()?.forEach { file ->
-            if (now - file.lastModified() > maxAgeMs) {
-                file.delete()
-            }
-        }
-        val remaining = folder.listFiles()?.sortedBy { it.lastModified() } ?: return
+        // Collect all files once, delete stale ones, then apply LRU eviction on the rest.
+        val allFiles = folder.listFiles() ?: return
+        val remaining = allFiles
+            .onEach { file -> if (now - file.lastModified() > maxAgeMs) file.delete() }
+            .filter { it.exists() }
+            .sortedBy { it.lastModified() }
         var totalBytes = remaining.sumOf { it.length() }
         for (file in remaining) {
             if (totalBytes <= MAX_CACHE_BYTES) break

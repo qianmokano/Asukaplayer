@@ -34,7 +34,6 @@ import com.asuka.player.core.QueuePlanner
 import com.asuka.player.core.PlaybackController
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.impl.Media3PlaybackController
-import com.asuka.player.core.service.PlaybackService
 import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.PlayerRuntimeSettings
 import com.asuka.player.ui.R
@@ -60,27 +59,6 @@ import kotlinx.coroutines.withContext
  */
 class PlaybackActivity : ComponentActivity() {
     companion object {
-        const val EXTRA_SEEK_GESTURE_ENABLED = "player_seek_gesture_enabled"
-        const val EXTRA_BRIGHTNESS_GESTURE_ENABLED = "player_brightness_gesture_enabled"
-        const val EXTRA_VOLUME_GESTURE_ENABLED = "player_volume_gesture_enabled"
-        const val EXTRA_ZOOM_GESTURE_ENABLED = "player_zoom_gesture_enabled"
-        const val EXTRA_PAN_GESTURE_ENABLED = "player_pan_gesture_enabled"
-        const val EXTRA_DOUBLE_TAP_GESTURE_ENABLED = "player_double_tap_gesture_enabled"
-        const val EXTRA_DOUBLE_TAP_ACTION = "player_double_tap_action"
-        const val EXTRA_LONG_PRESS_GESTURE_ENABLED = "player_long_press_gesture_enabled"
-        const val EXTRA_SEEK_INCREMENT_SEC = "player_seek_increment_sec"
-        const val EXTRA_SEEK_SENSITIVITY = "player_seek_sensitivity"
-        const val EXTRA_LONG_PRESS_SPEED = "player_long_press_speed"
-        const val EXTRA_CONTROLLER_TIMEOUT_SEC = "player_controller_timeout_sec"
-        const val EXTRA_HIDE_BUTTON_BG = "player_hide_button_bg"
-        const val EXTRA_RESUME_PLAYBACK = "player_resume_playback"
-        const val EXTRA_DEFAULT_SPEED = "player_default_speed"
-        const val EXTRA_AUTOPLAY = "player_autoplay"
-        const val EXTRA_AUTO_PIP = "player_auto_pip"
-        const val EXTRA_AUTO_BACKGROUND_PLAY = "player_auto_background_play"
-        const val EXTRA_REMEMBER_BRIGHTNESS = "player_remember_brightness"
-        const val EXTRA_REMEMBER_SELECTIONS = "player_remember_selections"
-
         private const val ACTION_PIP_CONTROL = "com.asuka.player.pip.CONTROL"
         private const val EXTRA_PIP_CONTROL = "pip_control"
         private const val PIP_CONTROL_PLAY = 1
@@ -150,8 +128,6 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        PlaybackStoreProvider.init(this)
-        PlaybackService.activityClass = PlaybackActivity::class.java
         runtimeSettings = readRuntimeSettings(intent)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
@@ -213,6 +189,9 @@ class PlaybackActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         runtimeSettings = readRuntimeSettings(intent)
+        // A new intent means a new media item; reset the fallback-attempted set so that
+        // content:// URIs that previously triggered a copy are retried for the new file.
+        seekFallbackAttemptedUris.clear()
         if (mediaController == null) {
             ensureControllerReady()
         } else {
@@ -495,7 +474,7 @@ class PlaybackActivity : ComponentActivity() {
                 val subtitleIndex = resume.subtitleTrackIndex
                 when (subtitleIndex) {
                     null -> {}
-                    -1 -> selection.disableSubtitles()
+                    com.asuka.player.core.TrackIndexCodec.SUBTITLE_DISABLED -> selection.disableSubtitles()
                     else -> {
                         val (g, t) = com.asuka.player.core.TrackIndexCodec.decode(subtitleIndex)
                         selection.setSubtitleTrack(g, t)
@@ -515,32 +494,13 @@ class PlaybackActivity : ComponentActivity() {
     }
 
     private fun readRuntimeSettings(intent: Intent?): PlayerRuntimeSettings {
-        return PlayerRuntimeSettings(
-            seekGestureEnabled = intent?.getBooleanExtra(EXTRA_SEEK_GESTURE_ENABLED, true) ?: true,
-            brightnessGestureEnabled = intent?.getBooleanExtra(EXTRA_BRIGHTNESS_GESTURE_ENABLED, true) ?: true,
-            volumeGestureEnabled = intent?.getBooleanExtra(EXTRA_VOLUME_GESTURE_ENABLED, true) ?: true,
-            zoomGestureEnabled = intent?.getBooleanExtra(EXTRA_ZOOM_GESTURE_ENABLED, true) ?: true,
-            panGestureEnabled = intent?.getBooleanExtra(EXTRA_PAN_GESTURE_ENABLED, true) ?: true,
-            doubleTapGestureEnabled = intent?.getBooleanExtra(EXTRA_DOUBLE_TAP_GESTURE_ENABLED, true) ?: true,
-            doubleTapAction = when (intent?.getStringExtra(EXTRA_DOUBLE_TAP_ACTION)) {
-                "toggle_play_pause" -> PlayerRuntimeSettings.DoubleTapAction.TogglePlayPause
-                "both" -> PlayerRuntimeSettings.DoubleTapAction.Both
-                else -> PlayerRuntimeSettings.DoubleTapAction.Seek
-            },
-            longPressGestureEnabled = intent?.getBooleanExtra(EXTRA_LONG_PRESS_GESTURE_ENABLED, true) ?: true,
-            seekIncrementSec = intent?.getIntExtra(EXTRA_SEEK_INCREMENT_SEC, 10) ?: 10,
-            seekSensitivity = intent?.getFloatExtra(EXTRA_SEEK_SENSITIVITY, 1.0f) ?: 1.0f,
-            longPressSpeed = intent?.getFloatExtra(EXTRA_LONG_PRESS_SPEED, 2.0f) ?: 2.0f,
-            controllerTimeoutSec = intent?.getIntExtra(EXTRA_CONTROLLER_TIMEOUT_SEC, 3) ?: 3,
-            hideButtonsBackground = intent?.getBooleanExtra(EXTRA_HIDE_BUTTON_BG, true) ?: true,
-            resumePlayback = intent?.getBooleanExtra(EXTRA_RESUME_PLAYBACK, true) ?: true,
-            defaultPlaybackSpeed = intent?.getFloatExtra(EXTRA_DEFAULT_SPEED, 1.0f) ?: 1.0f,
-            autoplay = intent?.getBooleanExtra(EXTRA_AUTOPLAY, true) ?: true,
-            autoPip = intent?.getBooleanExtra(EXTRA_AUTO_PIP, true) ?: true,
-            autoBackgroundPlay = intent?.getBooleanExtra(EXTRA_AUTO_BACKGROUND_PLAY, false) ?: false,
-            rememberBrightness = intent?.getBooleanExtra(EXTRA_REMEMBER_BRIGHTNESS, false) ?: false,
-            rememberSelections = intent?.getBooleanExtra(EXTRA_REMEMBER_SELECTIONS, true) ?: true,
-        )
+        @Suppress("DEPRECATION")
+        val fromParcel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(PlayerRuntimeSettings.EXTRA_KEY, PlayerRuntimeSettings::class.java)
+        } else {
+            intent?.getParcelableExtra(PlayerRuntimeSettings.EXTRA_KEY)
+        }
+        return fromParcel ?: PlayerRuntimeSettings()
     }
 
     private fun applyRememberedBrightnessIfNeeded() {

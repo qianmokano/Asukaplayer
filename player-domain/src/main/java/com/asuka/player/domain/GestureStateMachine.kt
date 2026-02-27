@@ -2,6 +2,9 @@ package com.asuka.player.domain
 
 /**
  * Gesture state machine (UI-agnostic). The UI layer should translate pointer events into these events.
+ *
+ * **Threading:** This class is NOT thread-safe. All calls to [onEvent] must be made from the same
+ * thread (typically the main/UI thread). No internal synchronization is performed.
  */
 class GestureStateMachine {
     enum class State {
@@ -50,15 +53,7 @@ class GestureStateMachine {
                 Event.TransformStart -> State.TRANSFORM_ZOOM
                 else -> State.IDLE
             }
-            State.TAP -> when (event) {
-                Event.Disable -> State.DISABLED
-                Event.HorizontalStart -> State.HORIZONTAL_SEEK
-                Event.VerticalStart -> State.VERTICAL_ADJUST
-                Event.TransformStart -> State.TRANSFORM_ZOOM
-                Event.LongPressStart -> State.LONG_PRESS
-                else -> State.IDLE
-            }
-            State.DOUBLE_TAP -> when (event) {
+            State.TAP, State.DOUBLE_TAP -> when (event) {
                 Event.Disable -> State.DISABLED
                 Event.HorizontalStart -> State.HORIZONTAL_SEEK
                 Event.VerticalStart -> State.VERTICAL_ADJUST
@@ -68,18 +63,22 @@ class GestureStateMachine {
             }
             State.LONG_PRESS -> when (event) {
                 Event.LongPressEnd, Event.Cancel -> State.IDLE
+                Event.Disable -> State.DISABLED
                 else -> State.LONG_PRESS
             }
             State.HORIZONTAL_SEEK -> when (event) {
                 Event.HorizontalEnd, Event.Cancel -> State.IDLE
+                Event.Disable -> State.DISABLED
                 else -> State.HORIZONTAL_SEEK
             }
             State.VERTICAL_ADJUST -> when (event) {
                 Event.VerticalEnd, Event.Cancel -> State.IDLE
+                Event.Disable -> State.DISABLED
                 else -> State.VERTICAL_ADJUST
             }
             State.TRANSFORM_ZOOM -> when (event) {
                 Event.TransformEnd, Event.Cancel -> State.IDLE
+                Event.Disable -> State.DISABLED
                 else -> State.TRANSFORM_ZOOM
             }
         }

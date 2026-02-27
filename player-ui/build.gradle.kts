@@ -1,26 +1,22 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.asuka.player.ui"
-    compileSdk = 36
+    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = 23
+        minSdk = libs.versions.minSdk.get().toInt()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.6.10"
     }
 
     compileOptions {
@@ -39,25 +35,23 @@ kotlin {
 dependencies {
     implementation(project(":player-core"))
     implementation(project(":player-domain"))
-    implementation(project(":player-data"))
 
-    val composeBom = platform("androidx.compose:compose-bom:2026.01.00")
-    implementation(composeBom)
-    androidTestImplementation(composeBom)
+    implementation(platform(libs.compose.bom))
+    androidTestImplementation(platform(libs.compose.bom))
 
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.activity:activity-compose:1.12.2")
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.icons.extended)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.activity.compose)
 
-    implementation("androidx.media3:media3-ui-compose:1.9.1")
-    implementation("androidx.media3:media3-session:1.9.1")
-    implementation("androidx.media3:media3-common:1.9.1")
+    implementation(libs.media3.ui.compose)
+    implementation(libs.media3.session)
+    implementation(libs.media3.common)
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.10.2")
+    implementation(libs.coroutines.android)
+    implementation(libs.coroutines.guava)
 
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

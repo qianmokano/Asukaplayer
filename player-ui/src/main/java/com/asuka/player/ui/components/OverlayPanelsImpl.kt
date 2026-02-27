@@ -29,6 +29,11 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,7 +99,7 @@ fun SubtitleSelectorPanel(
     ) {
         TrackOptionRow(
             label = stringResource(id = R.string.off),
-            selected = selected == -1,
+            selected = selected == TrackIndexCodec.SUBTITLE_DISABLED,
             onClick = onDisable,
         )
         tracks.forEach { track ->
@@ -161,10 +166,20 @@ fun SpeedSelectorPanel(
             }
         }
 
-        // Fine-tune slider
+        // Fine-tune slider — track local drag state to avoid rapid writes during drag.
+        var draggingSpeed by remember { mutableFloatStateOf(selectedSpeed) }
+        var isDragging by remember { mutableStateOf(false) }
+        val displaySpeed = if (isDragging) draggingSpeed else selectedSpeed.coerceIn(SPEED_MIN, SPEED_MAX)
         Slider(
-            value = selectedSpeed.coerceIn(SPEED_MIN, SPEED_MAX),
-            onValueChange = { onSpeed(it) },
+            value = displaySpeed,
+            onValueChange = {
+                isDragging = true
+                draggingSpeed = it
+            },
+            onValueChangeFinished = {
+                isDragging = false
+                onSpeed(draggingSpeed)
+            },
             valueRange = SPEED_MIN..SPEED_MAX,
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(

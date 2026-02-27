@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -33,10 +34,14 @@ fun GestureLayer(
     }
     fun isTapSuppressed(): Boolean = SystemClock.uptimeMillis() < suppressTapUntilMs.longValue
 
+    DisposableEffect(coordinator) {
+        onDispose { coordinator.cancelActiveGesture() }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
+            .pointerInput(coordinator) {
                 var longPressStarted = false
                 detectTapGestures(
                     onTap = { if (!isTapSuppressed()) coordinator.onTap() },
@@ -56,7 +61,7 @@ fun GestureLayer(
                     },
                 )
             }
-            .pointerInput(Unit) {
+            .pointerInput(coordinator, pointerDetector) {
                 pointerDetector.run {
                     detectDirectionalDrag(
                         onHorizontalStart = { x -> coordinator.onHorizontalDragStart(currentPositionMs(), x) },
@@ -80,7 +85,7 @@ fun GestureLayer(
                     )
                 }
             }
-            .pointerInput(Unit) {
+            .pointerInput(coordinator) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     var transformStarted = false

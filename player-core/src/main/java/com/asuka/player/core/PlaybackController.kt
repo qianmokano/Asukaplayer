@@ -7,13 +7,14 @@ import android.net.Uri
  * Implemented by the core module, used by UI without direct player access.
  */
 interface PlaybackController {
+    fun prepare()
     fun play()
     fun pause()
     fun togglePlayPause()
     fun seekTo(positionMs: Long)
     fun seekBy(deltaMs: Long)
     fun setPlaybackSpeed(speed: Float)
-    fun setSubtitleEnabled(enabled: Boolean)
+    fun setSubtitleEnabled(enabled: Boolean, preferredGroupIndex: Int = -1, preferredTrackIndex: Int = 0)
     fun addExternalSubtitle(uri: Uri, label: String? = null)
     fun setVideoScaleMode(mode: VideoScaleMode)
     fun setLoopMode(mode: LoopMode)
