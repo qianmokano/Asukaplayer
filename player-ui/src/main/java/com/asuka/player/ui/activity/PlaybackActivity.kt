@@ -10,19 +10,27 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Icon
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Log
 import android.util.Rational
+import android.util.Size
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -41,16 +49,13 @@ import com.asuka.player.ui.controller.ControllerProvider
 import com.asuka.player.ui.controller.ControllerBindings
 import com.asuka.player.ui.controller.PlayerUiStateHolder
 import com.asuka.player.ui.state.PlayerUiState
-import kotlinx.coroutines.guava.await
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.Job
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -66,6 +71,21 @@ class PlaybackActivity : ComponentActivity() {
         private const val PIP_CONTROL_PREV = 3
         private const val PIP_CONTROL_NEXT = 4
         private const val RC_PIP_BASE = 100
+        private const val MAX_ARTWORK_MEDIA_IDS = 200
+    }
+
+    private class LruSet<K>(private val maxSize: Int) {
+        private val map = object : LinkedHashMap<K, Unit>(maxSize, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, Unit>): Boolean {
+                return size > maxSize
+            }
+        }
+
+        fun add(key: K): Boolean {
+            val existed = map.containsKey(key)
+            map[key] = Unit
+            return !existed
+        }
     }
 
     private lateinit var controllerProvider: ControllerProvider
@@ -88,6 +108,7 @@ class PlaybackActivity : ComponentActivity() {
     private val playbackPrefs by lazy { getSharedPreferences("player_runtime", MODE_PRIVATE) }
     private lateinit var runtimeSettings: PlayerRuntimeSettings
     private var pipReceiverRegistered = false
+    private val artworkSetForMediaIds = LruSet<String>(MAX_ARTWORK_MEDIA_IDS)
 
     private val seekFallbackListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -457,7 +478,14 @@ class PlaybackActivity : ComponentActivity() {
         val target = uri ?: return
         val extras = IntentQueueReader.read(intent).filter { it != target }
         val uris = QueuePlanner.plan(target, extras, PlaybackStoreProvider.history.items())
-        val queue = QueueBuilder.build(uris, target)
+        val targetTitle = withContext(Dispatchers.IO) { resolveTitleForNotification(target) }
+        val queue = QueueBuilder.build(
+            uris,
+            target,
+            titleResolver = { u ->
+                if (u == target) targetTitle else u.lastPathSegment
+            },
+        )
         val mediaId = target.toString()
         val resume = PlaybackStateRestorer(PlaybackStoreProvider.store).read(mediaId)
         val speedFromStore = if (runtimeSettings.rememberSelections) {
@@ -490,6 +518,73 @@ class PlaybackActivity : ComponentActivity() {
             controller.play()
         } else {
             controller.pause()
+        }
+
+        maybeLoadAndSetArtwork(controller = controller, mediaId = mediaId, index = queue.startIndex, uri = target)
+    }
+
+    private fun resolveTitleForNotification(uri: Uri): String? {
+        val fromContent = if (uri.scheme == "content") {
+            runCatching {
+                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { cursor ->
+                        val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (idx >= 0 && cursor.moveToFirst()) cursor.getString(idx) else null
+                    }
+            }.getOrNull()
+        } else {
+            null
+        }
+        val fromPath = uri.lastPathSegment
+        return fromContent?.takeIf { it.isNotBlank() }
+            ?: fromPath?.takeIf { it.isNotBlank() }
+            ?: uri.toString().takeIf { it.isNotBlank() }
+    }
+
+    private fun maybeLoadAndSetArtwork(controller: MediaController, mediaId: String, index: Int, uri: Uri) {
+        val scheme = uri.scheme ?: return
+        if (scheme != "content" && scheme != "file") return
+        if (!artworkSetForMediaIds.add(mediaId)) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val bitmap = loadArtworkBitmap(uri) ?: return@launch
+            val bytes = ByteArrayOutputStream().use { baos ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, baos)
+                baos.toByteArray()
+            }
+            withContext(Dispatchers.Main) {
+                // Guard against races: ensure we're still updating the same media item.
+                val current = controller.currentMediaItemIndex
+                if (current != index) return@withContext
+                val item = controller.currentMediaItem ?: return@withContext
+                if (item.mediaId != mediaId) return@withContext
+                val metadata = item.mediaMetadata.buildUpon()
+                    .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                    .build()
+                controller.replaceMediaItem(index, item.buildUpon().setMediaMetadata(metadata).build())
+            }
+        }
+    }
+
+    private fun loadArtworkBitmap(uri: Uri): android.graphics.Bitmap? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && uri.scheme == "content") {
+            runCatching {
+                return contentResolver.loadThumbnail(uri, Size(512, 512), null)
+            }
+        }
+        val retriever = MediaMetadataRetriever()
+        return try {
+            if (uri.scheme == "file") {
+                val path = uri.path ?: return null
+                retriever.setDataSource(path)
+            } else {
+                val pfd = runCatching { contentResolver.openFileDescriptor(uri, "r") }.getOrNull() ?: return null
+                pfd.use { retriever.setDataSource(it.fileDescriptor) }
+            }
+            retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+        } catch (_: Throwable) {
+            null
+        } finally {
+            runCatching { retriever.release() }
         }
     }
 

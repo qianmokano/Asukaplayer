@@ -1,0 +1,4 @@
+<resources>
+    <string name="playback_notification_channel_name">Playback</string>
+    <string name="playback_notification_channel_description">Media playback controls</string>
+</resources>

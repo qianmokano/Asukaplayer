@@ -1,8 +1,13 @@
 package com.asuka.player.core.service
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import androidx.annotation.DrawableRes
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -10,12 +15,14 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.asuka.player.core.R
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.PlaybackStoreProvider
 import com.asuka.player.core.QueueHistoryWriter
@@ -31,6 +38,10 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private var writer: PlaybackStateWriter? = null
     private var historyWriter: QueueHistoryWriter? = null
+
+    private val notificationManager: NotificationManager by lazy {
+        getSystemService(NotificationManager::class.java)
+    }
 
     private val sessionCallback = object : MediaSession.Callback {
         override fun onCustomCommand(
@@ -50,6 +61,22 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        ensurePlaybackNotificationChannel()
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId(NOTIFICATION_CHANNEL_ID)
+                .setChannelName(R.string.playback_notification_channel_name)
+                .setNotificationId(NOTIFICATION_ID)
+                .build()
+                .apply { setSmallIcon(notificationSmallIconResId) },
+        )
+        // When playback pauses briefly (e.g. buffering transitions or rapid play/pause),
+        // keep the service in the foreground for a short grace period to avoid churn.
+        setForegroundServiceTimeoutMs(10_000L)
+        // Allow the notification to remain visible after playback is paused/stopped, but avoid
+        // showing a notification for a brand-new idle player that hasn't started playback yet.
+        setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
+
         val w = PlaybackStateWriter(PlaybackStoreProvider.store)
         writer = w
         val hw = QueueHistoryWriter(PlaybackStoreProvider.history)
@@ -73,7 +100,7 @@ class PlaybackService : MediaSessionService() {
         if (activity != null) {
             builder.setSessionActivity(activity)
         }
-        session = builder.setCallback(sessionCallback).build()
+        session = builder.setCallback(sessionCallback).build().also { addSession(it) }
 
         w.attach(exoPlayer)
         exoPlayer.addListener(hw)
@@ -85,6 +112,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         try {
+            session?.let { removeSession(it) }
             player?.let { writer?.detach(it) }
             historyWriter?.let { player?.removeListener(it) }
         } finally {
@@ -116,7 +144,26 @@ class PlaybackService : MediaSessionService() {
         return PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     }
 
+    private fun ensurePlaybackNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val existing = notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL_ID)
+        if (existing != null) return
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            getString(R.string.playback_notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = getString(R.string.playback_notification_channel_description)
+            setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+        notificationManager.createNotificationChannel(channel)
+    }
+
     companion object {
+        private const val NOTIFICATION_CHANNEL_ID = "asuka_playback"
+        private const val NOTIFICATION_ID = 1001
+
         /**
          * Set in Application.onCreate() so the media-session notification
          * navigates back to the playback screen instead of the launcher activity.
@@ -126,5 +173,9 @@ class PlaybackService : MediaSessionService() {
          * set before the service is created.
          */
         @Volatile var activityClass: Class<*>? = null
+
+        @DrawableRes
+        @Volatile
+        var notificationSmallIconResId: Int = R.drawable.ic_stat_playback
     }
 }
