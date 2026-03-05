@@ -139,7 +139,16 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         editor.putString(KEY_MEDIA_IDS, MediaIdListCodec.encode(ids))
     }
 
+    @MainThread
+    private fun assertMainThread() {
+        check(Thread.currentThread() === Looper.getMainLooper().thread) {
+            "SharedPreferencesPlaybackStore must be accessed on the main thread"
+        }
+    }
+
+    @MainThread
     override fun loadPosition(mediaId: String): Long? {
+        assertMainThread()
         val key = "pos:$mediaId"
         pendingValues[key]?.let { return it as Long }
         return if (prefs.contains(key)) prefs.getLong(key, 0L) else null
@@ -147,13 +156,16 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
 
     @MainThread
     override fun savePosition(mediaId: String, positionMs: Long) {
+        assertMainThread()
         val ed = editor()
         touchMediaId(mediaId, ed)
         ed.putLong("pos:$mediaId", positionMs)
         pendingValues["pos:$mediaId"] = positionMs
     }
 
+    @MainThread
     override fun loadPlaybackSpeed(mediaId: String): Float? {
+        assertMainThread()
         val key = "spd:$mediaId"
         pendingValues[key]?.let { return it as Float }
         return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
@@ -161,13 +173,16 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
 
     @MainThread
     override fun savePlaybackSpeed(mediaId: String, speed: Float) {
+        assertMainThread()
         val ed = editor()
         touchMediaId(mediaId, ed)
         ed.putFloat("spd:$mediaId", speed)
         pendingValues["spd:$mediaId"] = speed
     }
 
+    @MainThread
     override fun loadAudioTrack(mediaId: String): Int? {
+        assertMainThread()
         val key = "aud:$mediaId"
         pendingValues[key]?.let { return it as Int }
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null
@@ -175,13 +190,16 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
 
     @MainThread
     override fun saveAudioTrack(mediaId: String, trackIndex: Int) {
+        assertMainThread()
         val ed = editor()
         touchMediaId(mediaId, ed)
         ed.putInt("aud:$mediaId", trackIndex)
         pendingValues["aud:$mediaId"] = trackIndex
     }
 
+    @MainThread
     override fun loadSubtitleTrack(mediaId: String): Int? {
+        assertMainThread()
         val key = "sub:$mediaId"
         pendingValues[key]?.let { return it as Int }
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null
@@ -189,13 +207,16 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
 
     @MainThread
     override fun saveSubtitleTrack(mediaId: String, trackIndex: Int) {
+        assertMainThread()
         val ed = editor()
         touchMediaId(mediaId, ed)
         ed.putInt("sub:$mediaId", trackIndex)
         pendingValues["sub:$mediaId"] = trackIndex
     }
 
+    @MainThread
     override fun loadZoom(mediaId: String): Float? {
+        assertMainThread()
         val key = "zoom:$mediaId"
         pendingValues[key]?.let { return it as Float }
         return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
@@ -203,6 +224,7 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
 
     @MainThread
     override fun saveZoom(mediaId: String, zoom: Float) {
+        assertMainThread()
         val ed = editor()
         touchMediaId(mediaId, ed)
         ed.putFloat("zoom:$mediaId", zoom)

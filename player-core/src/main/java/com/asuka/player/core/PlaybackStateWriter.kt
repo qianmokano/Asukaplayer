@@ -15,6 +15,15 @@ class PlaybackStateWriter(
     private val store: PlaybackStore,
 ) : Player.Listener {
 
+    companion object {
+        internal fun shouldSavePositionOnPause(isPlaying: Boolean, playbackState: Int): Boolean {
+            if (isPlaying) return false
+            return playbackState != Player.STATE_IDLE &&
+                playbackState != Player.STATE_ENDED &&
+                playbackState != Player.STATE_BUFFERING
+        }
+    }
+
     private var currentMediaId: String? = null
     private var attachedPlayer: Player? = null
 
@@ -31,7 +40,6 @@ class PlaybackStateWriter(
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
-        if (isPlaying) return
         val player = attachedPlayer ?: return
         // During media item transitions the player briefly stops playing. At that point
         // currentMediaId already points to the *new* item (updated by onMediaItemTransition),
@@ -39,7 +47,7 @@ class PlaybackStateWriter(
         // mediaId. Skip the save when the player is between items (IDLE/ENDED) or buffering
         // the next item.
         val state = player.playbackState
-        if (state == Player.STATE_IDLE || state == Player.STATE_ENDED) return
+        if (!shouldSavePositionOnPause(isPlaying = isPlaying, playbackState = state)) return
         val mediaId = currentMediaId ?: return
         val position = player.currentPosition
         store.savePosition(mediaId, position)

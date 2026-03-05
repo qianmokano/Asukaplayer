@@ -459,12 +459,11 @@ class PlaybackActivity : ComponentActivity() {
         val uris = QueuePlanner.plan(target, extras, PlaybackStoreProvider.history.items())
         val queue = QueueBuilder.build(uris, target)
         val mediaId = target.toString()
-        val (resume, speedFromStore) = withContext(Dispatchers.IO) {
-            val r = PlaybackStateRestorer(PlaybackStoreProvider.store).read(mediaId)
-            val s = if (runtimeSettings.rememberSelections) {
-                PlaybackStoreProvider.store.loadPlaybackSpeed(mediaId)
-            } else null
-            r to s
+        val resume = PlaybackStateRestorer(PlaybackStoreProvider.store).read(mediaId)
+        val speedFromStore = if (runtimeSettings.rememberSelections) {
+            PlaybackStoreProvider.store.loadPlaybackSpeed(mediaId)
+        } else {
+            null
         }
         val resumePosition = if (runtimeSettings.resumePlayback) resume.positionMs else 0L
         controller.setMediaItems(queue.items, queue.startIndex, resumePosition)

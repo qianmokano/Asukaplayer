@@ -32,3 +32,5 @@ captures/
 
 # Google Services (if used)
 google-services.json
+
+.workflow/
