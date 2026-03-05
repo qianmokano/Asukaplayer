@@ -32,6 +32,7 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     val loading = MutableStateFlow(false)
     val hasLoadedOnce = MutableStateFlow(false)
     val permissionGranted = MutableStateFlow(hasVideoPermission(application))
+    val userSelectedPermissionGranted = MutableStateFlow(hasUserSelectedVideoPermission(application))
 
     private val _refreshTick = MutableStateFlow(0)
 
@@ -60,8 +61,10 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
         }
     }
 
-    fun onPermissionResult(granted: Boolean) {
-        permissionGranted.value = granted || hasVideoPermission(getApplication())
+    fun onPermissionResult(result: Map<String, Boolean>) {
+        val app = getApplication<Application>()
+        permissionGranted.value = hasVideoPermission(app)
+        userSelectedPermissionGranted.value = hasUserSelectedVideoPermission(app) && !permissionGranted.value
     }
 
     fun refresh() {
@@ -72,7 +75,7 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     }
 
     fun scanVideos() {
-        if (!permissionGranted.value) return
+        if (!permissionGranted.value && !userSelectedPermissionGranted.value) return
         viewModelScope.launch {
             val startedAtMs = System.currentTimeMillis()
             val isUserRefresh = hasLoadedOnce.value

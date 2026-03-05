@@ -147,6 +147,15 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
     }
 
     @MainThread
+    override fun recentMediaIds(limit: Int): List<String> {
+        assertMainThread()
+        val safeLimit = limit.coerceAtLeast(0)
+        if (safeLimit == 0) return emptyList()
+        val ids = getOrLoadIds()
+        return ids.takeLast(safeLimit).asReversed()
+    }
+
+    @MainThread
     override fun loadPosition(mediaId: String): Long? {
         assertMainThread()
         val key = "pos:$mediaId"

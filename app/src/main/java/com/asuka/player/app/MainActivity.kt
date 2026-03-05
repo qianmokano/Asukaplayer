@@ -17,10 +17,25 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +50,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -43,12 +61,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.asuka.player.R
+import com.asuka.player.core.PlaybackStoreProvider
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.ui.activity.PlaybackActivity
 import com.asuka.player.ui.PlayerRuntimeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 
 class MainActivity : ComponentActivity() {
     private var launchedForDirectPlayback = false
@@ -165,6 +187,7 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
     val hapticFeedbackEnabled by vm.hapticFeedbackEnabled.collectAsState()
     val playerSettings by vm.playerSettings.collectAsState()
     val permissionGranted by vm.permissionGranted.collectAsState()
+    val userSelectedPermissionGranted by vm.userSelectedPermissionGranted.collectAsState()
     val loading by vm.loading.collectAsState()
     val hasLoadedOnce by vm.hasLoadedOnce.collectAsState()
     val items by vm.items.collectAsState()
@@ -183,20 +206,64 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
         AppCompatDelegate.setDefaultNightMode(mode)
     }
 
-    LaunchedEffect(permissionGranted) {
-        if (permissionGranted) vm.scanVideos()
+    LaunchedEffect(permissionGranted, userSelectedPermissionGranted) {
+        if (permissionGranted || userSelectedPermissionGranted) vm.scanVideos()
     }
 
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
-        vm.onPermissionResult(result.values.any { it })
+        vm.onPermissionResult(result)
     }
+
+    var networkStreamUrl by rememberSaveable { mutableStateOf("") }
+    var showOpenNetworkStreamDialog by rememberSaveable { mutableStateOf(false) }
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
-        if (uri != null) onPlay(uri.toString(), playerSettings)
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            onPlay(uri.toString(), playerSettings)
+        }
     }
+
+    val openLocalLabel = stringResource(id = R.string.open_local_video)
+    val openNetworkLabel = stringResource(id = R.string.open_network_stream)
+    val recentLabel = stringResource(id = R.string.recent_playback)
+    val refreshLabel = stringResource(id = R.string.refresh)
+    val speedDialActions = listOf(
+        SpeedDialAction(
+            icon = Icons.Rounded.PlayCircle,
+            label = openLocalLabel,
+            onClick = { picker.launch(arrayOf("video/*")) },
+        ),
+        SpeedDialAction(
+            icon = Icons.Rounded.Link,
+            label = openNetworkLabel,
+            onClick = {
+                showOpenNetworkStreamDialog = true
+            },
+        ),
+        SpeedDialAction(
+            icon = Icons.Rounded.History,
+            label = recentLabel,
+            onClick = {
+                navController.navigate(ROUTE_RECENT) {
+                    launchSingleTop = true
+                }
+            },
+        ),
+        SpeedDialAction(
+            icon = Icons.Rounded.Refresh,
+            label = refreshLabel,
+            onClick = { vm.refresh() },
+        ),
+    )
 
     val folders = remember(items) { buildFolderGroups(items) }
     val selectedFolderExists = remember(folders, currentFolderId) {
@@ -211,6 +278,27 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
 
     AsukaTheme(themeConfig = themeConfig) {
         CompositionLocalProvider(LocalHapticsEnabled provides hapticFeedbackEnabled) {
+            if (showOpenNetworkStreamDialog) {
+                OpenNetworkStreamDialog(
+                    url = networkStreamUrl,
+                    onUrlChange = { networkStreamUrl = it },
+                    onDismiss = { showOpenNetworkStreamDialog = false },
+                    onPlay = { url ->
+                        val trimmed = url.trim()
+                        val parsed = runCatching { Uri.parse(trimmed) }.getOrNull()
+                        if (trimmed.isBlank() || parsed?.scheme.isNullOrBlank()) {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.open_network_stream_invalid),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return@OpenNetworkStreamDialog
+                        }
+                        showOpenNetworkStreamDialog = false
+                        onPlay(trimmed, playerSettings)
+                    },
+                )
+            }
             NavHost(
                 navController = navController,
                 startDestination = ROUTE_HOME,
@@ -239,15 +327,16 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             launchSingleTop = true
                         }
                     },
+                    speedDialActions = speedDialActions,
                 ) { innerPadding ->
                     HomePageContent(
                         modifier = Modifier.padding(innerPadding),
                         permissionGranted = permissionGranted,
+                        hasLimitedMediaAccess = userSelectedPermissionGranted,
                         initialLoading = loading && !hasLoadedOnce,
                         isRefreshing = loading && hasLoadedOnce,
                         folders = folders,
                         onRequestPermission = { permissionLauncher.launch(videoPermissionsForRuntime()) },
-                        onOpenLocalVideo = { picker.launch(arrayOf("video/*")) },
                         onRefresh = { vm.refresh() },
                         onOpenAllVideos = {
                             navController.navigate(ROUTE_ALL_VIDEOS) {
@@ -278,6 +367,7 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             launchSingleTop = true
                         }
                     },
+                    speedDialActions = speedDialActions,
                 ) { innerPadding ->
                     VideosPageContent(
                         modifier = Modifier.padding(innerPadding),
@@ -286,6 +376,41 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                         videos = items,
                         onPlay = { mediaId -> onPlay(mediaId, playerSettings) },
                         onRefresh = { vm.refresh() },
+                    )
+                }
+            }
+
+            composable(route = ROUTE_RECENT) {
+                val knownByUri = remember(items) { items.associateBy { it.uri.toString() } }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                var recentMediaIds by remember { mutableStateOf(emptyList<String>()) }
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            recentMediaIds = PlaybackStoreProvider.store.recentMediaIds(limit = 100)
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    observer.onStateChanged(lifecycleOwner, Lifecycle.Event.ON_RESUME)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+                LibraryPageScaffold(
+                    title = stringResource(id = R.string.recent_playback),
+                    showBack = true,
+                    showSettingsAction = true,
+                    onBack = { navController.navigateUp() },
+                    onOpenSettings = {
+                        navController.navigate(ROUTE_SETTINGS) {
+                            launchSingleTop = true
+                        }
+                    },
+                    speedDialActions = speedDialActions,
+                ) { innerPadding ->
+                    RecentPageContent(
+                        modifier = Modifier.padding(innerPadding),
+                        recentMediaIds = recentMediaIds,
+                        knownVideos = knownByUri,
+                        onPlay = { mediaId -> onPlay(mediaId, playerSettings) },
                     )
                 }
             }
@@ -308,6 +433,7 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             launchSingleTop = true
                         }
                     },
+                    speedDialActions = speedDialActions,
                 ) { innerPadding ->
                     FolderPageContent(
                         modifier = Modifier.padding(innerPadding),
@@ -409,4 +535,69 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
         }
         }
     }
+}
+
+@Composable
+private fun OpenNetworkStreamDialog(
+    url: String,
+    onUrlChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onPlay: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(id = R.string.open_network_stream)) },
+        text = {
+            OutlinedTextField(
+                value = url,
+                onValueChange = onUrlChange,
+                singleLine = true,
+                placeholder = { Text(text = stringResource(id = R.string.open_network_stream_hint)) },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { onPlay(url) },
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onPlay(url) },
+                enabled = url.trim().isNotEmpty(),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                ),
+            ) {
+                Text(text = stringResource(id = R.string.dialog_play))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Text(text = stringResource(id = R.string.dialog_cancel))
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        tonalElevation = AlertDialogDefaults.TonalElevation,
+    )
 }

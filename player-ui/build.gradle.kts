@@ -36,9 +36,6 @@ dependencies {
     implementation(project(":player-core"))
     implementation(project(":player-domain"))
 
-    implementation(platform(libs.compose.bom))
-    androidTestImplementation(platform(libs.compose.bom))
-
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.icons.extended)

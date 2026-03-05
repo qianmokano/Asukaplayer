@@ -263,27 +263,32 @@ fun PlayerScreen(
         }
     }
     val visibleError = uiState.errorMessage?.takeIf { it != dismissedErrorMessage }
+    val videoBoundsModifier = remember(onVideoBoundsChanged) {
+        if (onVideoBoundsChanged != null) {
+            Modifier.onGloballyPositioned { coords ->
+                val b = coords.boundsInWindow()
+                onVideoBoundsChanged(
+                    android.graphics.Rect(
+                        b.left.toInt(),
+                        b.top.toInt(),
+                        b.right.toInt(),
+                        b.bottom.toInt(),
+                    ),
+                )
+            }
+        } else {
+            Modifier
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
-            .then(
-                if (onVideoBoundsChanged != null) {
-                    Modifier.onGloballyPositioned { coords ->
-                        val b = coords.boundsInWindow()
-                        onVideoBoundsChanged(
-                            android.graphics.Rect(
-                                b.left.toInt(), b.top.toInt(),
-                                b.right.toInt(), b.bottom.toInt(),
-                            )
-                        )
-                    }
-                } else Modifier
-            ),
+            .background(Color.Black),
     ) {
         player?.let { p ->
             VideoSurfaceWithTransform(
+                modifier = videoBoundsModifier,
                 player = p,
                 zoomState = zoomState,
                 scaleState = scaleState,

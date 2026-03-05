@@ -18,6 +18,14 @@ package com.asuka.player.data
  * for their specific threading guarantees.
  */
 interface PlaybackStore {
+    /**
+     * Returns most-recently-used media ids, newest first.
+     *
+     * Not all store implementations persist a recent list. The default
+     * implementation returns an empty list.
+     */
+    fun recentMediaIds(limit: Int = 50): List<String> = emptyList()
+
     fun loadPosition(mediaId: String): Long?
     fun savePosition(mediaId: String, positionMs: Long)
 

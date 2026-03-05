@@ -1,9 +1,12 @@
 package com.asuka.player.app
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -11,7 +14,13 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,27 +36,44 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.VideoLibrary
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleFloatingActionButton
+import androidx.compose.material3.ToggleFloatingActionButtonDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +83,7 @@ import com.asuka.player.R
 
 internal const val ROUTE_HOME = "home"
 internal const val ROUTE_ALL_VIDEOS = "all_videos"
+internal const val ROUTE_RECENT = "recent"
 internal const val ROUTE_SETTINGS = "settings"
 internal const val ROUTE_SETTINGS_PLAYER = "settings/player"
 internal const val ROUTE_SETTINGS_THEME = "settings/theme"
@@ -104,88 +131,191 @@ internal fun LibraryPageScaffold(
     showSettingsAction: Boolean,
     onBack: () -> Unit,
     onOpenSettings: () -> Unit,
+    speedDialActions: List<SpeedDialAction> = emptyList(),
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val hapticsEnabled = LocalHapticsEnabled.current
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                tonalElevation = 1.dp,
-            ) {
-                TopAppBar(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    title = {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                    navigationIcon = {
-                        if (showBack) {
-                            Row {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            topBar = {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    tonalElevation = 1.dp,
+                ) {
+                    TopAppBar(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        title = {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        navigationIcon = {
+                            if (showBack) {
+                                Row {
+                                    IconButton(
+                                        modifier = Modifier.size(36.dp),
+                                        onClick = onBack,
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = stringResource(id = R.string.back_to_folders),
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        },
+                        actions = {
+                            if (showSettingsAction) {
                                 IconButton(
                                     modifier = Modifier.size(36.dp),
-                                    onClick = onBack,
+                                    onClick = {
+                                        if (hapticsEnabled) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                        }
+                                        onOpenSettings()
+                                    },
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(id = R.string.back_to_folders),
+                                        imageVector = Icons.Rounded.Settings,
+                                        contentDescription = stringResource(id = R.string.settings_title),
                                     )
                                 }
-                                Spacer(modifier = Modifier.size(16.dp))
                             }
+                        },
+                        windowInsets = TopAppBarDefaults.windowInsets,
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            scrolledContainerColor = Color.Transparent,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface,
+                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                            actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                }
+            },
+            content = content,
+        )
+
+        if (speedDialActions.isNotEmpty()) {
+            LibrarySpeedDial(
+                actions = speedDialActions,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun LibrarySpeedDial(
+    actions: List<SpeedDialAction>,
+    modifier: Modifier = Modifier,
+) {
+    val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalHapticsEnabled.current
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    val transition = updateTransition(targetState = expanded, label = "LibrarySpeedDial")
+    val scrimAlpha by transition.animateFloat(
+        transitionSpec = { tween(durationMillis = if (targetState) 170 else 90) },
+        label = "LibrarySpeedDialScrim",
+    ) { isExpanded -> if (isExpanded) 0.08f else 0f }
+
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val endPadding = 18.dp
+    val bottomPadding = 18.dp + bottomInset
+
+    if (scrimAlpha > 0f) {
+        Box(
+            modifier = modifier
+                .background(Color.Black.copy(alpha = scrimAlpha))
+                .pointerInput(Unit) { detectTapGestures { expanded = false } },
+        )
+    }
+
+    Box(modifier = modifier) {
+        FloatingActionButtonMenu(
+            expanded = expanded,
+            button = {
+                val collapsedContainerColor = lerp(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.surfaceContainerHighest,
+                    0.30f,
+                )
+                ToggleFloatingActionButton(
+                    checked = expanded,
+                    onCheckedChange = { nextExpanded ->
+                        if (hapticsEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                         }
+                        expanded = nextExpanded
                     },
-                    actions = {
-                        if (showSettingsAction) {
-                            IconButton(
-                                modifier = Modifier.size(36.dp),
-                                onClick = {
-                                    if (hapticsEnabled) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                    }
-                                    onOpenSettings()
-                                },
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Settings,
-                                    contentDescription = stringResource(id = R.string.settings_title),
-                                )
-                            }
-                        }
-                    },
-                    windowInsets = TopAppBarDefaults.windowInsets,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    containerColor = ToggleFloatingActionButtonDefaults.containerColor(
+                        collapsedContainerColor,
+                        MaterialTheme.colorScheme.primary,
                     ),
+                ) {
+                    val progress = checkedProgress.coerceIn(0f, 1f)
+                    Icon(
+                        imageVector = if (expanded) Icons.Rounded.Close else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = lerp(
+                            MaterialTheme.colorScheme.onPrimaryContainer,
+                            MaterialTheme.colorScheme.onPrimary,
+                            progress,
+                        ),
+                    )
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = endPadding, bottom = bottomPadding),
+            horizontalAlignment = Alignment.End,
+        ) {
+            actions.forEach { action ->
+                FloatingActionButtonMenuItem(
+                    onClick = {
+                        if (hapticsEnabled) {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        }
+                        expanded = false
+                        action.onClick()
+                    },
+                    icon = {
+                        Icon(
+                            imageVector = action.icon,
+                            contentDescription = null,
+                        )
+                    },
+                    text = {
+                        Text(text = action.label)
+                    },
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             }
-        },
-        content = content,
-    )
+        }
+    }
 }
 
 @Composable
 internal fun HomePageContent(
     modifier: Modifier = Modifier,
     permissionGranted: Boolean,
+    hasLimitedMediaAccess: Boolean,
     initialLoading: Boolean,
     isRefreshing: Boolean,
     folders: List<LocalVideoFolder>,
     onRequestPermission: () -> Unit,
-    onOpenLocalVideo: () -> Unit,
     onRefresh: () -> Unit,
     onOpenAllVideos: () -> Unit,
     onOpenFolder: (Long) -> Unit,
@@ -207,28 +337,24 @@ internal fun HomePageContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                bottom = 92.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
             ),
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
 
-            if (!permissionGranted) {
+            if (!permissionGranted && !hasLimitedMediaAccess) {
                 item {
                     SplicedColumnGroup(title = stringResource(id = R.string.permission_required_title)) {
                         item {
                             SettingsNavigationItem(
                                 icon = Icons.Rounded.Lock,
                                 title = stringResource(id = R.string.grant_permission),
-                                description = stringResource(id = R.string.permission_hint),
+                                description = if (hasLimitedMediaAccess) {
+                                    stringResource(id = R.string.permission_hint_limited)
+                                } else {
+                                    stringResource(id = R.string.permission_hint)
+                                },
                                 onClick = onRequestPermission,
-                            )
-                        }
-                        item {
-                            SettingsNavigationItem(
-                                icon = Icons.Rounded.PlayCircle,
-                                title = stringResource(id = R.string.open_local_video),
-                                description = stringResource(id = R.string.open_video_without_permission_hint),
-                                onClick = onOpenLocalVideo,
                             )
                         }
                     }
@@ -236,15 +362,17 @@ internal fun HomePageContent(
                 return@LazyColumn
             }
 
-            item {
-                SplicedColumnGroup(title = stringResource(id = R.string.library_actions_title)) {
-                    item {
-                        SettingsNavigationItem(
-                            icon = Icons.Rounded.PlayCircle,
-                            title = stringResource(id = R.string.open_local_video),
-                            description = stringResource(id = R.string.open_local_video_hint),
-                            onClick = onOpenLocalVideo,
-                        )
+            if (!permissionGranted && hasLimitedMediaAccess) {
+                item {
+                    SplicedColumnGroup(title = stringResource(id = R.string.limited_access_title)) {
+                        item {
+                            SettingsNavigationItem(
+                                icon = Icons.Rounded.Info,
+                                title = stringResource(id = R.string.limited_access_banner_title),
+                                description = stringResource(id = R.string.limited_access_banner_body),
+                                onClick = onRequestPermission,
+                            )
+                        }
                     }
                 }
             }
@@ -256,7 +384,15 @@ internal fun HomePageContent(
             if (initialLoading) {
                 item { LoadingBlock() }
             } else if (folders.isEmpty()) {
-                item { EmptyBlock(text = stringResource(id = R.string.empty_video_list)) }
+                item {
+                    EmptyBlock(
+                        text = if (!permissionGranted && hasLimitedMediaAccess) {
+                            stringResource(id = R.string.empty_video_list_limited)
+                        } else {
+                            stringResource(id = R.string.empty_video_list)
+                        },
+                    )
+                }
             } else {
                 item {
                     SectionTitle(text = stringResource(id = R.string.folders_group_title, folders.size))
@@ -314,7 +450,7 @@ internal fun VideosPageContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                bottom = 92.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
             ),
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
@@ -380,7 +516,7 @@ internal fun FolderPageContent(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
-                bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                bottom = 92.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
             ),
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
@@ -420,5 +556,90 @@ internal fun FolderPageContent(
 
             item { Spacer(modifier = Modifier.size(6.dp)) }
         }
+    }
+}
+
+@Composable
+internal fun RecentPageContent(
+    modifier: Modifier = Modifier,
+    recentMediaIds: List<String>,
+    knownVideos: Map<String, LocalVideoItem>,
+    onPlay: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            bottom = 92.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+        ),
+    ) {
+        item { Spacer(modifier = Modifier.size(12.dp)) }
+
+        if (recentMediaIds.isEmpty()) {
+            item { EmptyBlock(text = stringResource(id = R.string.empty_recent_list)) }
+        } else {
+            item {
+                SectionTitle(text = stringResource(id = R.string.recent_group_title, recentMediaIds.size))
+            }
+            itemsIndexed(
+                items = recentMediaIds,
+                key = { _, mediaId -> mediaId },
+            ) { index, mediaId ->
+                val known = knownVideos[mediaId]
+                val uri = remember(mediaId) {
+                    try {
+                        Uri.parse(mediaId)
+                    } catch (_: Throwable) {
+                        null
+                    }
+                }
+                val fallbackTitle = uri?.lastPathSegment ?: mediaId
+                val title by produceState(initialValue = fallbackTitle, mediaId) {
+                    if (uri == null) return@produceState
+                    val resolved = runCatching { resolveDisplayName(context, uri) }.getOrNull()
+                    value = resolved?.ifBlank { fallbackTitle } ?: fallbackTitle
+                }
+
+                GroupedListRow(
+                    index = index,
+                    totalCount = recentMediaIds.size,
+                    horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
+                ) {
+                    if (known != null) {
+                        SettingsNavigationItem(
+                            icon = Icons.Outlined.VideoLibrary,
+                            thumbnailUri = known.uri,
+                            thumbnailId = known.id,
+                            durationLabel = known.durationLabel,
+                            title = known.title,
+                            description = known.folderPath,
+                            onClick = { onPlay(known.uri.toString()) },
+                        )
+                    } else {
+                        SettingsNavigationItem(
+                            icon = Icons.Outlined.VideoLibrary,
+                            title = title,
+                            description = uri?.toString() ?: mediaId,
+                            onClick = { onPlay(mediaId) },
+                        )
+                    }
+                }
+            }
+        }
+
+        item { Spacer(modifier = Modifier.size(6.dp)) }
+    }
+}
+
+private fun resolveDisplayName(context: android.content.Context, uri: Uri): String? {
+    val resolver = context.contentResolver
+    val cursor = runCatching {
+        resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+    }.getOrNull() ?: return null
+    cursor.use {
+        if (!it.moveToFirst()) return null
+        val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+        if (idx < 0) return null
+        return it.getString(idx)
     }
 }

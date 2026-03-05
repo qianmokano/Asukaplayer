@@ -11,10 +11,19 @@ import com.asuka.player.R
 import java.io.File
 
 internal fun hasVideoPermission(context: Context): Boolean {
-    val permissions = videoPermissionsForRuntime()
-    return permissions.any {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    return if (Build.VERSION.SDK_INT >= 33) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
+    } else {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
     }
+}
+
+internal fun hasUserSelectedVideoPermission(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < 34) return false
+    return ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+    ) == PackageManager.PERMISSION_GRANTED
 }
 
 internal fun videoPermissionsForRuntime(): Array<String> {

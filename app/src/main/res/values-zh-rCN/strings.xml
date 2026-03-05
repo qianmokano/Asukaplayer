@@ -2,10 +2,18 @@
     <string name="app_name">Asuka 播放器</string>
     <string name="launcher_title">Asuka 播放器</string>
     <string name="open_local_video">打开本地视频</string>
+    <string name="open_network_stream">打开网络串流</string>
+    <string name="open_network_stream_hint">输入串流链接（如 https://...）</string>
+    <string name="open_network_stream_invalid">请输入带协议的合法链接（http/https/rtsp 等）</string>
     <string name="permission_hint">请授予视频读取权限以构建本地媒体库。</string>
+    <string name="permission_hint_limited">已授予“仅所选视频”访问权限。若要浏览完整视频库，请授予完整访问权限。</string>
     <string name="grant_permission">授予权限</string>
     <string name="refresh">刷新</string>
+    <string name="recent_playback">近期播放</string>
+    <string name="recent_group_title">近期播放（%1$d）</string>
+    <string name="empty_recent_list">暂无近期播放</string>
     <string name="empty_video_list">未找到本地视频。</string>
+    <string name="empty_video_list_limited">未找到已选视频。可授予完整访问权限，或直接打开本地视频。</string>
     <string name="video_meta">%1$s • %2$s</string>
     <string name="video_meta_with_folder">%1$s • %2$s</string>
     <string name="folder_video_count">%1$d 个视频</string>
@@ -17,6 +25,9 @@
     <string name="back_to_folders">返回文件夹</string>
     <string name="all_videos_count">媒体库共 %1$d 个视频</string>
     <string name="permission_required_title">需要权限</string>
+    <string name="limited_access_title">访问受限</string>
+    <string name="limited_access_banner_title">仅可查看所选视频</string>
+    <string name="limited_access_banner_body">授予完整访问权限以浏览整个媒体库。</string>
     <string name="open_video_without_permission_hint">可直接选择单个视频文件播放。</string>
     <string name="library_actions_title">媒体库</string>
     <string name="refresh_library_hint">重新扫描本地视频与文件夹。</string>
@@ -100,6 +111,7 @@
     <string name="dialog_long_press_title">长按手势</string>
     <string name="dialog_cancel">取消</string>
     <string name="dialog_done">完成</string>
+    <string name="dialog_play">播放</string>
     <string name="dialog_delete">删除</string>
     <string name="dialog_save_and_apply">保存并启用</string>
     <string name="content_desc_reset">重置</string>

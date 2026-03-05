@@ -2,10 +2,18 @@
     <string name="app_name">Asuka Player</string>
     <string name="launcher_title">Asuka Player</string>
     <string name="open_local_video">Open local video</string>
+    <string name="open_network_stream">Open network stream</string>
+    <string name="open_network_stream_hint">Enter a stream URL (e.g. https://...)</string>
+    <string name="open_network_stream_invalid">Please enter a valid URL with a scheme (http/https/rtsp…)</string>
     <string name="permission_hint">Allow video access to build your local library.</string>
+    <string name="permission_hint_limited">Limited access is granted (selected videos only). Grant full access to browse your entire library.</string>
     <string name="grant_permission">Grant permission</string>
     <string name="refresh">Refresh</string>
+    <string name="recent_playback">Recently played</string>
+    <string name="recent_group_title">Recently played (%1$d)</string>
+    <string name="empty_recent_list">No recent videos yet</string>
     <string name="empty_video_list">No local videos found.</string>
+    <string name="empty_video_list_limited">No selected videos found. Grant full access or pick a local video.</string>
     <string name="video_meta">%1$s • %2$s</string>
     <string name="video_meta_with_folder">%1$s • %2$s</string>
     <string name="folder_video_count">%1$d 个视频</string>
@@ -17,6 +25,9 @@
     <string name="back_to_folders">Back to folders</string>
     <string name="all_videos_count">媒体库共 %1$d 个视频</string>
     <string name="permission_required_title">Permission Required</string>
+    <string name="limited_access_title">Limited access</string>
+    <string name="limited_access_banner_title">Selected videos only</string>
+    <string name="limited_access_banner_body">Grant full access to browse your entire library.</string>
     <string name="open_video_without_permission_hint">Choose one video file directly for playback.</string>
     <string name="library_actions_title">Library</string>
     <string name="refresh_library_hint">Rescan local videos and folders.</string>
@@ -118,6 +129,7 @@
     <string name="dialog_long_press_title">长按手势</string>
     <string name="dialog_cancel">取消</string>
     <string name="dialog_done">完成</string>
+    <string name="dialog_play">Play</string>
     <string name="dialog_delete">删除</string>
     <string name="dialog_save_and_apply">保存并启用</string>
 

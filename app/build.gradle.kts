@@ -50,7 +50,6 @@ dependencies {
     implementation(project(":player-ui"))
     implementation(project(":player-core"))
 
-    implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
     implementation(libs.appcompat)
     implementation(libs.navigation.compose)
