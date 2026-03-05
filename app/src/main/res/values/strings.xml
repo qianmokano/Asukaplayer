@@ -184,4 +184,6 @@
 
     <!-- Folder path -->
     <string name="internal_storage">手机存储</string>
+    <string name="notification_channel_playback_name">Playback</string>
+    <string name="notification_channel_playback_description">Media playback controls</string>
 </resources>

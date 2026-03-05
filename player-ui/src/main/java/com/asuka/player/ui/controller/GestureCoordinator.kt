@@ -1,5 +1,6 @@
 package com.asuka.player.ui.controller
 
+import android.os.SystemClock
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.asuka.player.core.PlaybackController
@@ -45,6 +46,7 @@ class GestureCoordinator(
     private var seekStartX: Float = 0f
     private var lastSeekDeltaMs: Long = 0L
     private var pendingSeekPositionMs: Long? = null
+    private var lastSeekIpcMs: Long = 0L
 
     private var savedSpeed: Float = 1.0f
     private var longPressActive: Boolean = false
@@ -107,6 +109,7 @@ class GestureCoordinator(
         seekStartX = x
         lastSeekDeltaMs = 0L
         pendingSeekPositionMs = null
+        lastSeekIpcMs = 0L
         seekState.start()
     }
 
@@ -130,8 +133,10 @@ class GestureCoordinator(
         lastSeekDeltaMs = result.deltaMs
         pendingSeekPositionMs = result.newPositionMs
         seekState.update(result.deltaMs)
-        if (abs(result.deltaMs) >= minSeekDeltaMs) {
+        val nowMs = SystemClock.elapsedRealtime()
+        if (abs(result.deltaMs) >= minSeekDeltaMs && (nowMs - lastSeekIpcMs) >= SEEK_THROTTLE_MS) {
             controller.seekTo(result.newPositionMs)
+            lastSeekIpcMs = nowMs
         }
     }
 
@@ -265,5 +270,9 @@ class GestureCoordinator(
             onZoomEnd(zoomState.scale)
         }
         machine.onEvent(GestureStateMachine.Event.Cancel)
+    }
+
+    private companion object {
+        const val SEEK_THROTTLE_MS = 100L  // ≤10 IPC calls/sec
     }
 }

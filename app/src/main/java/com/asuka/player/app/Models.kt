@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import com.asuka.player.R
+import java.util.Locale
 
 internal enum class ThemeMode {
     Dynamic,
@@ -160,7 +161,7 @@ internal fun buildFolderGroups(items: List<LocalVideoItem>): List<LocalVideoFold
                 videos = videos.sortedByDescending { it.dateAddedSec },
             )
         }
-        .sortedBy { it.name.lowercase() }
+        .sortedBy { it.name.lowercase(Locale.ROOT) }
 }
 
 internal fun formatDuration(durationMs: Long): String {
@@ -168,10 +169,14 @@ internal fun formatDuration(durationMs: Long): String {
     val h = totalSec / 3600L
     val m = (totalSec % 3600L) / 60L
     val s = totalSec % 60L
-    return if (h > 0) String.format("%d:%02d:%02d", h, m, s) else String.format("%02d:%02d", m, s)
+    return if (h > 0) {
+        String.format(Locale.ROOT, "%d:%02d:%02d", h, m, s)
+    } else {
+        String.format(Locale.ROOT, "%02d:%02d", m, s)
+    }
 }
 
 internal fun formatSize(sizeBytes: Long): String {
     val mb = sizeBytes / (1024f * 1024f)
-    return String.format("%.1f MB", mb)
+    return String.format(Locale.ROOT, "%.1f MB", mb)
 }

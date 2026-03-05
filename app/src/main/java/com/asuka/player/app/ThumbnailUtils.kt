@@ -166,7 +166,8 @@ internal fun ensureThumbnailFile(
 
 internal fun loadVideoThumbnail(context: Context, uri: Uri): Bitmap? {
     val fromFrame = runCatching {
-        MediaMetadataRetriever().use { retriever ->
+        val retriever = MediaMetadataRetriever()
+        try {
             retriever.setDataSource(context, uri)
             val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()
@@ -176,6 +177,8 @@ internal fun loadVideoThumbnail(context: Context, uri: Uri): Bitmap? {
             val frame = retriever.getFrameAtTime(targetTimeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                 ?: retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
             frame?.let { limitBitmapEdge(it, maxEdge = 960) }
+        } finally {
+            retriever.release()
         }
     }.getOrNull()
     return fromFrame

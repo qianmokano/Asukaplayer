@@ -43,8 +43,46 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
     companion object {
         private const val KEY_MEDIA_IDS = "__recent_media_ids__"
         private const val MAX_ENTRIES = 200
-        // Newline is not valid in URIs (RFC 3986), so it is safe as a separator.
-        private const val SEP = "\n"
+        // Legacy separator for media id lists stored as a simple newline-joined string.
+        private const val LEGACY_SEP = "\n"
+        private const val LIST_PREFIX = "lp:"
+    }
+
+    internal object MediaIdListCodec {
+        fun encode(ids: List<String>): String {
+            val builder = StringBuilder(LIST_PREFIX)
+            ids.forEach { id ->
+                builder.append(id.length).append(':').append(id)
+            }
+            return builder.toString()
+        }
+
+        fun decode(raw: String): MutableList<String> {
+            if (!raw.startsWith(LIST_PREFIX)) return decodeLegacy(raw)
+            return runCatching {
+                val out = mutableListOf<String>()
+                var idx = LIST_PREFIX.length
+                while (idx < raw.length) {
+                    val colonIdx = raw.indexOf(':', startIndex = idx)
+                    require(colonIdx > idx) { "missing length delimiter" }
+                    val len = raw.substring(idx, colonIdx).toInt()
+                    require(len >= 0) { "negative length" }
+                    val start = colonIdx + 1
+                    val end = start + len
+                    require(end <= raw.length) { "truncated entry" }
+                    out += raw.substring(start, end)
+                    idx = end
+                }
+                out
+            }.getOrElse { decodeLegacy(raw) }
+        }
+
+        private fun decodeLegacy(raw: String): MutableList<String> {
+            if (raw.isEmpty()) return mutableListOf()
+            return raw.split(LEGACY_SEP)
+                .filter { it.isNotEmpty() }
+                .toMutableList()
+        }
     }
 
     /**
@@ -72,8 +110,7 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
     private fun getOrLoadIds(): MutableList<String> {
         cachedIds?.let { return it }
         val raw = prefs.getString(KEY_MEDIA_IDS, "") ?: ""
-        return (if (raw.isEmpty()) mutableListOf() else raw.split(SEP).toMutableList())
-            .also { cachedIds = it }
+        return MediaIdListCodec.decode(raw).also { cachedIds = it }
     }
 
     /**
@@ -99,7 +136,7 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
             pendingValues.remove("sub:$evicted")
             pendingValues.remove("zoom:$evicted")
         }
-        editor.putString(KEY_MEDIA_IDS, ids.joinToString(SEP))
+        editor.putString(KEY_MEDIA_IDS, MediaIdListCodec.encode(ids))
     }
 
     override fun loadPosition(mediaId: String): Long? {

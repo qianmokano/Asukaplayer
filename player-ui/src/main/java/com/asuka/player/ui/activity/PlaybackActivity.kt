@@ -195,7 +195,7 @@ class PlaybackActivity : ComponentActivity() {
         if (mediaController == null) {
             ensureControllerReady()
         } else {
-            startSingleMedia(intent.data)
+            lifecycleScope.launch { startSingleMedia(intent.data) }
         }
     }
 
@@ -452,20 +452,21 @@ class PlaybackActivity : ComponentActivity() {
         }
     }
 
-    private fun startSingleMedia(uri: Uri?) {
+    private suspend fun startSingleMedia(uri: Uri?) {
         val controller = mediaController ?: return
         val target = uri ?: return
         val extras = IntentQueueReader.read(intent).filter { it != target }
         val uris = QueuePlanner.plan(target, extras, PlaybackStoreProvider.history.items())
         val queue = QueueBuilder.build(uris, target)
         val mediaId = target.toString()
-        val resume = PlaybackStateRestorer(PlaybackStoreProvider.store).read(mediaId)
-        val resumePosition = if (runtimeSettings.resumePlayback) resume.positionMs else 0L
-        val speedFromStore = if (runtimeSettings.rememberSelections) {
-            PlaybackStoreProvider.store.loadPlaybackSpeed(mediaId)
-        } else {
-            null
+        val (resume, speedFromStore) = withContext(Dispatchers.IO) {
+            val r = PlaybackStateRestorer(PlaybackStoreProvider.store).read(mediaId)
+            val s = if (runtimeSettings.rememberSelections) {
+                PlaybackStoreProvider.store.loadPlaybackSpeed(mediaId)
+            } else null
+            r to s
         }
+        val resumePosition = if (runtimeSettings.resumePlayback) resume.positionMs else 0L
         controller.setMediaItems(queue.items, queue.startIndex, resumePosition)
         controller.setPlaybackSpeed(speedFromStore ?: runtimeSettings.defaultPlaybackSpeed)
         controller.prepare()
@@ -521,7 +522,7 @@ class PlaybackActivity : ComponentActivity() {
             val copiedUri = withContext(Dispatchers.IO) {
                 seekFallbackCopier.copy(currentUri, checkSize = true)
             } ?: return@launch
-            Log.i("AsukaSeekFallback", "fallback[$reason] from $currentUri to $copiedUri")
+            Log.i("AsukaSeekFallback", "fallback[$reason] src=${currentUri.authority} dst=${copiedUri.lastPathSegment}")
             setIntent(Intent(intent).apply { data = copiedUri })
             startSingleMedia(copiedUri)
         }
