@@ -51,6 +51,9 @@ player-data/    → 播放状态持久化接口
 
 # UI 测试（需连接设备/模拟器）
 ./gradlew :player-ui:connectedAndroidTest
+
+# 生成第三方依赖许可/Notices（输出到 build/reports/third-party-notices/）
+./gradlew generateThirdPartyNotices
 ```
 
 ## 开发进度

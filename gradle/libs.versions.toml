@@ -1,6 +1,7 @@
 [versions]
 kotlin = "2.3.0"
 agp = "8.13.2"
+license-report = "2.5"
 compose-bom = "2026.02.00"
 compose-ui = "1.10.3"
 compose-material3 = "1.5.0-alpha12"
@@ -55,3 +56,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+license-report = { id = "com.github.jk1.dependency-license-report", version.ref = "license-report" }
