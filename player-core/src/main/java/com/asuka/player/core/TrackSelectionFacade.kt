@@ -1,11 +1,14 @@
 package com.asuka.player.core
 
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 
 /**
  * Minimal facade to set audio/subtitle track indexes via TrackSelectionParameters.
  */
+@OptIn(UnstableApi::class)
 class TrackSelectionFacade(private val player: Player) {
 
     fun setAudioTrack(groupIndex: Int?, trackIndex: Int?) {

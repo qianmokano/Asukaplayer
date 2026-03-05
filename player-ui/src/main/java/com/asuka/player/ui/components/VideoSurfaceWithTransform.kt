@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.annotation.OptIn
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW
 import androidx.media3.ui.compose.state.rememberPresentationState
@@ -17,6 +19,7 @@ import com.asuka.player.ui.state.ZoomState
 /**
  * Video surface with zoom/pan applied.
  */
+@OptIn(UnstableApi::class)
 @Composable
 fun VideoSurfaceWithTransform(
     modifier: Modifier = Modifier,

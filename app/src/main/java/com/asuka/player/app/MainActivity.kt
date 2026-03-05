@@ -192,6 +192,8 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
     val hasLoadedOnce by vm.hasLoadedOnce.collectAsState()
     val items by vm.items.collectAsState()
 
+    val invalidNetworkStreamMessage = stringResource(id = R.string.open_network_stream_invalid)
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: ROUTE_HOME
@@ -289,7 +291,7 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                         if (trimmed.isBlank() || parsed?.scheme.isNullOrBlank()) {
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.open_network_stream_invalid),
+                                invalidNetworkStreamMessage,
                                 Toast.LENGTH_SHORT,
                             ).show()
                             return@OpenNetworkStreamDialog

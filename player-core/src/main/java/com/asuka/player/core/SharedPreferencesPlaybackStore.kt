@@ -124,7 +124,7 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         ids.remove(mediaId)
         ids.add(mediaId)
         while (ids.size > MAX_ENTRIES) {
-            val evicted = ids.removeFirst()
+            val evicted = ids.removeAt(0)
             editor.remove("pos:$evicted")
                   .remove("spd:$evicted")
                   .remove("aud:$evicted")

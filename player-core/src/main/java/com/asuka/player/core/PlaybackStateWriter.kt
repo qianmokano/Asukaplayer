@@ -1,7 +1,9 @@
 package com.asuka.player.core
 
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import com.asuka.player.data.PlaybackStore
 
 /**
@@ -11,6 +13,7 @@ import com.asuka.player.data.PlaybackStore
  * **Thread safety:** All Player.Listener callbacks are delivered on the application's main thread.
  * This class must only be used on the main thread.
  */
+@OptIn(UnstableApi::class)
 class PlaybackStateWriter(
     private val store: PlaybackStore,
 ) : Player.Listener {
