@@ -23,7 +23,7 @@ class PlaybackSessionPlannerTest {
             saveAudioTrack(target.toString(), TrackIndexCodec.encode(1, 0))
             saveSubtitleTrack(target.toString(), TrackIndexCodec.SUBTITLE_DISABLED)
         }
-        val historyStore = QueueHistoryStore().apply { push(history) }
+        val historyStore = InMemoryQueueHistoryStore().apply { push(history) }
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(store),
             queueHistoryRepository = QueueHistoryRepository(historyStore),
@@ -32,7 +32,7 @@ class PlaybackSessionPlannerTest {
         val plan = planner.plan(
             targetUri = target,
             launchNeighbors = listOf(extra),
-            targetTitle = "Target Title",
+            resolvedTitles = mapOf(target to "Target Title"),
             policy = PlaybackStartupPolicy(
                 resumePlayback = true,
                 defaultPlaybackSpeed = 1.0f,
@@ -40,7 +40,7 @@ class PlaybackSessionPlannerTest {
             ),
         )
 
-        assertEquals(listOf(target, extra, history), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(listOf(target, extra), plan.queue.items.map { it.localConfiguration?.uri })
         assertEquals(0, plan.queue.startIndex)
         assertEquals(42_000L, plan.resumePositionMs)
         assertEquals(1.75f, plan.playbackSpeed)
@@ -55,13 +55,12 @@ class PlaybackSessionPlannerTest {
         }
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(store),
-            queueHistoryRepository = QueueHistoryRepository(QueueHistoryStore()),
+            queueHistoryRepository = QueueHistoryRepository(InMemoryQueueHistoryStore()),
         )
 
         val plan = planner.plan(
             targetUri = target,
             launchNeighbors = emptyList(),
-            targetTitle = null,
             policy = PlaybackStartupPolicy(
                 resumePlayback = false,
                 defaultPlaybackSpeed = 1.0f,
@@ -78,6 +77,35 @@ class PlaybackSessionPlannerTest {
                 subtitleTrackIndex = TrackIndexCodec.encode(3, 0),
             ),
             plan.trackSelectionRestoreRequest,
+        )
+    }
+
+    @Test
+    fun plan_usesResolvedTitlesForExplicitQueue() {
+        val historyStore = InMemoryQueueHistoryStore().apply { push(history) }
+        val planner = PlaybackSessionPlanner(
+            playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
+            queueHistoryRepository = QueueHistoryRepository(historyStore),
+        )
+
+        val plan = planner.plan(
+            targetUri = target,
+            launchNeighbors = listOf(extra),
+            resolvedTitles = mapOf(
+                target to "Target Title",
+                extra to "Extra Title",
+            ),
+            policy = PlaybackStartupPolicy(
+                resumePlayback = false,
+                defaultPlaybackSpeed = 1.0f,
+                rememberTrackSelections = false,
+            ),
+        )
+
+        assertEquals(listOf(target, extra), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(
+            listOf("Target Title", "Extra Title"),
+            plan.queue.items.map { it.mediaMetadata.title?.toString() },
         )
     }
 }

@@ -28,11 +28,12 @@
 - `:player-ui`
   - 播放页 Compose UI 与交互协调
   - 手势识别与控制层状态机
+  - `PlaybackSessionHost` 承载 `MediaController` 生命周期与播放页会话宿主职责
   - `PlaybackSessionCoordinator` 负责把启动请求、队列规划与 `MediaController` 应用动作串起来
   - Overlay 面板、进度条、反馈组件、后台保活策略
 - `:player-core`
   - 播放控制抽象与 Media3 适配
-  - `PlaybackCoreRuntime` 暴露播放器运行时依赖
+  - `PlaybackCoreGraph` / `PlaybackCoreGraphOwner` 把应用 composition root 暴露给 `PlaybackService`
   - `PlaybackSessionPlanner`、`QueuePlanner`、`IntentQueueReader` 负责队列/恢复规划
   - `PlaybackStateRepository`、`QueueHistoryRepository` 提供 typed 持久化访问
   - Service/Session、播放状态读写、轨道选择与恢复机制
@@ -57,10 +58,10 @@
 
 ## 5. 数据与状态流（简版）
 - 用户在 `:app` 中选择媒体 -> `PlaybackLaunchCoordinator` 解析可播放 URI、补齐 `ClipData` 队列与 `PlayerRuntimeSettings`
-- `PlaybackActivity` 连接 `PlaybackService` 的 `MediaController`
+- `PlaybackActivity` 通过 `PlaybackSessionHost` 连接 `PlaybackService` 的 `MediaController`
 - `PlaybackSessionCoordinator` 调用 `PlaybackSessionPlanner` 生成 `PlaybackSessionPlan`
 - `:player-core` 把计划应用到 Media3，并通过 `PlaybackStateWriter` 写回位置、速度、轨道和缩放
-- `:player-data` 提供底层存储接口，`PlaybackStateRepository` / `QueueHistoryRepository` 提供 typed 访问
+- `:player-data` 提供底层存储接口，`PlaybackStateRepository` / `QueueHistoryRepository` 提供 typed 访问，队列历史与播放状态一并持久化
 
 ## 6. 测试与质量
 - JVM 单元测试：
@@ -115,7 +116,8 @@
 3. `app/src/main/java/com/asuka/player/app/AppGraph.kt`
 4. `app/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
 5. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackActivity.kt`
-6. `player-ui/src/main/java/com/asuka/player/ui/controller/PlaybackSessionCoordinator.kt`
-7. `player-core/src/main/java/com/asuka/player/core/PlaybackSessionPlanner.kt`
-8. `player-core/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
+6. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackSessionHost.kt`
+7. `player-ui/src/main/java/com/asuka/player/ui/controller/PlaybackSessionCoordinator.kt`
+8. `player-core/src/main/java/com/asuka/player/core/PlaybackSessionPlanner.kt`
+9. `player-core/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
 9. `player-domain/src/main/java/com/asuka/player/domain/`

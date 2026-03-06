@@ -28,7 +28,7 @@ class PlaybackSessionPlanner(
     fun plan(
         targetUri: Uri,
         launchNeighbors: List<Uri>,
-        targetTitle: String?,
+        resolvedTitles: Map<Uri, String?> = emptyMap(),
         policy: PlaybackStartupPolicy,
     ): PlaybackSessionPlan {
         val queueUris = QueuePlanner.plan(
@@ -39,9 +39,7 @@ class PlaybackSessionPlanner(
         val queue = QueueBuilder.build(
             uris = queueUris,
             startUri = targetUri,
-            titleResolver = { uri ->
-                if (uri == targetUri) targetTitle else uri.lastPathSegment
-            },
+            titleResolver = { uri -> resolvedTitles[uri] },
         )
         val mediaId = targetUri.toString()
         val resumeState = playbackStateRepository.readResumeState(mediaId)

@@ -2,11 +2,7 @@ package com.asuka.player.core
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Handler
-import android.os.Looper
-import androidx.annotation.MainThread
 import com.asuka.player.data.PlaybackStore
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * SharedPreferences-backed PlaybackStore. Survives process restarts.
@@ -19,26 +15,16 @@ import java.util.concurrent.ConcurrentHashMap
  * save operations (e.g. periodic position writes during playback) do not incur
  * string-parsing overhead on every call.
  *
- * **Thread safety:** All public methods must be called on the main thread.
- * Writes are coalesced into a single [SharedPreferences.Editor.apply] per main-loop
- * pass to reduce disk I/O and avoid ANRs during `Activity.onPause()` flushes.
- *
- * A [pendingValues] overlay ensures that values written via [editor] are immediately
- * visible to subsequent reads, even before the editor is flushed.
+ * **Thread safety:** All operations are serialized on [lock], so callers can
+ * read/write safely from the main thread, Media3 callbacks, or background work
+ * without depending on looper affinity.
  */
 class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
     private val prefs = context.getSharedPreferences("asuka_playback_state", Context.MODE_PRIVATE)
+    private val lock = Any()
 
     // In-memory cache of the mediaId list. Loaded lazily on first write.
     private var cachedIds: MutableList<String>? = null
-
-    // Pending editor that accumulates writes until the next main-loop drain.
-    private var pendingEditor: SharedPreferences.Editor? = null
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val flushRunnable = Runnable { flush() }
-
-    // Overlay for values written but not yet flushed, so reads see fresh data.
-    private val pendingValues = ConcurrentHashMap<String, Any>()
 
     companion object {
         private const val KEY_MEDIA_IDS = "__recent_media_ids__"
@@ -85,28 +71,6 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         }
     }
 
-    /**
-     * Returns the shared editor, creating one if needed and scheduling a flush
-     * on the next main-loop iteration. Multiple save calls within the same frame
-     * will batch into a single [SharedPreferences.Editor.apply].
-     */
-    @MainThread
-    private fun editor(): SharedPreferences.Editor {
-        pendingEditor?.let { return it }
-        val ed = prefs.edit()
-        pendingEditor = ed
-        mainHandler.post(flushRunnable)
-        return ed
-    }
-
-    @MainThread
-    private fun flush() {
-        pendingEditor?.apply()
-        pendingEditor = null
-        pendingValues.clear()
-    }
-
-    @MainThread
     private fun getOrLoadIds(): MutableList<String> {
         cachedIds?.let { return it }
         val raw = prefs.getString(KEY_MEDIA_IDS, "") ?: ""
@@ -116,9 +80,9 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
     /**
      * Records [mediaId] as the most-recently-used entry.
      * Evicts the oldest entry (and deletes its keys) if the list exceeds [MAX_ENTRIES].
-     * All mutations are written to [editor] so callers can batch them in one apply().
+     * All mutations are written into the same [editor] so the media id list and
+     * associated state keys stay in sync for a single store operation.
      */
-    @MainThread
     private fun touchMediaId(mediaId: String, editor: SharedPreferences.Editor) {
         val ids = getOrLoadIds()
         ids.remove(mediaId)
@@ -130,113 +94,96 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
                   .remove("aud:$evicted")
                   .remove("sub:$evicted")
                   .remove("zoom:$evicted")
-            pendingValues.remove("pos:$evicted")
-            pendingValues.remove("spd:$evicted")
-            pendingValues.remove("aud:$evicted")
-            pendingValues.remove("sub:$evicted")
-            pendingValues.remove("zoom:$evicted")
         }
         editor.putString(KEY_MEDIA_IDS, MediaIdListCodec.encode(ids))
     }
 
-    @MainThread
-    private fun assertMainThread() {
-        check(Thread.currentThread() === Looper.getMainLooper().thread) {
-            "SharedPreferencesPlaybackStore must be accessed on the main thread"
+    override fun recentMediaIds(limit: Int): List<String> {
+        synchronized(lock) {
+            val safeLimit = limit.coerceAtLeast(0)
+            if (safeLimit == 0) return emptyList()
+            val ids = getOrLoadIds()
+            return ids.takeLast(safeLimit).asReversed()
         }
     }
 
-    @MainThread
-    override fun recentMediaIds(limit: Int): List<String> {
-        assertMainThread()
-        val safeLimit = limit.coerceAtLeast(0)
-        if (safeLimit == 0) return emptyList()
-        val ids = getOrLoadIds()
-        return ids.takeLast(safeLimit).asReversed()
-    }
-
-    @MainThread
     override fun loadPosition(mediaId: String): Long? {
-        assertMainThread()
-        val key = "pos:$mediaId"
-        pendingValues[key]?.let { return it as Long }
-        return if (prefs.contains(key)) prefs.getLong(key, 0L) else null
+        synchronized(lock) {
+            val key = "pos:$mediaId"
+            return if (prefs.contains(key)) prefs.getLong(key, 0L) else null
+        }
     }
 
-    @MainThread
     override fun savePosition(mediaId: String, positionMs: Long) {
-        assertMainThread()
-        val ed = editor()
-        touchMediaId(mediaId, ed)
-        ed.putLong("pos:$mediaId", positionMs)
-        pendingValues["pos:$mediaId"] = positionMs
+        synchronized(lock) {
+            prefs.edit()
+                .also { touchMediaId(mediaId, it) }
+                .putLong("pos:$mediaId", positionMs)
+                .apply()
+        }
     }
 
-    @MainThread
     override fun loadPlaybackSpeed(mediaId: String): Float? {
-        assertMainThread()
-        val key = "spd:$mediaId"
-        pendingValues[key]?.let { return it as Float }
-        return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+        synchronized(lock) {
+            val key = "spd:$mediaId"
+            return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+        }
     }
 
-    @MainThread
     override fun savePlaybackSpeed(mediaId: String, speed: Float) {
-        assertMainThread()
-        val ed = editor()
-        touchMediaId(mediaId, ed)
-        ed.putFloat("spd:$mediaId", speed)
-        pendingValues["spd:$mediaId"] = speed
+        synchronized(lock) {
+            prefs.edit()
+                .also { touchMediaId(mediaId, it) }
+                .putFloat("spd:$mediaId", speed)
+                .apply()
+        }
     }
 
-    @MainThread
     override fun loadAudioTrack(mediaId: String): Int? {
-        assertMainThread()
-        val key = "aud:$mediaId"
-        pendingValues[key]?.let { return it as Int }
-        return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+        synchronized(lock) {
+            val key = "aud:$mediaId"
+            return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+        }
     }
 
-    @MainThread
     override fun saveAudioTrack(mediaId: String, trackIndex: Int) {
-        assertMainThread()
-        val ed = editor()
-        touchMediaId(mediaId, ed)
-        ed.putInt("aud:$mediaId", trackIndex)
-        pendingValues["aud:$mediaId"] = trackIndex
+        synchronized(lock) {
+            prefs.edit()
+                .also { touchMediaId(mediaId, it) }
+                .putInt("aud:$mediaId", trackIndex)
+                .apply()
+        }
     }
 
-    @MainThread
     override fun loadSubtitleTrack(mediaId: String): Int? {
-        assertMainThread()
-        val key = "sub:$mediaId"
-        pendingValues[key]?.let { return it as Int }
-        return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+        synchronized(lock) {
+            val key = "sub:$mediaId"
+            return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+        }
     }
 
-    @MainThread
     override fun saveSubtitleTrack(mediaId: String, trackIndex: Int) {
-        assertMainThread()
-        val ed = editor()
-        touchMediaId(mediaId, ed)
-        ed.putInt("sub:$mediaId", trackIndex)
-        pendingValues["sub:$mediaId"] = trackIndex
+        synchronized(lock) {
+            prefs.edit()
+                .also { touchMediaId(mediaId, it) }
+                .putInt("sub:$mediaId", trackIndex)
+                .apply()
+        }
     }
 
-    @MainThread
     override fun loadZoom(mediaId: String): Float? {
-        assertMainThread()
-        val key = "zoom:$mediaId"
-        pendingValues[key]?.let { return it as Float }
-        return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+        synchronized(lock) {
+            val key = "zoom:$mediaId"
+            return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+        }
     }
 
-    @MainThread
     override fun saveZoom(mediaId: String, zoom: Float) {
-        assertMainThread()
-        val ed = editor()
-        touchMediaId(mediaId, ed)
-        ed.putFloat("zoom:$mediaId", zoom)
-        pendingValues["zoom:$mediaId"] = zoom
+        synchronized(lock) {
+            prefs.edit()
+                .also { touchMediaId(mediaId, it) }
+                .putFloat("zoom:$mediaId", zoom)
+                .apply()
+        }
     }
 }

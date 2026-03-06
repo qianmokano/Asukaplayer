@@ -11,7 +11,7 @@ class QueueHistoryStoreTest {
 
     @Test
     fun push_deduplicatesConsecutive() {
-        val store = QueueHistoryStore(maxSize = 3)
+        val store = InMemoryQueueHistoryStore(maxSize = 3)
         val a = Uri.parse("file:///a.mp4")
         store.push(a)
         store.push(a)
@@ -20,7 +20,7 @@ class QueueHistoryStoreTest {
 
     @Test
     fun push_respectsMaxSize() {
-        val store = QueueHistoryStore(maxSize = 2)
+        val store = InMemoryQueueHistoryStore(maxSize = 2)
         store.push(Uri.parse("file:///1.mp4"))
         store.push(Uri.parse("file:///2.mp4"))
         store.push(Uri.parse("file:///3.mp4"))

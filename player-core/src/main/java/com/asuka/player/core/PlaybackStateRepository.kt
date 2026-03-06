@@ -13,6 +13,10 @@ data class ResumeState(
 class PlaybackStateRepository(
     private val store: PlaybackStore,
 ) {
+    /**
+     * Safe to call from any thread as long as the provided [PlaybackStore]
+     * implementation honors the store contract.
+     */
     fun readResumeState(mediaId: String): ResumeState {
         return ResumeState(
             positionMs = store.loadPosition(mediaId) ?: 0L,

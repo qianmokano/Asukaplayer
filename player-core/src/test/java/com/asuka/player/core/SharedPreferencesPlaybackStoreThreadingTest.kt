@@ -2,8 +2,7 @@ package com.asuka.player.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -20,20 +19,44 @@ class SharedPreferencesPlaybackStoreThreadingTest {
     }
 
     @Test
-    fun load_offMainThread_throws() {
+    fun saveAndLoad_offMainThread_work() {
         val context = RuntimeEnvironment.getApplication()
         val store = SharedPreferencesPlaybackStore(context)
 
-        var failure: Throwable? = null
+        var loaded: Long? = null
         val t = Thread {
-            failure = runCatching { store.loadPosition("media://bg") }.exceptionOrNull()
+            store.savePosition("media://bg", 456L)
+            loaded = store.loadPosition("media://bg")
         }
         t.start()
         t.join()
 
-        val error = failure
-        assertNotNull(error)
-        assertIs<IllegalStateException>(error)
+        assertEquals(456L, loaded)
+        assertEquals(456L, store.loadPosition("media://bg"))
+    }
+
+    @Test
+    fun backgroundWrite_isVisibleToRepositoryReadOnAnotherThread() {
+        val context = RuntimeEnvironment.getApplication()
+        val store = SharedPreferencesPlaybackStore(context)
+        val repository = PlaybackStateRepository(store)
+
+        val writer = Thread {
+            store.savePosition("media://resume", 789L)
+            store.savePlaybackSpeed("media://resume", 1.25f)
+        }
+        writer.start()
+        writer.join()
+
+        var resumeState: ResumeState? = null
+        val reader = Thread {
+            resumeState = repository.readResumeState("media://resume")
+        }
+        reader.start()
+        reader.join()
+
+        assertEquals(789L, resumeState?.positionMs)
+        assertEquals(1.25f, resumeState?.speed)
+        assertNull(resumeState?.audioTrackIndex)
     }
 }
-

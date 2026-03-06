@@ -48,11 +48,15 @@ class PlaybackSessionCoordinator(
     ): PlaybackSessionPlan? {
         val target = targetUri ?: return null
         val launchNeighbors = launchIntent?.let { IntentQueueReader.read(it) }.orEmpty()
-        val targetTitle = withContext(Dispatchers.IO) { titleResolver(target) }
+        val resolvedTitles = withContext(Dispatchers.IO) {
+            (listOf(target) + launchNeighbors)
+                .distinct()
+                .associateWith { uri -> titleResolver(uri) }
+        }
         val plan = sessionPlanner.plan(
             targetUri = target,
             launchNeighbors = launchNeighbors,
-            targetTitle = targetTitle,
+            resolvedTitles = resolvedTitles,
             policy = policy,
         )
         applyPlan(plan, autoplay)

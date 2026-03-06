@@ -54,7 +54,7 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 
 **Application wiring:**
 1. `AsuraPlayerApp` builds `AsukaAppGraph`.
-2. `AsukaAppGraph` installs `PlaybackCoreRuntime` so `player-core` can access runtime dependencies without static mutable setup in `PlaybackService`.
+2. `AsukaAppGraph` implements `PlaybackCoreGraph`, and `AsuraPlayerApp` exposes it via `PlaybackCoreGraphOwner` so `player-core` can resolve runtime dependencies from the application composition root.
 
 **Playback launch and control flow:**
 1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI, forward/remap `ClipData`, and package `PlayerRuntimeSettings`.
@@ -65,7 +65,7 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 
 **State persistence:** `PlaybackStateWriter` writes position/speed/track indices to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
 
-**Queue management:** `PlaybackLaunchCoordinator` preserves external `ClipData` queue information, `IntentQueueReader` reads launch neighbors, and `QueuePlanner` merges those with queue history.
+**Queue management:** `PlaybackLaunchCoordinator` preserves external `ClipData` queue information, `IntentQueueReader` reads launch neighbors, `QueuePlanner` merges those with queue history, and queue history now persists alongside playback resume state.
 
 **Background retention:** `BackgroundPlaybackPolicy` centralizes whether the playback session should remain attached across backgrounding, PiP, and manual background-play requests.
 
@@ -73,10 +73,12 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 
 | File | Purpose |
 |------|---------|
-| `app/…/AppGraph.kt` | Application dependency graph and runtime installation |
+| `app/…/AppGraph.kt` | Application dependency graph and playback runtime composition root |
 | `app/…/PlaybackLaunchCoordinator.kt` | Playback intent assembly and URI/ClipData forwarding |
-| `app/…/MainActivity.kt` | Library UI + launches playback |
+| `app/…/MainActivity.kt` | Library activity shell + launches playback |
+| `app/…/MainLibraryScreen.kt` | Library Compose UI |
 | `player-ui/…/PlaybackActivity.kt` | Playback screen host |
+| `player-ui/…/PlaybackSessionHost.kt` | MediaController/session lifecycle host for playback |
 | `player-ui/…/PlayerScreen.kt` | Root Compose composable for player |
 | `player-ui/…/controller/PlaybackSessionCoordinator.kt` | Applies planned queue/resume state to `MediaController` |
 | `player-ui/…/controller/BackgroundPlaybackPolicy.kt` | Background/PiP retention policy |
@@ -84,7 +86,7 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 | `player-ui/…/controller/PlayerUiStateHolder.kt` | All UI state |
 | `player-core/…/PlaybackController.kt` | Abstract playback interface |
 | `player-core/…/PlaybackSessionPlanner.kt` | Queue + resume + track-restore planning |
-| `player-core/…/PlaybackCoreRuntime.kt` | Runtime dependency bridge for `player-core` |
+| `player-core/…/PlaybackCoreGraph.kt` | Runtime dependency contract exposed from the app graph |
 | `player-core/…/impl/Media3PlaybackController.kt` | ExoPlayer/Media3 implementation |
 | `player-core/…/service/PlaybackService.kt` | MediaSessionService |
 | `player-domain/…/GestureAlgorithms.kt` | Pure gesture math |

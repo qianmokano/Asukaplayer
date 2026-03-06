@@ -10,14 +10,9 @@ import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Icon
-import android.media.MediaMetadataRetriever
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.OpenableColumns
-import android.util.Log
 import android.util.Rational
-import android.util.Size
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -30,34 +25,11 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackCoreRuntime
-import com.asuka.player.core.PlaybackSessionPlanner
-import com.asuka.player.core.PlaybackStartupPolicy
-import com.asuka.player.core.PlaybackStateRepository
-import com.asuka.player.core.QueueHistoryRepository
-import com.asuka.player.core.SeekFallbackCopier
-import com.asuka.player.core.impl.Media3PlaybackController
+import com.asuka.player.core.requirePlaybackCoreGraph
 import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.PlayerRuntimeSettings
 import com.asuka.player.ui.R
-import com.asuka.player.ui.controller.ControllerProvider
-import com.asuka.player.ui.controller.ControllerBindings
-import com.asuka.player.ui.controller.PlaybackSessionCoordinator
-import com.asuka.player.ui.controller.PlayerUiStateHolder
-import com.asuka.player.ui.state.PlayerUiState
-import java.io.ByteArrayOutputStream
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.guava.await
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Minimal playback Activity for M0.
@@ -72,68 +44,25 @@ class PlaybackActivity : ComponentActivity() {
         private const val PIP_CONTROL_PREV = 3
         private const val PIP_CONTROL_NEXT = 4
         private const val RC_PIP_BASE = 100
-        private const val MAX_ARTWORK_MEDIA_IDS = 200
     }
 
-    private class LruSet<K>(private val maxSize: Int) {
-        private val map = object : LinkedHashMap<K, Unit>(maxSize, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, Unit>): Boolean {
-                return size > maxSize
-            }
-        }
-
-        fun add(key: K): Boolean {
-            val existed = map.containsKey(key)
-            map[key] = Unit
-            return !existed
-        }
-    }
-
-    private lateinit var controllerProvider: ControllerProvider
-    private var mediaController: MediaController? = null
-    private var playbackController: Media3PlaybackController? = null
-    private var stateHolder: PlayerUiStateHolder? = null
-    private var bindings: ControllerBindings? = null
-    private var initJob: Job? = null
-    private var seekFallbackJob: Job? = null
-    private val seekFallbackAttemptedUris = mutableSetOf<String>()
-    private val seekFallbackCopier by lazy { SeekFallbackCopier(contentResolver, cacheDir) }
-    private val uiStateFlow = MutableStateFlow(PlayerUiState())
-    private var composableController by mutableStateOf<PlaybackController?>(null)
-    private var composablePlayer by mutableStateOf<Player?>(null)
-    private var composableBindings by mutableStateOf<ControllerBindings?>(null)
     private var composableIsPip by mutableStateOf(false)
     private var videoRect: android.graphics.Rect? = null
-    private var uiStateFeedJob: Job? = null
     private val backgroundPolicy = com.asuka.player.ui.controller.BackgroundPlaybackPolicy()
+    private val playbackGraph by lazy { applicationContext.requirePlaybackCoreGraph() }
     private val playbackPrefs by lazy { getSharedPreferences("player_runtime", MODE_PRIVATE) }
-    private val playbackStateRepository by lazy { PlaybackStateRepository(PlaybackCoreRuntime.playbackStore) }
-    private val playbackSessionPlanner by lazy {
-        PlaybackSessionPlanner(
-            playbackStateRepository = playbackStateRepository,
-            queueHistoryRepository = QueueHistoryRepository(PlaybackCoreRuntime.queueHistoryStore),
+    private val playbackStateRepository by lazy { playbackGraph.playbackStateRepository }
+    private val sessionHost by lazy {
+        PlaybackSessionHost(
+            contentResolver = contentResolver,
+            cacheDir = cacheDir,
+            scope = lifecycleScope,
+            graph = playbackGraph,
+            controllerContext = this,
         )
     }
     private lateinit var runtimeSettings: PlayerRuntimeSettings
     private var pipReceiverRegistered = false
-    private val artworkSetForMediaIds = LruSet<String>(MAX_ARTWORK_MEDIA_IDS)
-    private var sessionCoordinator: PlaybackSessionCoordinator? = null
-
-    private val seekFallbackListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            if (playbackState != Player.STATE_READY) return
-            val mc = mediaController ?: return
-            val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: return
-            if (mc.isCurrentMediaItemSeekable) return
-            trySeekFallback(currentUri, "not_seekable_ready")
-        }
-
-        override fun onPlayerError(error: PlaybackException) {
-            val mc = mediaController ?: return
-            val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: intent?.data ?: return
-            trySeekFallback(currentUri, "player_error_${error.errorCode}")
-        }
-    }
 
     private val pipPlayStateListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -146,7 +75,7 @@ class PlaybackActivity : ComponentActivity() {
 
     private val pipReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val ctrl = playbackController ?: return
+            val ctrl = sessionHost.currentController ?: return
             when (intent?.getIntExtra(EXTRA_PIP_CONTROL, 0)) {
                 PIP_CONTROL_PLAY  -> ctrl.play()
                 PIP_CONTROL_PAUSE -> ctrl.pause()
@@ -175,9 +104,9 @@ class PlaybackActivity : ComponentActivity() {
                 backgroundPolicy.setPictureInPicture(info.isInPictureInPictureMode)
                 if (info.isInPictureInPictureMode) {
                     registerPipReceiver()
-                    mediaController?.addListener(pipPlayStateListener)
+                    sessionHost.currentPlayer?.addListener(pipPlayStateListener)
                 } else {
-                    mediaController?.removeListener(pipPlayStateListener)
+                    sessionHost.currentPlayer?.removeListener(pipPlayStateListener)
                     unregisterPipReceiver()
                 }
             }
@@ -188,17 +117,16 @@ class PlaybackActivity : ComponentActivity() {
             retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
             autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
         )
-        controllerProvider = ControllerProvider(applicationContext)
         applyStatusBarVisibilityForOrientation()
 
         setContent {
-            val uiState by uiStateFlow.collectAsState()
-            val controller = composableController ?: return@setContent
+            val hostState by sessionHost.state.collectAsState()
+            val controller = hostState.controller ?: return@setContent
             PlayerScreen(
-                uiState = uiState,
-                player = composablePlayer,
+                uiState = hostState.uiState,
+                player = hostState.player,
                 controller = controller,
-                bindings = composableBindings,
+                bindings = hostState.bindings,
                 playbackStateRepository = playbackStateRepository,
                 settings = runtimeSettings,
                 isInPip = composableIsPip,
@@ -213,7 +141,7 @@ class PlaybackActivity : ComponentActivity() {
             )
         }
 
-        ensureControllerReady()
+        sessionHost.ensureControllerReady(intent, runtimeSettings)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -224,14 +152,7 @@ class PlaybackActivity : ComponentActivity() {
             retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
             autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
         )
-        // A new intent means a new media item; reset the fallback-attempted set so that
-        // content:// URIs that previously triggered a copy are retried for the new file.
-        seekFallbackAttemptedUris.clear()
-        if (mediaController == null) {
-            ensureControllerReady()
-        } else {
-            lifecycleScope.launch { startSingleMedia(intent.data) }
-        }
+        sessionHost.onNewIntent(intent, runtimeSettings)
     }
 
     override fun onStart() {
@@ -242,7 +163,7 @@ class PlaybackActivity : ComponentActivity() {
         )
         backgroundPolicy.clearManualBackgroundPlaybackRequest()
         applyStatusBarVisibilityForOrientation()
-        ensureControllerReady()
+        sessionHost.ensureControllerReady(intent, runtimeSettings)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             setPictureInPictureParams(buildPipParams())
         }
@@ -260,123 +181,15 @@ class PlaybackActivity : ComponentActivity() {
                 playbackPrefs.edit().putFloat("last_brightness", brightness).apply()
             }
         }
-        seekFallbackJob?.cancel()
-        seekFallbackJob = null
-        uiStateFeedJob?.cancel()
-        uiStateFeedJob = null
-        stateHolder?.detach()
-        stateHolder = null
-        sessionCoordinator?.detach()
-        sessionCoordinator = null
-        mediaController?.removeListener(seekFallbackListener)
-        if (!backgroundPolicy.shouldRetainSession()) {
-            initJob?.cancel()
-            initJob = null
-            bindings = null
-            composableController = null
-            composablePlayer = null
-            composableBindings = null
-            mediaController?.pause()
-            controllerProvider.release()
-            mediaController = null
-            playbackController = null
-        }
+        sessionHost.onStop(backgroundPolicy.shouldRetainSession())
         super.onStop()
     }
 
     override fun onDestroy() {
-        seekFallbackJob?.cancel()
-        seekFallbackJob = null
-        uiStateFeedJob?.cancel()
-        uiStateFeedJob = null
-        initJob?.cancel()
-        initJob = null
-        stateHolder?.detach()
-        stateHolder = null
-        bindings = null
-        composableController = null
-        composablePlayer = null
-        composableBindings = null
-        sessionCoordinator?.detach()
-        sessionCoordinator = null
-        mediaController?.removeListener(seekFallbackListener)
-        mediaController?.removeListener(pipPlayStateListener)
+        sessionHost.currentPlayer?.removeListener(pipPlayStateListener)
         unregisterPipReceiver()
-        controllerProvider.release()
-        mediaController = null
-        playbackController = null
+        sessionHost.releaseAll()
         super.onDestroy()
-    }
-
-    private fun ensureControllerReady() {
-        mediaController?.let { mc ->
-            mc.removeListener(seekFallbackListener)
-            mc.addListener(seekFallbackListener)
-            if (playbackController == null) {
-                val ctrl = controllerProvider.asPlaybackController(mc)
-                playbackController = ctrl
-                composableController = ctrl
-                composablePlayer = mc
-            }
-            if (bindings == null) {
-                val b = ControllerBindings.from(mc)
-                bindings = b
-                composableBindings = b
-            }
-            if (sessionCoordinator == null) {
-                val b = bindings ?: return
-                sessionCoordinator = PlaybackSessionCoordinator(
-                    mediaController = mc,
-                    controllerBindings = b,
-                    sessionPlanner = playbackSessionPlanner,
-                    titleResolver = ::resolveTitleForNotification,
-                ).also { it.attach() }
-            }
-            if (stateHolder == null) {
-                val holder = PlayerUiStateHolder(mc)
-                holder.attach()
-                holder.startProgressTicker(lifecycleScope)
-                stateHolder = holder
-                uiStateFeedJob?.cancel()
-                uiStateFeedJob = lifecycleScope.launch { holder.state.collect { uiStateFlow.value = it } }
-            }
-            return
-        }
-        if (initJob?.isActive == true) return
-        initJob = lifecycleScope.launch {
-            try {
-                val future = controllerProvider.buildAsync()
-                val mc = future.await()
-                mediaController = mc
-                mc.addListener(seekFallbackListener)
-                val ctrl = controllerProvider.asPlaybackController(mc)
-                playbackController = ctrl
-                composableController = ctrl
-                composablePlayer = mc
-                val b = ControllerBindings.from(mc)
-                bindings = b
-                composableBindings = b
-                sessionCoordinator = PlaybackSessionCoordinator(
-                    mediaController = mc,
-                    controllerBindings = b,
-                    sessionPlanner = playbackSessionPlanner,
-                    titleResolver = ::resolveTitleForNotification,
-                ).also { it.attach() }
-                startSingleMedia(intent?.data)
-                val holder = PlayerUiStateHolder(mc)
-                holder.attach()
-                holder.startProgressTicker(lifecycleScope)
-                stateHolder = holder
-                uiStateFeedJob?.cancel()
-                uiStateFeedJob = lifecycleScope.launch { holder.state.collect { uiStateFlow.value = it } }
-            } catch (_: CancellationException) {
-                // Lifecycle moved on; connection will be retried on next start.
-            } catch (error: Throwable) {
-                Log.e("AsukaPlayback", "failed to connect controller", error)
-            } finally {
-                initJob = null
-            }
-        }
     }
 
     private fun enterPipMode() {
@@ -392,10 +205,10 @@ class PlaybackActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun buildPipParams(): android.app.PictureInPictureParams {
         val builder = android.app.PictureInPictureParams.Builder()
-        val mc = mediaController
-        if (mc != null) {
-            val w = mc.videoSize.width
-            val h = mc.videoSize.height
+        val player = sessionHost.currentPlayer
+        if (player != null) {
+            val w = player.videoSize.width
+            val h = player.videoSize.height
             if (w > 0 && h > 0) {
                 val ratio = w.toFloat() / h.toFloat()
                 if (ratio < 0.5f) {
@@ -418,7 +231,7 @@ class PlaybackActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun buildPipActions(): List<android.app.RemoteAction> {
-        val mc = mediaController ?: return emptyList()
+        val player = sessionHost.currentPlayer ?: return emptyList()
 
         fun makeIntent(control: Int): PendingIntent = PendingIntent.getBroadcast(
             this,
@@ -432,7 +245,7 @@ class PlaybackActivity : ComponentActivity() {
             getString(R.string.prev), getString(R.string.prev),
             makeIntent(PIP_CONTROL_PREV),
         )
-        val playPauseAction = if (mc.isPlaying) {
+        val playPauseAction = if (player.isPlaying) {
             android.app.RemoteAction(
                 Icon.createWithResource(this, R.drawable.pip_ic_pause),
                 getString(R.string.play_pause), getString(R.string.play_pause),
@@ -506,93 +319,6 @@ class PlaybackActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun startSingleMedia(uri: Uri?) {
-        val controller = mediaController ?: return
-        val target = uri ?: return
-        val plan = sessionCoordinator?.start(
-            targetUri = target,
-            launchIntent = intent,
-            autoplay = runtimeSettings.autoplay,
-            policy = PlaybackStartupPolicy(
-                resumePlayback = runtimeSettings.resumePlayback,
-                defaultPlaybackSpeed = runtimeSettings.defaultPlaybackSpeed,
-                rememberTrackSelections = runtimeSettings.rememberSelections,
-            ),
-        ) ?: return
-
-        maybeLoadAndSetArtwork(
-            controller = controller,
-            mediaId = target.toString(),
-            index = plan.queue.startIndex,
-            uri = target,
-        )
-    }
-
-    private fun resolveTitleForNotification(uri: Uri): String? {
-        val fromContent = if (uri.scheme == "content") {
-            runCatching {
-                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { cursor ->
-                        val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        if (idx >= 0 && cursor.moveToFirst()) cursor.getString(idx) else null
-                    }
-            }.getOrNull()
-        } else {
-            null
-        }
-        val fromPath = uri.lastPathSegment
-        return fromContent?.takeIf { it.isNotBlank() }
-            ?: fromPath?.takeIf { it.isNotBlank() }
-            ?: uri.toString().takeIf { it.isNotBlank() }
-    }
-
-    private fun maybeLoadAndSetArtwork(controller: MediaController, mediaId: String, index: Int, uri: Uri) {
-        val scheme = uri.scheme ?: return
-        if (scheme != "content" && scheme != "file") return
-        if (!artworkSetForMediaIds.add(mediaId)) return
-        lifecycleScope.launch(Dispatchers.IO) {
-            val bitmap = loadArtworkBitmap(uri) ?: return@launch
-            val bytes = ByteArrayOutputStream().use { baos ->
-                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, baos)
-                baos.toByteArray()
-            }
-            withContext(Dispatchers.Main) {
-                // Guard against races: ensure we're still updating the same media item.
-                val current = controller.currentMediaItemIndex
-                if (current != index) return@withContext
-                val item = controller.currentMediaItem ?: return@withContext
-                if (item.mediaId != mediaId) return@withContext
-                val metadata = item.mediaMetadata.buildUpon()
-                    .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
-                    .build()
-                controller.replaceMediaItem(index, item.buildUpon().setMediaMetadata(metadata).build())
-            }
-        }
-    }
-
-    private fun loadArtworkBitmap(uri: Uri): android.graphics.Bitmap? {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && uri.scheme == "content") {
-            runCatching {
-                return contentResolver.loadThumbnail(uri, Size(512, 512), null)
-            }
-        }
-        val retriever = MediaMetadataRetriever()
-        return try {
-            if (uri.scheme == "file") {
-                val path = uri.path ?: return null
-                retriever.setDataSource(path)
-            } else {
-                val pfd = runCatching { contentResolver.openFileDescriptor(uri, "r") }.getOrNull() ?: return null
-                pfd.use { retriever.setDataSource(it.fileDescriptor) }
-            }
-            retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-        } catch (_: Throwable) {
-            null
-        } finally {
-            runCatching { retriever.release() }
-        }
-    }
-
     private fun readRuntimeSettings(intent: Intent?): PlayerRuntimeSettings {
         @Suppress("DEPRECATION")
         val fromParcel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -610,20 +336,5 @@ class PlaybackActivity : ComponentActivity() {
         val attrs = window.attributes
         attrs.screenBrightness = remembered.coerceIn(0f, 1f)
         window.attributes = attrs
-    }
-
-    private fun trySeekFallback(currentUri: Uri, reason: String) {
-        if (currentUri.scheme != "content") return
-        val key = currentUri.toString()
-        if (!seekFallbackAttemptedUris.add(key)) return
-        if (seekFallbackJob?.isActive == true) return
-        seekFallbackJob = lifecycleScope.launch {
-            val copiedUri = withContext(Dispatchers.IO) {
-                seekFallbackCopier.copy(currentUri, checkSize = true)
-            } ?: return@launch
-            Log.i("AsukaSeekFallback", "fallback[$reason] src=${currentUri.authority} dst=${copiedUri.lastPathSegment}")
-            setIntent(Intent(intent).apply { data = copiedUri })
-            startSingleMedia(copiedUri)
-        }
     }
 }

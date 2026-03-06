@@ -9,13 +9,12 @@ package com.asuka.player.data
  *
  * **Null semantics:** `load*` methods return `null` when no value has been
  * persisted for the given [mediaId]. A `save*` call with a valid value must
- * make it available to the corresponding `load*` immediately (within the same
- * thread context), even if the write has not yet been flushed to disk.
+ * make it available to the corresponding `load*` immediately on the same store
+ * instance, even if the write has not yet been flushed to disk.
  *
- * **Thread safety:** Implementations are not required to be thread-safe.
- * Callers must ensure that reads and writes for a given store instance are
- * serialized (e.g. confined to the main thread). See concrete implementations
- * for their specific threading guarantees.
+ * **Thread safety:** Implementations must be safe to call from any thread.
+ * Callers should not need to confine access to a specific dispatcher or looper
+ * just to avoid crashes.
  */
 interface PlaybackStore {
     /**

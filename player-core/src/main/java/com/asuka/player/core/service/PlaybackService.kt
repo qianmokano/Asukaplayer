@@ -22,9 +22,9 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.asuka.player.core.R
-import com.asuka.player.core.PlaybackCoreRuntime
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.QueueHistoryWriter
+import com.asuka.player.core.requirePlaybackCoreGraph
 import com.asuka.player.core.impl.Media3PlaybackController
 
 /**
@@ -41,6 +41,7 @@ class PlaybackService : MediaSessionService() {
     private val notificationManager: NotificationManager by lazy {
         getSystemService(NotificationManager::class.java)
     }
+    private val playbackGraph by lazy { requirePlaybackCoreGraph() }
 
     private val sessionCallback = object : MediaSession.Callback {
         override fun onCustomCommand(
@@ -67,7 +68,7 @@ class PlaybackService : MediaSessionService() {
                 .setChannelName(R.string.playback_notification_channel_name)
                 .setNotificationId(NOTIFICATION_ID)
                 .build()
-                .apply { setSmallIcon(PlaybackCoreRuntime.notificationSmallIconResId) },
+                .apply { setSmallIcon(playbackGraph.notificationSmallIconResId) },
         )
         // When playback pauses briefly (e.g. buffering transitions or rapid play/pause),
         // keep the service in the foreground for a short grace period to avoid churn.
@@ -76,9 +77,9 @@ class PlaybackService : MediaSessionService() {
         // showing a notification for a brand-new idle player that hasn't started playback yet.
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
 
-        val w = PlaybackStateWriter(PlaybackCoreRuntime.playbackStore)
+        val w = PlaybackStateWriter(playbackGraph.playbackStore)
         writer = w
-        val hw = QueueHistoryWriter(PlaybackCoreRuntime.queueHistoryStore)
+        val hw = QueueHistoryWriter(playbackGraph.queueHistoryStore)
         historyWriter = hw
 
         val audioAttributes = AudioAttributes.Builder()
@@ -132,7 +133,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun buildSessionActivity(): PendingIntent? {
-        val cls = PlaybackCoreRuntime.sessionActivityClass
+        val cls = playbackGraph.sessionActivityClass
         val intent = if (cls != null) {
             Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         } else {

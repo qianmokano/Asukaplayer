@@ -39,9 +39,9 @@ player-data/    → 持久化抽象（PlaybackStore 等基础接口）
 
 ## 关键运行链路
 
-1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并把播放器运行时依赖安装进 `PlaybackCoreRuntime`
+1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并通过 `PlaybackCoreGraphOwner` 向 `player-core` 暴露统一运行时依赖
 2. `MainActivity` 通过 `PlaybackLaunchCoordinator` 解析待播放 URI、处理 seek fallback、转发 `ClipData` 队列与运行时设置
-3. `PlaybackActivity` 通过 `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 规划队列、恢复位置/速度/轨道状态，并把结果应用到 `MediaController`
+3. `PlaybackActivity` 通过 `PlaybackSessionHost` 承载 `MediaController` 生命周期，再由 `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 规划队列、恢复位置/速度/轨道状态并应用到控制器
 4. `PlaybackService` 与 `PlaybackStateWriter` 负责 MediaSession 与播放状态写回；`BackgroundPlaybackPolicy` 负责 PiP/后台保活策略
 
 ## 构建
