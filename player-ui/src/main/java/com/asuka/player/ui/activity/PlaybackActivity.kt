@@ -34,12 +34,12 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
-import com.asuka.player.core.PlaybackStateRestorer
-import com.asuka.player.core.PlaybackStoreProvider
-import com.asuka.player.core.IntentQueueReader
-import com.asuka.player.core.QueueBuilder
-import com.asuka.player.core.QueuePlanner
 import com.asuka.player.core.PlaybackController
+import com.asuka.player.core.PlaybackCoreRuntime
+import com.asuka.player.core.PlaybackSessionPlanner
+import com.asuka.player.core.PlaybackStartupPolicy
+import com.asuka.player.core.PlaybackStateRepository
+import com.asuka.player.core.QueueHistoryRepository
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.impl.Media3PlaybackController
 import com.asuka.player.ui.PlayerScreen
@@ -47,6 +47,7 @@ import com.asuka.player.ui.PlayerRuntimeSettings
 import com.asuka.player.ui.R
 import com.asuka.player.ui.controller.ControllerProvider
 import com.asuka.player.ui.controller.ControllerBindings
+import com.asuka.player.ui.controller.PlaybackSessionCoordinator
 import com.asuka.player.ui.controller.PlayerUiStateHolder
 import com.asuka.player.ui.state.PlayerUiState
 import java.io.ByteArrayOutputStream
@@ -106,9 +107,17 @@ class PlaybackActivity : ComponentActivity() {
     private var uiStateFeedJob: Job? = null
     private val backgroundPolicy = com.asuka.player.ui.controller.BackgroundPlaybackPolicy()
     private val playbackPrefs by lazy { getSharedPreferences("player_runtime", MODE_PRIVATE) }
+    private val playbackStateRepository by lazy { PlaybackStateRepository(PlaybackCoreRuntime.playbackStore) }
+    private val playbackSessionPlanner by lazy {
+        PlaybackSessionPlanner(
+            playbackStateRepository = playbackStateRepository,
+            queueHistoryRepository = QueueHistoryRepository(PlaybackCoreRuntime.queueHistoryStore),
+        )
+    }
     private lateinit var runtimeSettings: PlayerRuntimeSettings
     private var pipReceiverRegistered = false
     private val artworkSetForMediaIds = LruSet<String>(MAX_ARTWORK_MEDIA_IDS)
+    private var sessionCoordinator: PlaybackSessionCoordinator? = null
 
     private val seekFallbackListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -163,24 +172,22 @@ class PlaybackActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             addOnPictureInPictureModeChangedListener { info ->
                 composableIsPip = info.isInPictureInPictureMode
+                backgroundPolicy.setPictureInPicture(info.isInPictureInPictureMode)
                 if (info.isInPictureInPictureMode) {
-                    backgroundPolicy.enableBackground()
                     registerPipReceiver()
                     mediaController?.addListener(pipPlayStateListener)
                 } else {
                     mediaController?.removeListener(pipPlayStateListener)
                     unregisterPipReceiver()
-                    if (!runtimeSettings.autoBackgroundPlay) {
-                        backgroundPolicy.disableBackground()
-                    }
                 }
             }
         }
 
         applyRememberedBrightnessIfNeeded()
-        if (runtimeSettings.autoBackgroundPlay) {
-            backgroundPolicy.enableBackground()
-        }
+        backgroundPolicy.update(
+            retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
+            autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
+        )
         controllerProvider = ControllerProvider(applicationContext)
         applyStatusBarVisibilityForOrientation()
 
@@ -192,13 +199,16 @@ class PlaybackActivity : ComponentActivity() {
                 player = composablePlayer,
                 controller = controller,
                 bindings = composableBindings,
-                store = PlaybackStoreProvider.store,
+                playbackStateRepository = playbackStateRepository,
                 settings = runtimeSettings,
                 isInPip = composableIsPip,
                 onVideoBoundsChanged = { videoRect = it },
                 onBack = { finish() },
                 onPip = { enterPipMode() },
-                onBackground = { backgroundPolicy.enableBackground(); finish() },
+                onBackground = {
+                    backgroundPolicy.requestBackgroundPlayback()
+                    finish()
+                },
                 onRotate = { toggleOrientation() },
             )
         }
@@ -210,6 +220,10 @@ class PlaybackActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         runtimeSettings = readRuntimeSettings(intent)
+        backgroundPolicy.update(
+            retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
+            autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
+        )
         // A new intent means a new media item; reset the fallback-attempted set so that
         // content:// URIs that previously triggered a copy are retried for the new file.
         seekFallbackAttemptedUris.clear()
@@ -222,11 +236,11 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (runtimeSettings.autoBackgroundPlay) {
-            backgroundPolicy.enableBackground()
-        } else {
-            backgroundPolicy.disableBackground()
-        }
+        backgroundPolicy.update(
+            retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
+            autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
+        )
+        backgroundPolicy.clearManualBackgroundPlaybackRequest()
         applyStatusBarVisibilityForOrientation()
         ensureControllerReady()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -252,8 +266,10 @@ class PlaybackActivity : ComponentActivity() {
         uiStateFeedJob = null
         stateHolder?.detach()
         stateHolder = null
+        sessionCoordinator?.detach()
+        sessionCoordinator = null
         mediaController?.removeListener(seekFallbackListener)
-        if (!backgroundPolicy.allowBackground) {
+        if (!backgroundPolicy.shouldRetainSession()) {
             initJob?.cancel()
             initJob = null
             bindings = null
@@ -281,6 +297,8 @@ class PlaybackActivity : ComponentActivity() {
         composableController = null
         composablePlayer = null
         composableBindings = null
+        sessionCoordinator?.detach()
+        sessionCoordinator = null
         mediaController?.removeListener(seekFallbackListener)
         mediaController?.removeListener(pipPlayStateListener)
         unregisterPipReceiver()
@@ -304,6 +322,15 @@ class PlaybackActivity : ComponentActivity() {
                 val b = ControllerBindings.from(mc)
                 bindings = b
                 composableBindings = b
+            }
+            if (sessionCoordinator == null) {
+                val b = bindings ?: return
+                sessionCoordinator = PlaybackSessionCoordinator(
+                    mediaController = mc,
+                    controllerBindings = b,
+                    sessionPlanner = playbackSessionPlanner,
+                    titleResolver = ::resolveTitleForNotification,
+                ).also { it.attach() }
             }
             if (stateHolder == null) {
                 val holder = PlayerUiStateHolder(mc)
@@ -329,6 +356,12 @@ class PlaybackActivity : ComponentActivity() {
                 val b = ControllerBindings.from(mc)
                 bindings = b
                 composableBindings = b
+                sessionCoordinator = PlaybackSessionCoordinator(
+                    mediaController = mc,
+                    controllerBindings = b,
+                    sessionPlanner = playbackSessionPlanner,
+                    titleResolver = ::resolveTitleForNotification,
+                ).also { it.attach() }
                 startSingleMedia(intent?.data)
                 val holder = PlayerUiStateHolder(mc)
                 holder.attach()
@@ -350,7 +383,7 @@ class PlaybackActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Enable background before enterPictureInPictureMode so that onStop() —
             // which fires synchronously after the transition — does not release resources.
-            backgroundPolicy.enableBackground()
+            backgroundPolicy.setPictureInPicture(true)
             registerPipReceiver()
             enterPictureInPictureMode(buildPipParams())
         }
@@ -476,51 +509,23 @@ class PlaybackActivity : ComponentActivity() {
     private suspend fun startSingleMedia(uri: Uri?) {
         val controller = mediaController ?: return
         val target = uri ?: return
-        val extras = IntentQueueReader.read(intent).filter { it != target }
-        val uris = QueuePlanner.plan(target, extras, PlaybackStoreProvider.history.items())
-        val targetTitle = withContext(Dispatchers.IO) { resolveTitleForNotification(target) }
-        val queue = QueueBuilder.build(
-            uris,
-            target,
-            titleResolver = { u ->
-                if (u == target) targetTitle else u.lastPathSegment
-            },
-        )
-        val mediaId = target.toString()
-        val resume = PlaybackStateRestorer(PlaybackStoreProvider.store).read(mediaId)
-        val speedFromStore = if (runtimeSettings.rememberSelections) {
-            PlaybackStoreProvider.store.loadPlaybackSpeed(mediaId)
-        } else {
-            null
-        }
-        val resumePosition = if (runtimeSettings.resumePlayback) resume.positionMs else 0L
-        controller.setMediaItems(queue.items, queue.startIndex, resumePosition)
-        controller.setPlaybackSpeed(speedFromStore ?: runtimeSettings.defaultPlaybackSpeed)
-        controller.prepare()
-        if (runtimeSettings.rememberSelections) {
-            bindings?.trackSelection?.let { selection ->
-                val subtitleIndex = resume.subtitleTrackIndex
-                when (subtitleIndex) {
-                    null -> {}
-                    com.asuka.player.core.TrackIndexCodec.SUBTITLE_DISABLED -> selection.disableSubtitles()
-                    else -> {
-                        val (g, t) = com.asuka.player.core.TrackIndexCodec.decode(subtitleIndex)
-                        selection.setSubtitleTrack(g, t)
-                    }
-                }
-                resume.audioTrackIndex?.let {
-                    val (g, t) = com.asuka.player.core.TrackIndexCodec.decode(it)
-                    selection.setAudioTrack(g, t)
-                }
-            }
-        }
-        if (runtimeSettings.autoplay) {
-            controller.play()
-        } else {
-            controller.pause()
-        }
+        val plan = sessionCoordinator?.start(
+            targetUri = target,
+            launchIntent = intent,
+            autoplay = runtimeSettings.autoplay,
+            policy = PlaybackStartupPolicy(
+                resumePlayback = runtimeSettings.resumePlayback,
+                defaultPlaybackSpeed = runtimeSettings.defaultPlaybackSpeed,
+                rememberTrackSelections = runtimeSettings.rememberSelections,
+            ),
+        ) ?: return
 
-        maybeLoadAndSetArtwork(controller = controller, mediaId = mediaId, index = queue.startIndex, uri = target)
+        maybeLoadAndSetArtwork(
+            controller = controller,
+            mediaId = target.toString(),
+            index = plan.queue.startIndex,
+            uri = target,
+        )
     }
 
     private fun resolveTitleForNotification(uri: Uri): String? {

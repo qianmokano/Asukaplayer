@@ -104,12 +104,6 @@ internal class AppSettingsStore(context: Context) {
             prefs.edit().putBoolean("haptic_feedback_enabled", value).apply()
         }
 
-    var experimentalFeaturesEnabled: Boolean
-        get() = prefs.getBoolean("experimental_features_enabled", false)
-        set(value) {
-            prefs.edit().putBoolean("experimental_features_enabled", value).apply()
-        }
-
     var playerSettings: PlayerSettingsConfig
         get() = PlayerSettingsConfig(
             seekGestureEnabled = prefs.getBoolean("player_seek_gesture_enabled", true),

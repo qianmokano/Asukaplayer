@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import androidx.annotation.DrawableRes
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -23,8 +22,8 @@ import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.asuka.player.core.R
+import com.asuka.player.core.PlaybackCoreRuntime
 import com.asuka.player.core.PlaybackStateWriter
-import com.asuka.player.core.PlaybackStoreProvider
 import com.asuka.player.core.QueueHistoryWriter
 import com.asuka.player.core.impl.Media3PlaybackController
 
@@ -68,7 +67,7 @@ class PlaybackService : MediaSessionService() {
                 .setChannelName(R.string.playback_notification_channel_name)
                 .setNotificationId(NOTIFICATION_ID)
                 .build()
-                .apply { setSmallIcon(notificationSmallIconResId) },
+                .apply { setSmallIcon(PlaybackCoreRuntime.notificationSmallIconResId) },
         )
         // When playback pauses briefly (e.g. buffering transitions or rapid play/pause),
         // keep the service in the foreground for a short grace period to avoid churn.
@@ -77,9 +76,9 @@ class PlaybackService : MediaSessionService() {
         // showing a notification for a brand-new idle player that hasn't started playback yet.
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
 
-        val w = PlaybackStateWriter(PlaybackStoreProvider.store)
+        val w = PlaybackStateWriter(PlaybackCoreRuntime.playbackStore)
         writer = w
-        val hw = QueueHistoryWriter(PlaybackStoreProvider.history)
+        val hw = QueueHistoryWriter(PlaybackCoreRuntime.queueHistoryStore)
         historyWriter = hw
 
         val audioAttributes = AudioAttributes.Builder()
@@ -133,7 +132,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun buildSessionActivity(): PendingIntent? {
-        val cls = activityClass
+        val cls = PlaybackCoreRuntime.sessionActivityClass
         val intent = if (cls != null) {
             Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         } else {
@@ -163,19 +162,5 @@ class PlaybackService : MediaSessionService() {
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "asuka_playback"
         private const val NOTIFICATION_ID = 1001
-
-        /**
-         * Set in Application.onCreate() so the media-session notification
-         * navigates back to the playback screen instead of the launcher activity.
-         *
-         * **Ordering guarantee:** Application.onCreate() is guaranteed to run
-         * before any Activity, Service, or BroadcastReceiver, so this is always
-         * set before the service is created.
-         */
-        @Volatile var activityClass: Class<*>? = null
-
-        @DrawableRes
-        @Volatile
-        var notificationSmallIconResId: Int = R.drawable.ic_stat_playback
     }
 }

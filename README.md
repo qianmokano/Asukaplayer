@@ -11,7 +11,7 @@
 - 音频轨道 / 字幕轨道选择
 - 视频缩放模式切换
 - 画中画（PiP）& 后台播放
-- 播放状态持久化（位置、速度、音轨、缩放）
+- 播放状态持久化（位置、速度、音轨、字幕、缩放）
 - 队列播放（支持 ClipData 多文件）
 - 深色模式完整适配
 
@@ -29,13 +29,20 @@
 
 ```
 app/            → 媒体库浏览、文件选择、设置页，启动播放
-player-ui/      → Compose UI、手势协调、UI 状态管理
-player-core/    → Media3/ExoPlayer 封装、MediaSessionService、队列逻辑
+player-ui/      → Compose 播放页、手势协调、会话编排与 UI 状态管理
+player-core/    → Media3/ExoPlayer 封装、MediaSessionService、队列/恢复规划
 player-domain/  → 纯 JVM 算法（手势数学、状态机），无 Android 依赖
-player-data/    → 播放状态持久化接口
+player-data/    → 持久化抽象（PlaybackStore 等基础接口）
 ```
 
 依赖方向：`app` → `player-ui` → `player-core` → `player-data`；`player-ui` → `player-domain`
+
+## 关键运行链路
+
+1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并把播放器运行时依赖安装进 `PlaybackCoreRuntime`
+2. `MainActivity` 通过 `PlaybackLaunchCoordinator` 解析待播放 URI、处理 seek fallback、转发 `ClipData` 队列与运行时设置
+3. `PlaybackActivity` 通过 `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 规划队列、恢复位置/速度/轨道状态，并把结果应用到 `MediaController`
+4. `PlaybackService` 与 `PlaybackStateWriter` 负责 MediaSession 与播放状态写回；`BackgroundPlaybackPolicy` 负责 PiP/后台保活策略
 
 ## 构建
 
@@ -43,14 +50,17 @@ player-data/    → 播放状态持久化接口
 # 编译
 ./gradlew :app:compileDebugKotlin
 
-# 安装到设备
-./gradlew :app:installDebug
+# JVM 单元测试（覆盖 app / player-core / player-domain / player-ui / player-data）
+./gradlew test
 
-# 单元测试
-./gradlew :player-domain:test :player-core:test
+# Lint
+./gradlew lintDebug
 
 # UI 测试（需连接设备/模拟器）
 ./gradlew :player-ui:connectedAndroidTest
+
+# 安装到设备
+./gradlew :app:installDebug
 
 # 生成第三方依赖许可/Notices（输出到 build/reports/third-party-notices/）
 ./gradlew generateThirdPartyNotices

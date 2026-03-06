@@ -8,24 +8,22 @@ import androidx.lifecycle.viewModelScope
 import com.asuka.player.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
 internal class MainLibraryViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val appSettingsStore = AppSettingsStore(application)
+    private val appGraph = application.appGraph
+    private val uiSettingsRepository = appGraph.uiSettingsRepository
+    private val playerSettingsRepository = appGraph.playerSettingsRepository
 
     // --- Settings state ---
-    val themeConfig = MutableStateFlow(appSettingsStore.themeConfig)
-    val customThemes = MutableStateFlow(appSettingsStore.customThemes)
-    val navDurationMs = MutableStateFlow(appSettingsStore.navDurationMs)
-    val keepConnectionInBackground = MutableStateFlow(appSettingsStore.keepConnectionInBackground)
-    val hapticFeedbackEnabled = MutableStateFlow(appSettingsStore.hapticFeedbackEnabled)
-    val experimentalFeaturesEnabled = MutableStateFlow(appSettingsStore.experimentalFeaturesEnabled)
-    val playerSettings = MutableStateFlow(appSettingsStore.playerSettings)
+    val themeConfig = MutableStateFlow(uiSettingsRepository.themeConfig)
+    val customThemes = MutableStateFlow(uiSettingsRepository.customThemes)
+    val navDurationMs = MutableStateFlow(uiSettingsRepository.navDurationMs)
+    val hapticFeedbackEnabled = MutableStateFlow(uiSettingsRepository.hapticFeedbackEnabled)
+    val playerSettings = MutableStateFlow(playerSettingsRepository.playerSettings)
 
     // --- Video scanning state ---
     val items = MutableStateFlow(emptyList<LocalVideoItem>())
@@ -34,30 +32,22 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     val permissionGranted = MutableStateFlow(hasVideoPermission(application))
     val userSelectedPermissionGranted = MutableStateFlow(hasUserSelectedVideoPermission(application))
 
-    private val _refreshTick = MutableStateFlow(0)
-
     init {
         // Persist settings changes, dropping the initial emission to avoid write-back on launch.
         viewModelScope.launch {
-            themeConfig.drop(1).collect { appSettingsStore.themeConfig = it }
+            themeConfig.drop(1).collect { uiSettingsRepository.themeConfig = it }
         }
         viewModelScope.launch {
-            customThemes.drop(1).collect { appSettingsStore.customThemes = it }
+            customThemes.drop(1).collect { uiSettingsRepository.customThemes = it }
         }
         viewModelScope.launch {
-            navDurationMs.drop(1).collect { appSettingsStore.navDurationMs = it }
+            navDurationMs.drop(1).collect { uiSettingsRepository.navDurationMs = it }
         }
         viewModelScope.launch {
-            keepConnectionInBackground.drop(1).collect { appSettingsStore.keepConnectionInBackground = it }
+            hapticFeedbackEnabled.drop(1).collect { uiSettingsRepository.hapticFeedbackEnabled = it }
         }
         viewModelScope.launch {
-            hapticFeedbackEnabled.drop(1).collect { appSettingsStore.hapticFeedbackEnabled = it }
-        }
-        viewModelScope.launch {
-            experimentalFeaturesEnabled.drop(1).collect { appSettingsStore.experimentalFeaturesEnabled = it }
-        }
-        viewModelScope.launch {
-            playerSettings.drop(1).collect { appSettingsStore.playerSettings = it }
+            playerSettings.drop(1).collect { playerSettingsRepository.playerSettings = it }
         }
     }
 
@@ -69,7 +59,6 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
 
     fun refresh() {
         if (!loading.value) {
-            _refreshTick.value++
             scanVideos()
         }
     }

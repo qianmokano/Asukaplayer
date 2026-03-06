@@ -33,8 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackStateRestorer
-import com.asuka.player.data.PlaybackStore
+import com.asuka.player.core.PlaybackStateRepository
 import com.asuka.player.ui.components.BottomBar
 import com.asuka.player.ui.components.DoubleTapIndicator
 import com.asuka.player.ui.components.ErrorOverlay
@@ -78,7 +77,7 @@ fun PlayerScreen(
     player: Player?,
     controller: PlaybackController,
     bindings: com.asuka.player.ui.controller.ControllerBindings?,
-    store: PlaybackStore,
+    playbackStateRepository: PlaybackStateRepository,
     settings: PlayerRuntimeSettings = PlayerRuntimeSettings(),
     isInPip: Boolean = false,
     onVideoBoundsChanged: ((android.graphics.Rect) -> Unit)? = null,
@@ -121,18 +120,18 @@ fun PlayerScreen(
     val durationMsState = rememberUpdatedState(uiState.durationMs)
     val mediaIdState = rememberUpdatedState(player?.currentMediaItem?.mediaId)
     val playbackSpeedState = rememberUpdatedState(player?.playbackParameters?.speed ?: 1.0f)
-    val overlayActions = remember(controller, store) {
+    val overlayActions = remember(controller, playbackStateRepository) {
         OverlayActions(
             controller = controller,
-            store = store,
+            playbackStateRepository = playbackStateRepository,
             mediaIdProvider = { mediaIdState.value },
         )
     }
-    val trackActions = remember(bindings) {
+    val trackActions = remember(bindings, playbackStateRepository) {
         bindings?.let {
             OverlayTrackActions(
                 trackSelection = it.trackSelection,
-                store = store,
+                playbackStateRepository = playbackStateRepository,
                 mediaIdProvider = { mediaIdState.value },
             )
         }
@@ -154,7 +153,7 @@ fun PlayerScreen(
     }
     LaunchedEffect(mediaIdState.value) {
         val mediaId = mediaIdState.value ?: return@LaunchedEffect
-        val resume = PlaybackStateRestorer(store).read(mediaId)
+        val resume = playbackStateRepository.readResumeState(mediaId)
         val zoom = resume.zoom ?: 1f
         zoomState.setTransform(zoom, androidx.compose.ui.geometry.Offset.Zero, pinching = false)
     }
@@ -197,7 +196,7 @@ fun PlayerScreen(
             seekState = seekState,
             zoomState = zoomState,
             onZoomEnd = { zoom ->
-                mediaIdState.value?.let { id -> store.saveZoom(id, zoom) }
+                mediaIdState.value?.let { id -> playbackStateRepository.saveZoom(id, zoom) }
             },
             playbackSpeedProvider = { playbackSpeedState.value },
             onDoubleTapFeedback = { delta -> tapFeedbackState.show(delta) },

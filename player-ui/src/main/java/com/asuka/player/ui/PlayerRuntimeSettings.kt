@@ -24,6 +24,7 @@ data class PlayerRuntimeSettings(
     val autoBackgroundPlay: Boolean = false,
     val rememberBrightness: Boolean = false,
     val rememberSelections: Boolean = true,
+    val keepSessionConnectionInBackground: Boolean = true,
 ) : Parcelable {
     enum class DoubleTapAction {
         Seek,
@@ -52,6 +53,7 @@ data class PlayerRuntimeSettings(
         autoBackgroundPlay = parcel.readByte() != 0.toByte(),
         rememberBrightness = parcel.readByte() != 0.toByte(),
         rememberSelections = parcel.readByte() != 0.toByte(),
+        keepSessionConnectionInBackground = parcel.readByte() != 0.toByte(),
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -75,6 +77,7 @@ data class PlayerRuntimeSettings(
         parcel.writeByte(if (autoBackgroundPlay) 1 else 0)
         parcel.writeByte(if (rememberBrightness) 1 else 0)
         parcel.writeByte(if (rememberSelections) 1 else 0)
+        parcel.writeByte(if (keepSessionConnectionInBackground) 1 else 0)
     }
 
     override fun describeContents(): Int = 0

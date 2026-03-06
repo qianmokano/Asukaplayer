@@ -1,0 +1,66 @@
+package com.asuka.player.core
+
+import android.net.Uri
+
+data class PlaybackStartupPolicy(
+    val resumePlayback: Boolean,
+    val defaultPlaybackSpeed: Float,
+    val rememberTrackSelections: Boolean,
+)
+
+data class TrackSelectionRestoreRequest(
+    val mediaId: String,
+    val audioTrackIndex: Int?,
+    val subtitleTrackIndex: Int?,
+)
+
+data class PlaybackSessionPlan(
+    val queue: QueueBuilder.Queue,
+    val resumePositionMs: Long,
+    val playbackSpeed: Float,
+    val trackSelectionRestoreRequest: TrackSelectionRestoreRequest?,
+)
+
+class PlaybackSessionPlanner(
+    private val playbackStateRepository: PlaybackStateRepository,
+    private val queueHistoryRepository: QueueHistoryRepository,
+) {
+    fun plan(
+        targetUri: Uri,
+        launchNeighbors: List<Uri>,
+        targetTitle: String?,
+        policy: PlaybackStartupPolicy,
+    ): PlaybackSessionPlan {
+        val queueUris = QueuePlanner.plan(
+            current = targetUri,
+            neighbors = launchNeighbors.filter { it != targetUri },
+            history = queueHistoryRepository.items(),
+        )
+        val queue = QueueBuilder.build(
+            uris = queueUris,
+            startUri = targetUri,
+            titleResolver = { uri ->
+                if (uri == targetUri) targetTitle else uri.lastPathSegment
+            },
+        )
+        val mediaId = targetUri.toString()
+        val resumeState = playbackStateRepository.readResumeState(mediaId)
+
+        val restoreRequest = if (policy.rememberTrackSelections) {
+            TrackSelectionRestoreRequest(
+                mediaId = mediaId,
+                audioTrackIndex = resumeState.audioTrackIndex,
+                subtitleTrackIndex = resumeState.subtitleTrackIndex,
+            ).takeIf { it.audioTrackIndex != null || it.subtitleTrackIndex != null }
+        } else {
+            null
+        }
+
+        return PlaybackSessionPlan(
+            queue = queue,
+            resumePositionMs = if (policy.resumePlayback) resumeState.positionMs else 0L,
+            playbackSpeed = resumeState.speed ?: policy.defaultPlaybackSpeed,
+            trackSelectionRestoreRequest = restoreRequest,
+        )
+    }
+}

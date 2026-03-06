@@ -49,6 +49,9 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.coroutines.guava)
 
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.junit)
+
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }

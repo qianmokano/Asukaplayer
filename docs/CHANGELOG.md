@@ -6,3 +6,9 @@
 - Persistence (position/speed/zoom/track)
 - Queue planning + history
 - Tests and checklists
+- Architecture hardening:
+  - `AsukaAppGraph` + `PlaybackCoreRuntime` replace ad-hoc runtime wiring
+  - `PlaybackLaunchCoordinator` and `PlaybackSessionCoordinator` split launch/session responsibilities
+  - `PlaybackSessionPlanner` and typed repositories centralize queue/resume policy
+  - `BackgroundPlaybackPolicy` centralizes background/PiP retention rules
+- Regression coverage added for launch forwarding, session planning, track restore timing, subtitle-off UI state, and background retention

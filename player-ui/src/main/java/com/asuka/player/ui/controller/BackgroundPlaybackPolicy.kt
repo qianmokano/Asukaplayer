@@ -1,17 +1,38 @@
 package com.asuka.player.ui.controller
 
-/**
- * Simplified policy for background play. Extend with settings/prefs.
- */
-class BackgroundPlaybackPolicy {
-    var allowBackground: Boolean = false
-        private set
+class BackgroundPlaybackPolicy(
+    retainControllerConnection: Boolean = true,
+    autoBackgroundPlaybackEnabled: Boolean = false,
+) {
+    private var retainControllerConnection: Boolean = retainControllerConnection
+    private var autoBackgroundPlaybackEnabled: Boolean = autoBackgroundPlaybackEnabled
+    private var inPictureInPicture: Boolean = false
+    private var manualBackgroundPlaybackRequested: Boolean = false
 
-    fun enableBackground() {
-        allowBackground = true
+    fun update(
+        retainControllerConnection: Boolean,
+        autoBackgroundPlaybackEnabled: Boolean,
+    ) {
+        this.retainControllerConnection = retainControllerConnection
+        this.autoBackgroundPlaybackEnabled = autoBackgroundPlaybackEnabled
     }
 
-    fun disableBackground() {
-        allowBackground = false
+    fun setPictureInPicture(active: Boolean) {
+        inPictureInPicture = active
+    }
+
+    fun requestBackgroundPlayback() {
+        manualBackgroundPlaybackRequested = true
+    }
+
+    fun clearManualBackgroundPlaybackRequest() {
+        manualBackgroundPlaybackRequested = false
+    }
+
+    fun shouldRetainSession(): Boolean {
+        return retainControllerConnection ||
+            autoBackgroundPlaybackEnabled ||
+            inPictureInPicture ||
+            manualBackgroundPlaybackRequested
     }
 }

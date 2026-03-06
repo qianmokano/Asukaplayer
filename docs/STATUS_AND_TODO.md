@@ -18,24 +18,38 @@
   - PIP + 后台播放基础接入
 - **M4 质量与打磨** ✅
   - 单元测试通过
-  - UI 测试通过
+  - JVM 测试与 Lint 基线通过
   - 文档与检查清单完善
 
+## 当前架构基线（2026-03）
+
+- 启动编排：
+  - `AsukaAppGraph` 负责应用级依赖装配
+  - `PlaybackLaunchCoordinator` 负责 URI 解析、seek fallback、`ClipData` 队列转发和运行时设置组装
+- 播放会话：
+  - `PlaybackSessionCoordinator` 负责把启动 intent、`MediaController` 和恢复逻辑串起来
+  - `PlaybackSessionPlanner` 负责队列、续播位置、速度和轨道恢复策略
+- 状态持久化：
+  - `PlaybackStateWriter` 负责写回
+  - `PlaybackStateRepository` / `QueueHistoryRepository` 负责 typed 读取
+- 生命周期策略：
+  - `BackgroundPlaybackPolicy` 统一决定后台、PiP 和手动后台播放下是否保留会话连接
+
 ## 测试结果摘要
-- `:player-domain:test` ✅
-- `:player-core:test` ✅
-- `:player-ui:connectedAndroidTest` ✅
+- `./gradlew test` ✅
+- `./gradlew lintDebug` ✅
+- `:player-ui:connectedAndroidTest`
+  - 需要连接设备或模拟器，未纳入当前本地基线
 
 ## 待办清单（建议）
 
-### 1) 后台播放完善（高优）
-- 前台通知（Foreground service）
-- MediaSession 通知控制
-- 后台播放与系统中断处理
+### 1) 系统媒体控制完善（高优）
+- 系统中断、耳机事件、音频焦点处理继续完善
+- 通知控制项与系统媒体面板体验继续打磨
 
-### 2) 轨道选择体验优化（中优）
-- UI 显示语言/码率/通道数
-- 当前选中项高亮更精确（override 同步）
+### 2) 仪器测试补强（高优）
+- 外部 `ACTION_VIEW` + `ClipData` 多文件播放
+- PiP、后台播放、通知链路
 
 ### 3) 队列策略与媒体扫描（中优）
 - 目录扫描/排序策略

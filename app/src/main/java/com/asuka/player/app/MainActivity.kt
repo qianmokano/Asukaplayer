@@ -4,10 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.system.ErrnoException
-import android.system.Os
-import android.system.OsConstants
-import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,12 +57,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.asuka.player.R
-import com.asuka.player.core.PlaybackStoreProvider
-import com.asuka.player.core.SeekFallbackCopier
-import com.asuka.player.ui.activity.PlaybackActivity
-import com.asuka.player.ui.PlayerRuntimeSettings
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.input.ImeAction
@@ -74,7 +66,7 @@ import androidx.compose.ui.text.input.KeyboardType
 
 class MainActivity : ComponentActivity() {
     private var launchedForDirectPlayback = false
-    private val seekFallbackCopier by lazy { SeekFallbackCopier(contentResolver, cacheDir) }
+    private val appGraph by lazy { application.appGraph }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,7 +81,11 @@ class MainActivity : ComponentActivity() {
             setContent {
                 Box(Modifier.fillMaxSize().background(Color.Black))
             }
-            requestPlayback(incomingData.toString(), AppSettingsStore(this).playerSettings)
+            requestPlayback(
+                mediaId = incomingData.toString(),
+                playerSettings = appGraph.playerSettingsRepository.playerSettings,
+                sourceIntent = intent,
+            )
             return
         }
 
@@ -100,75 +96,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestPlayback(mediaId: String, playerSettings: PlayerSettingsConfig) {
+    private fun requestPlayback(
+        mediaId: String,
+        playerSettings: PlayerSettingsConfig,
+        sourceIntent: Intent? = null,
+    ) {
         lifecycleScope.launch {
-            val resolvedUri = withContext(Dispatchers.IO) {
-                resolveUriForPlayback(Uri.parse(mediaId))
+            val launchRequest = withContext(Dispatchers.IO) {
+                appGraph.playbackLaunchCoordinator.createLaunchRequest(
+                    mediaId = mediaId,
+                    playerSettings = playerSettings,
+                    keepConnectionInBackground = appGraph.playbackBehaviorRepository.keepConnectionInBackground,
+                    sourceIntent = sourceIntent,
+                )
             }
-            startPlayback(resolvedUri, playerSettings)
+            startPlayback(launchRequest)
         }
     }
 
-    private fun startPlayback(mediaUri: Uri, playerSettings: PlayerSettingsConfig) {
-        val runtimeSettings = PlayerRuntimeSettings(
-            seekGestureEnabled = playerSettings.seekGestureEnabled,
-            brightnessGestureEnabled = playerSettings.brightnessGestureEnabled,
-            volumeGestureEnabled = playerSettings.volumeGestureEnabled,
-            zoomGestureEnabled = playerSettings.zoomGestureEnabled,
-            panGestureEnabled = playerSettings.panGestureEnabled,
-            doubleTapGestureEnabled = playerSettings.doubleTapGestureEnabled,
-            doubleTapAction = when (playerSettings.doubleTapAction) {
-                DoubleTapActionSetting.Seek -> PlayerRuntimeSettings.DoubleTapAction.Seek
-                DoubleTapActionSetting.TogglePlayPause -> PlayerRuntimeSettings.DoubleTapAction.TogglePlayPause
-                DoubleTapActionSetting.Both -> PlayerRuntimeSettings.DoubleTapAction.Both
-            },
-            longPressGestureEnabled = playerSettings.longPressGestureEnabled,
-            seekIncrementSec = playerSettings.seekIncrementSec,
-            seekSensitivity = playerSettings.seekSensitivity,
-            longPressSpeed = playerSettings.longPressSpeed,
-            controllerTimeoutSec = playerSettings.controllerTimeoutSec,
-            hideButtonsBackground = playerSettings.hideButtonsBackground,
-            resumePlayback = playerSettings.resumePlayback,
-            defaultPlaybackSpeed = playerSettings.defaultPlaybackSpeed,
-            autoplay = playerSettings.autoplay,
-            autoPip = playerSettings.autoPip,
-            autoBackgroundPlay = playerSettings.autoBackgroundPlay,
-            rememberBrightness = playerSettings.rememberBrightness,
-            rememberSelections = playerSettings.rememberSelections,
-        )
-        val playbackIntent = Intent(this, PlaybackActivity::class.java).apply {
-            data = mediaUri
-            if (mediaUri.scheme == "content") {
-                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-            }
-            putExtra(PlayerRuntimeSettings.EXTRA_KEY, runtimeSettings)
-        }
+    private fun startPlayback(launchRequest: PlaybackLaunchRequest) {
+        val playbackIntent = appGraph.playbackLaunchCoordinator.createPlaybackIntent(this, launchRequest)
         startActivity(playbackIntent)
         if (launchedForDirectPlayback) {
             finish()
-        }
-    }
-
-    private fun resolveUriForPlayback(sourceUri: Uri): Uri {
-        if (sourceUri.scheme != "content") return sourceUri
-        if (sourceUri.authority == MediaStore.AUTHORITY) return sourceUri
-        if (isContentUriSeekable(sourceUri)) return sourceUri
-        val copiedUri = seekFallbackCopier.copy(sourceUri)
-        return copiedUri ?: sourceUri
-    }
-
-    private fun isContentUriSeekable(uri: Uri): Boolean {
-        return try {
-            contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                try {
-                    Os.lseek(pfd.fileDescriptor, 0L, OsConstants.SEEK_CUR)
-                    true
-                } catch (_: ErrnoException) {
-                    false
-                }
-            } ?: false
-        } catch (_: Throwable) {
-            false
         }
     }
 }
@@ -177,6 +127,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
     val context = LocalContext.current
+    val appGraph = remember(context) { (context.applicationContext as AsuraPlayerApp).graph }
     val vm: MainLibraryViewModel = viewModel()
     val uiScope = rememberCoroutineScope()
     val appVersion = remember(context) { readAppVersion(context) }
@@ -389,7 +340,7 @@ private fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
-                            recentMediaIds = PlaybackStoreProvider.store.recentMediaIds(limit = 100)
+                            recentMediaIds = appGraph.playbackStateRepository.recentMediaIds(limit = 100)
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)

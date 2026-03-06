@@ -32,7 +32,14 @@ class SelectionState(private val player: Player) : Player.Listener {
         val selected = reader.read()
         val audio = selected.firstOrNull { it.type == C.TRACK_TYPE_AUDIO }
         val text = selected.firstOrNull { it.type == C.TRACK_TYPE_TEXT }
-        _selectedAudio.value = audio?.let { TrackIndexCodec.encode(it.groupIndex, it.trackIndex) }
-        _selectedSubtitle.value = text?.let { TrackIndexCodec.encode(it.groupIndex, it.trackIndex) }
+        val subtitlesDisabled = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+        val hasTextTracks = player.currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }
+
+        _selectedAudio.value = SelectionStateResolver.audioSelection(audio)
+        _selectedSubtitle.value = SelectionStateResolver.subtitleSelection(
+            selected = text,
+            subtitlesDisabled = subtitlesDisabled,
+            hasTextTracks = hasTextTracks,
+        )
     }
 }
