@@ -26,9 +26,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
+import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.requirePlaybackCoreGraph
 import com.asuka.player.ui.PlayerScreen
-import com.asuka.player.ui.PlayerRuntimeSettings
 import com.asuka.player.ui.R
 
 /**
@@ -61,7 +61,7 @@ class PlaybackActivity : ComponentActivity() {
             controllerContext = this,
         )
     }
-    private lateinit var runtimeSettings: PlayerRuntimeSettings
+    private lateinit var runtimeSettings: PlaybackRuntimeSettings
     private var pipReceiverRegistered = false
 
     private val pipPlayStateListener = object : Player.Listener {
@@ -319,14 +319,14 @@ class PlaybackActivity : ComponentActivity() {
         }
     }
 
-    private fun readRuntimeSettings(intent: Intent?): PlayerRuntimeSettings {
+    private fun readRuntimeSettings(intent: Intent?): PlaybackRuntimeSettings {
         @Suppress("DEPRECATION")
         val fromParcel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent?.getParcelableExtra(PlayerRuntimeSettings.EXTRA_KEY, PlayerRuntimeSettings::class.java)
+            intent?.getParcelableExtra(PlaybackRuntimeSettings.EXTRA_KEY, PlaybackRuntimeSettings::class.java)
         } else {
-            intent?.getParcelableExtra(PlayerRuntimeSettings.EXTRA_KEY)
+            intent?.getParcelableExtra(PlaybackRuntimeSettings.EXTRA_KEY)
         }
-        return fromParcel ?: PlayerRuntimeSettings()
+        return fromParcel ?: PlaybackRuntimeSettings()
     }
 
     private fun applyRememberedBrightnessIfNeeded() {

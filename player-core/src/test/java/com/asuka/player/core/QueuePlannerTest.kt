@@ -21,6 +21,21 @@ class QueuePlannerTest {
     }
 
     @Test
+    fun plan_preservesExplicitQueuePosition_whenCurrentAlreadyIncluded() {
+        val a = Uri.parse("file:///a.mp4")
+        val current = Uri.parse("file:///b.mp4")
+        val c = Uri.parse("file:///c.mp4")
+
+        val result = QueuePlanner.plan(
+            current = current,
+            neighbors = listOf(a, current, c),
+            history = emptyList(),
+        )
+
+        assertEquals(listOf(a, current, c), result)
+    }
+
+    @Test
     fun plan_mergesHistoryDistinct() {
         val current = Uri.parse("file:///b.mp4")
         val history = listOf(Uri.parse("file:///x.mp4"), current)

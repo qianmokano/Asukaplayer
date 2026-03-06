@@ -38,12 +38,12 @@ app/                  → Library browsing, settings, file picker; launches Play
 player-ui/            → Compose playback UI, gesture orchestration, session coordination
 player-core/          → Media3/ExoPlayer integration, MediaSessionService, queue/restore planning
 player-domain/        → Pure JVM algorithms (no Android deps) — gesture math & state machines
-player-data/          → Persistence abstractions (PlaybackStore interface + in-memory impl)
+player-data/          → Persistence abstractions and SharedPreferences-backed stores
 ```
 
 Dependency direction: `app` → `player-ui` → `player-core` → `player-data`; `player-ui` → `player-domain`
 
-`player-domain` and `player-data` are pure JVM libraries. `app`, `player-core`, and `player-ui` also have JVM coverage through JUnit/Robolectric tests.
+`player-domain` is a pure JVM library. `player-data`, `app`, `player-core`, and `player-ui` all have JVM/Robolectric test coverage.
 
 ## Key Architecture Decisions
 
@@ -54,16 +54,16 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 
 **Application wiring:**
 1. `AsuraPlayerApp` builds `AsukaAppGraph`.
-2. `AsukaAppGraph` implements `PlaybackCoreGraph`, and `AsuraPlayerApp` exposes it via `PlaybackCoreGraphOwner` so `player-core` can resolve runtime dependencies from the application composition root.
+2. `AsukaAppGraph` implements `PlaybackCoreGraph`, and `AsuraPlayerApp` installs it into `PlaybackCoreRegistry` so `player-core` can resolve runtime dependencies from the application composition root.
 
 **Playback launch and control flow:**
-1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI, forward/remap `ClipData`, and package `PlayerRuntimeSettings`.
+1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI, forward/remap `ClipData`, and package `PlaybackRuntimeSettings`.
 2. `PlaybackActivity` connects to `PlaybackService` (a `MediaSessionService`) via `MediaController`.
 3. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
 4. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
 5. `PlayerUiStateHolder` holds Compose UI state, while `ControllerBindings` wires UI events to controller methods.
 
-**State persistence:** `PlaybackStateWriter` writes position/speed/track indices to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
+**State persistence:** `PlaybackStateWriter` writes position/speed/stable track IDs to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
 
 **Queue management:** `PlaybackLaunchCoordinator` preserves external `ClipData` queue information, `IntentQueueReader` reads launch neighbors, `QueuePlanner` merges those with queue history, and queue history now persists alongside playback resume state.
 
@@ -91,7 +91,7 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 | `player-core/…/service/PlaybackService.kt` | MediaSessionService |
 | `player-domain/…/GestureAlgorithms.kt` | Pure gesture math |
 | `player-domain/…/GestureStateMachine.kt` | Gesture state machine |
-| `player-data/…/PlaybackStore.kt` | Persistence interface |
+| `player-data/…/PlaybackStore.kt` | Persistence interface and related stores |
 
 ## Tech Stack
 
@@ -105,7 +105,7 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 ## Testing Notes
 
 - `./gradlew test` is the current baseline local verification command and covers all JVM unit test suites in the repo.
-- `player-domain` and `player-data` tests are plain JVM tests.
+- `player-domain` tests are plain JVM tests; `player-data` uses Robolectric-backed unit tests for Android persistence code.
 - `app`, `player-core`, and `player-ui` use JUnit/Robolectric for launch/session/controller logic.
 - Instrumented tests remain available through `:player-ui:connectedAndroidTest` and still require a device/emulator.
 - Test output (pass/fail/skip events) is configured in the root `build.gradle.kts`.

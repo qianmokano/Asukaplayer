@@ -31,11 +31,11 @@ interface PlaybackStore {
     fun loadPlaybackSpeed(mediaId: String): Float?
     fun savePlaybackSpeed(mediaId: String, speed: Float)
 
-    fun loadAudioTrack(mediaId: String): Int?
-    fun saveAudioTrack(mediaId: String, trackIndex: Int)
+    fun loadAudioTrackId(mediaId: String): String?
+    fun saveAudioTrackId(mediaId: String, trackId: String)
 
-    fun loadSubtitleTrack(mediaId: String): Int?
-    fun saveSubtitleTrack(mediaId: String, trackIndex: Int)
+    fun loadSubtitleTrackId(mediaId: String): String?
+    fun saveSubtitleTrackId(mediaId: String, trackId: String)
 
     fun loadZoom(mediaId: String): Float?
     fun saveZoom(mediaId: String, zoom: Float)

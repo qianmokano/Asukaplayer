@@ -1,5 +1,6 @@
 package com.asuka.player.core
 
+import com.asuka.player.data.SharedPreferencesPlaybackStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -26,4 +27,3 @@ class SharedPreferencesPlaybackStoreCodecTest {
         assertEquals(listOf("a", "b", "c"), decoded)
     }
 }
-

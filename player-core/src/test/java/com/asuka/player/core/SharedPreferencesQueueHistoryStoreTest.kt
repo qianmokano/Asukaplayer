@@ -1,6 +1,7 @@
 package com.asuka.player.core
 
 import android.net.Uri
+import com.asuka.player.data.SharedPreferencesQueueHistoryStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.runner.RunWith

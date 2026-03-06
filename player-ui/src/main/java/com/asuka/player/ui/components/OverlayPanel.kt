@@ -179,14 +179,14 @@ fun OverlayPanel(
                                         audioTracks,
                                         selectedAudio,
                                     ) { track ->
-                                        trackActions?.setAudioTrack(track.groupIndex, track.trackIndex)
+                                        trackActions?.setAudioTrack(track)
                                     }
                                     OverlayType.SUBTITLE -> SubtitleSelectorPanel(
                                         subtitleTracks,
                                         selectedSubtitle,
                                         onDisable = { trackActions?.disableSubtitles() },
                                     ) { track ->
-                                        trackActions?.setSubtitleTrack(track.groupIndex, track.trackIndex)
+                                        trackActions?.setSubtitleTrack(track)
                                     }
                                     OverlayType.SPEED -> SpeedSelectorPanel(
                                         selectedSpeed = currentSpeed,

@@ -1,4 +1,4 @@
-package com.asuka.player.core
+package com.asuka.player.data
 
 import android.content.Context
 import android.net.Uri

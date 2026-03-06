@@ -3,6 +3,7 @@ package com.asuka.player.core
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import com.asuka.player.data.QueueHistoryStore
 
 class QueueHistoryWriter(
     private val store: QueueHistoryStore,

@@ -10,8 +10,8 @@ data class PlaybackStartupPolicy(
 
 data class TrackSelectionRestoreRequest(
     val mediaId: String,
-    val audioTrackIndex: Int?,
-    val subtitleTrackIndex: Int?,
+    val audioTrackSelection: PersistedTrackSelection?,
+    val subtitleTrackSelection: PersistedTrackSelection?,
 )
 
 data class PlaybackSessionPlan(
@@ -33,7 +33,7 @@ class PlaybackSessionPlanner(
     ): PlaybackSessionPlan {
         val queueUris = QueuePlanner.plan(
             current = targetUri,
-            neighbors = launchNeighbors.filter { it != targetUri },
+            neighbors = launchNeighbors,
             history = queueHistoryRepository.items(),
         )
         val queue = QueueBuilder.build(
@@ -47,9 +47,9 @@ class PlaybackSessionPlanner(
         val restoreRequest = if (policy.rememberTrackSelections) {
             TrackSelectionRestoreRequest(
                 mediaId = mediaId,
-                audioTrackIndex = resumeState.audioTrackIndex,
-                subtitleTrackIndex = resumeState.subtitleTrackIndex,
-            ).takeIf { it.audioTrackIndex != null || it.subtitleTrackIndex != null }
+                audioTrackSelection = resumeState.audioTrackSelection,
+                subtitleTrackSelection = resumeState.subtitleTrackSelection,
+            ).takeIf { it.audioTrackSelection != null || it.subtitleTrackSelection != null }
         } else {
             null
         }

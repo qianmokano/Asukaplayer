@@ -12,10 +12,11 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.asuka.player.core.PlaybackController
 import com.asuka.player.core.PlaybackCoreGraph
+import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.PlaybackStartupPolicy
 import com.asuka.player.core.SeekFallbackCopier
+import com.asuka.player.core.copyIntentWithRemappedUri
 import com.asuka.player.core.impl.Media3PlaybackController
-import com.asuka.player.ui.PlayerRuntimeSettings
 import com.asuka.player.ui.controller.ControllerBindings
 import com.asuka.player.ui.controller.ControllerProvider
 import com.asuka.player.ui.controller.PlaybackSessionCoordinator
@@ -82,7 +83,7 @@ internal class PlaybackSessionHost(
     private var uiStateFeedJob: Job? = null
     private var sessionCoordinator: PlaybackSessionCoordinator? = null
     private var currentIntent: Intent? = null
-    private var runtimeSettings: PlayerRuntimeSettings = PlayerRuntimeSettings()
+    private var runtimeSettings: PlaybackRuntimeSettings = PlaybackRuntimeSettings()
     private val seekFallbackAttemptedUris = mutableSetOf<String>()
 
     private val seekFallbackListener = object : Player.Listener {
@@ -103,7 +104,7 @@ internal class PlaybackSessionHost(
 
     fun ensureControllerReady(
         launchIntent: Intent?,
-        runtimeSettings: PlayerRuntimeSettings,
+        runtimeSettings: PlaybackRuntimeSettings,
     ) {
         currentIntent = launchIntent
         this.runtimeSettings = runtimeSettings
@@ -112,7 +113,7 @@ internal class PlaybackSessionHost(
 
     fun onNewIntent(
         launchIntent: Intent,
-        runtimeSettings: PlayerRuntimeSettings,
+        runtimeSettings: PlaybackRuntimeSettings,
     ) {
         currentIntent = launchIntent
         this.runtimeSettings = runtimeSettings
@@ -325,7 +326,11 @@ internal class PlaybackSessionHost(
                 seekFallbackCopier.copy(currentUri, checkSize = true)
             } ?: return@launch
             Log.i(TAG, "fallback[$reason] src=${currentUri.authority} dst=${copiedUri.lastPathSegment}")
-            currentIntent = Intent(currentIntent).apply { data = copiedUri }
+            currentIntent = copyIntentWithRemappedUri(
+                intent = currentIntent,
+                originalUri = currentUri,
+                replacementUri = copiedUri,
+            )
             startSingleMedia(copiedUri)
         }
     }

@@ -18,6 +18,7 @@ class TrackInfoReader(private val player: Player) {
         val type: Int,
         val label: String,
         val language: String?,
+        val selectionId: String,
     )
 
     fun listTracks(): List<TrackInfo> {
@@ -43,6 +44,7 @@ class TrackInfoReader(private val player: Player) {
                     type = type,
                     label = label,
                     language = format.language,
+                    selectionId = TrackSelectionIdentity.create(type, format),
                 )
             }
         }

@@ -9,9 +9,9 @@ object TrackIndexCodec {
     private const val MAX_TRACK_INDEX = 0xFFFF
 
     /**
-     * Sentinel value stored via [PlaybackStore.saveSubtitleTrack] to indicate that
-     * subtitles were explicitly disabled by the user. Consumers must check for this
-     * value before calling [decode], as decoding it produces invalid indices.
+     * Sentinel value used by UI selection state to indicate that subtitles were
+     * explicitly disabled by the user. Consumers must check for this value before
+     * calling [decode], as decoding it produces invalid indices.
      */
     const val SUBTITLE_DISABLED = -1
 

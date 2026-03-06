@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import com.asuka.player.core.PlaybackController
+import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.PlaybackStateRepository
 import com.asuka.player.ui.components.BottomBar
 import com.asuka.player.ui.components.DoubleTapIndicator
@@ -78,7 +79,7 @@ fun PlayerScreen(
     controller: PlaybackController,
     bindings: com.asuka.player.ui.controller.ControllerBindings?,
     playbackStateRepository: PlaybackStateRepository,
-    settings: PlayerRuntimeSettings = PlayerRuntimeSettings(),
+    settings: PlaybackRuntimeSettings = PlaybackRuntimeSettings(),
     isInPip: Boolean = false,
     onVideoBoundsChanged: ((android.graphics.Rect) -> Unit)? = null,
     onBack: () -> Unit,

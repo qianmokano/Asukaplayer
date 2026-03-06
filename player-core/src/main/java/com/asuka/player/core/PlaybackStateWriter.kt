@@ -87,8 +87,8 @@ class PlaybackStateWriter(
         // causing tracks to be saved against the wrong mediaId. Use the player's current
         // media item directly to guarantee we write to the correct key.
         val mediaId = attachedPlayer?.currentMediaItem?.mediaId ?: return
-        var selectedAudio: Int? = null
-        var selectedSubtitle: Int? = null
+        var selectedAudioId: String? = null
+        var selectedSubtitleId: String? = null
         var hasTextGroup = false
 
         tracks.groups.forEachIndexed { groupIndex, group ->
@@ -98,20 +98,23 @@ class PlaybackStateWriter(
                 group.isTrackSelected(trackIndex)
             } ?: return@forEachIndexed
 
-            val encoded = TrackIndexCodec.encode(groupIndex, selectedTrackIndex)
+            val stableId = TrackSelectionIdentity.create(
+                type = group.type,
+                format = group.mediaTrackGroup.getFormat(selectedTrackIndex),
+            )
             when (group.type) {
-                C.TRACK_TYPE_AUDIO -> if (selectedAudio == null) selectedAudio = encoded
-                C.TRACK_TYPE_TEXT -> if (selectedSubtitle == null) selectedSubtitle = encoded
+                C.TRACK_TYPE_AUDIO -> if (selectedAudioId == null) selectedAudioId = stableId
+                C.TRACK_TYPE_TEXT -> if (selectedSubtitleId == null) selectedSubtitleId = stableId
             }
         }
 
-        selectedAudio?.let { store.saveAudioTrack(mediaId, it) }
-        if (selectedSubtitle != null) {
-            store.saveSubtitleTrack(mediaId, selectedSubtitle)
+        selectedAudioId?.let { store.saveAudioTrackId(mediaId, it) }
+        if (selectedSubtitleId != null) {
+            store.saveSubtitleTrackId(mediaId, selectedSubtitleId)
         } else if (hasTextGroup &&
             attachedPlayer?.trackSelectionParameters?.disabledTrackTypes?.contains(C.TRACK_TYPE_TEXT) == true
         ) {
-            store.saveSubtitleTrack(mediaId, TrackIndexCodec.SUBTITLE_DISABLED)
+            store.saveSubtitleTrackId(mediaId, PersistedTrackSelection.DISABLED_SUBTITLE_ID)
         }
     }
 }

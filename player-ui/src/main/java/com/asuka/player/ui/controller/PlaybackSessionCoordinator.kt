@@ -8,6 +8,7 @@ import com.asuka.player.core.IntentQueueReader
 import com.asuka.player.core.PlaybackSessionPlan
 import com.asuka.player.core.PlaybackSessionPlanner
 import com.asuka.player.core.PlaybackStartupPolicy
+import com.asuka.player.core.TrackInfoReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -17,9 +18,11 @@ class PlaybackSessionCoordinator(
     private val sessionPlanner: PlaybackSessionPlanner,
     private val titleResolver: suspend (Uri) -> String?,
 ) : Player.Listener {
+    private val trackInfoReader = TrackInfoReader(mediaController)
     private val trackSelectionRestoreController = TrackSelectionRestoreController(
         currentMediaIdProvider = { mediaController.currentMediaItem?.mediaId },
-        trackGroupCountProvider = { mediaController.currentTracks.groups.size },
+        tracksReadyProvider = { mediaController.currentTracks.groups.isNotEmpty() },
+        availableTracksProvider = { trackInfoReader.listTracks() },
         applyAudioTrack = { groupIndex, trackIndex ->
             controllerBindings.trackSelection.setAudioTrack(groupIndex, trackIndex)
         },

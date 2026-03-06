@@ -1,6 +1,7 @@
 package com.asuka.player.core
 
 import android.net.Uri
+import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.data.InMemoryPlaybackStore
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -14,14 +15,15 @@ class PlaybackSessionPlannerTest {
     private val target = Uri.parse("file:///video/target.mp4")
     private val extra = Uri.parse("file:///video/extra.mp4")
     private val history = Uri.parse("file:///video/history.mp4")
+    private val previous = Uri.parse("file:///video/previous.mp4")
 
     @Test
     fun plan_buildsQueueAndRestoresPositionIndependentlyFromTrackSelections() {
         val store = InMemoryPlaybackStore().apply {
             savePosition(target.toString(), 42_000L)
             savePlaybackSpeed(target.toString(), 1.75f)
-            saveAudioTrack(target.toString(), TrackIndexCodec.encode(1, 0))
-            saveSubtitleTrack(target.toString(), TrackIndexCodec.SUBTITLE_DISABLED)
+            saveAudioTrackId(target.toString(), "audio-1")
+            saveSubtitleTrackId(target.toString(), PersistedTrackSelection.DISABLED_SUBTITLE_ID)
         }
         val historyStore = InMemoryQueueHistoryStore().apply { push(history) }
         val planner = PlaybackSessionPlanner(
@@ -50,8 +52,8 @@ class PlaybackSessionPlannerTest {
     @Test
     fun plan_includesTrackRestoreOnlyWhenEnabled() {
         val store = InMemoryPlaybackStore().apply {
-            saveAudioTrack(target.toString(), TrackIndexCodec.encode(2, 1))
-            saveSubtitleTrack(target.toString(), TrackIndexCodec.encode(3, 0))
+            saveAudioTrackId(target.toString(), "audio-2")
+            saveSubtitleTrackId(target.toString(), "subtitle-3")
         }
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(store),
@@ -73,8 +75,8 @@ class PlaybackSessionPlannerTest {
         assertEquals(
             TrackSelectionRestoreRequest(
                 mediaId = target.toString(),
-                audioTrackIndex = TrackIndexCodec.encode(2, 1),
-                subtitleTrackIndex = TrackIndexCodec.encode(3, 0),
+                audioTrackSelection = PersistedTrackSelection("audio-2"),
+                subtitleTrackSelection = PersistedTrackSelection("subtitle-3"),
             ),
             plan.trackSelectionRestoreRequest,
         )
@@ -105,6 +107,36 @@ class PlaybackSessionPlannerTest {
         assertEquals(listOf(target, extra), plan.queue.items.map { it.localConfiguration?.uri })
         assertEquals(
             listOf("Target Title", "Extra Title"),
+            plan.queue.items.map { it.mediaMetadata.title?.toString() },
+        )
+    }
+
+    @Test
+    fun plan_preservesExplicitQueueOrderWhenTargetIsNotFirstItem() {
+        val planner = PlaybackSessionPlanner(
+            playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
+            queueHistoryRepository = QueueHistoryRepository(InMemoryQueueHistoryStore()),
+        )
+
+        val plan = planner.plan(
+            targetUri = target,
+            launchNeighbors = listOf(previous, target, extra),
+            resolvedTitles = mapOf(
+                previous to "Previous Title",
+                target to "Target Title",
+                extra to "Extra Title",
+            ),
+            policy = PlaybackStartupPolicy(
+                resumePlayback = false,
+                defaultPlaybackSpeed = 1.0f,
+                rememberTrackSelections = false,
+            ),
+        )
+
+        assertEquals(listOf(previous, target, extra), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(1, plan.queue.startIndex)
+        assertEquals(
+            listOf("Previous Title", "Target Title", "Extra Title"),
             plan.queue.items.map { it.mediaMetadata.title?.toString() },
         )
     }

@@ -1,7 +1,6 @@
 package com.asuka.player.app
 
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
@@ -51,13 +50,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.asuka.player.R
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
     val context = LocalContext.current
-    val appGraph = remember(context) { (context.applicationContext as AsuraPlayerApp).graph }
     val vm: MainLibraryViewModel = viewModel()
     val uiScope = rememberCoroutineScope()
     val appVersion = remember(context) { readAppVersion(context) }
@@ -72,8 +71,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
     val loading by vm.loading.collectAsState()
     val hasLoadedOnce by vm.hasLoadedOnce.collectAsState()
     val items by vm.items.collectAsState()
-
-    val invalidNetworkStreamMessage = stringResource(id = R.string.open_network_stream_invalid)
+    val recentMediaIds by vm.recentMediaIds.collectAsState()
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -91,6 +89,15 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
 
     LaunchedEffect(permissionGranted, userSelectedPermissionGranted) {
         if (permissionGranted || userSelectedPermissionGranted) vm.scanVideos()
+    }
+
+    LaunchedEffect(vm, context) {
+        vm.events.collect { event ->
+            when (event) {
+                is MainLibraryEvent.ShowToast ->
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -165,16 +172,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                     onUrlChange = { networkStreamUrl = it },
                     onDismiss = { showOpenNetworkStreamDialog = false },
                     onPlay = { url ->
-                        val trimmed = url.trim()
-                        val parsed = runCatching { Uri.parse(trimmed) }.getOrNull()
-                        if (trimmed.isBlank() || parsed?.scheme.isNullOrBlank()) {
-                            Toast.makeText(
-                                context,
-                                invalidNetworkStreamMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                            return@OpenNetworkStreamDialog
-                        }
+                        val trimmed = vm.validateNetworkStreamUrl(url) ?: return@OpenNetworkStreamDialog
                         showOpenNetworkStreamDialog = false
                         onPlay(trimmed, playerSettings)
                     },
@@ -256,11 +254,10 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                 composable(route = ROUTE_RECENT) {
                     val knownByUri = remember(items) { items.associateBy { it.uri.toString() } }
                     val lifecycleOwner = LocalLifecycleOwner.current
-                    var recentMediaIds by remember { mutableStateOf(emptyList<String>()) }
                     DisposableEffect(lifecycleOwner) {
                         val observer = LifecycleEventObserver { _, event ->
                             if (event == Lifecycle.Event.ON_RESUME) {
-                                recentMediaIds = appGraph.playbackStateRepository.recentMediaIds(limit = 100)
+                                vm.refreshRecentMediaIds()
                             }
                         }
                         lifecycleOwner.lifecycle.addObserver(observer)
@@ -335,7 +332,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             modifier = Modifier.padding(innerPadding),
                             appVersion = appVersion,
                             hapticFeedbackEnabled = hapticFeedbackEnabled,
-                            onHapticFeedbackEnabledChange = { vm.hapticFeedbackEnabled.value = it },
+                            onHapticFeedbackEnabledChange = { vm.setHapticFeedbackEnabled(it) },
                             onOpenPlayer = { navController.navigate(ROUTE_SETTINGS_PLAYER) },
                             onOpenTheme = { navController.navigate(ROUTE_SETTINGS_THEME) },
                             onOpenMotion = { navController.navigate(ROUTE_SETTINGS_MOTION) },
@@ -358,7 +355,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                         PlayerSettingsPlaceholderPageContent(
                             modifier = Modifier.padding(innerPadding),
                             playerSettings = playerSettings,
-                            onPlayerSettingsChange = { vm.playerSettings.value = it },
+                            onPlayerSettingsChange = { vm.setPlayerSettings(it) },
                         )
                     }
                 }
@@ -380,8 +377,8 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             themeConfig = themeConfig,
                             customThemes = customThemes,
                             hapticsEnabled = hapticFeedbackEnabled,
-                            onThemeConfigChange = { vm.themeConfig.value = it },
-                            onCustomThemesChange = { vm.customThemes.value = it },
+                            onThemeConfigChange = { vm.setThemeConfig(it) },
+                            onCustomThemesChange = { vm.setCustomThemes(it) },
                         )
                     }
                 }
@@ -401,7 +398,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                         MotionSettingsPageContent(
                             modifier = Modifier.padding(innerPadding),
                             navDurationMs = navDurationMs,
-                            onNavDurationChange = { vm.navDurationMs.value = it },
+                            onNavDurationChange = { vm.setNavDurationMs(it) },
                         )
                     }
                 }

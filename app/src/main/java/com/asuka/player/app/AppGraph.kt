@@ -6,14 +6,15 @@ import com.asuka.player.core.PlaybackStateRepository
 import com.asuka.player.core.PlaybackSessionPlanner
 import com.asuka.player.core.QueueHistoryRepository
 import com.asuka.player.core.R as CoreR
-import com.asuka.player.core.SharedPreferencesPlaybackStore
-import com.asuka.player.core.SharedPreferencesQueueHistoryStore
+import com.asuka.player.data.SharedPreferencesAppSettingsStore
+import com.asuka.player.data.SharedPreferencesPlaybackStore
+import com.asuka.player.data.SharedPreferencesQueueHistoryStore
 import com.asuka.player.ui.activity.PlaybackActivity
 
 internal class AsukaAppGraph(
     application: Application,
 ) : PlaybackCoreGraph {
-    private val settingsStore = AppSettingsStore(application)
+    private val settingsStore = SharedPreferencesAppSettingsStore(application)
     private val uriResolver = SeekAwarePlaybackUriResolver(
         contentResolver = application.contentResolver,
         cacheDir = application.cacheDir,

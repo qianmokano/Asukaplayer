@@ -5,8 +5,8 @@ import java.util.concurrent.ConcurrentHashMap
 class InMemoryPlaybackStore : PlaybackStore {
     private val positions = ConcurrentHashMap<String, Long>()
     private val speeds = ConcurrentHashMap<String, Float>()
-    private val audioTracks = ConcurrentHashMap<String, Int>()
-    private val subtitleTracks = ConcurrentHashMap<String, Int>()
+    private val audioTrackIds = ConcurrentHashMap<String, String>()
+    private val subtitleTrackIds = ConcurrentHashMap<String, String>()
     private val zooms = ConcurrentHashMap<String, Float>()
 
     override fun loadPosition(mediaId: String): Long? = positions[mediaId]
@@ -19,14 +19,14 @@ class InMemoryPlaybackStore : PlaybackStore {
         speeds[mediaId] = speed
     }
 
-    override fun loadAudioTrack(mediaId: String): Int? = audioTracks[mediaId]
-    override fun saveAudioTrack(mediaId: String, trackIndex: Int) {
-        audioTracks[mediaId] = trackIndex
+    override fun loadAudioTrackId(mediaId: String): String? = audioTrackIds[mediaId]
+    override fun saveAudioTrackId(mediaId: String, trackId: String) {
+        audioTrackIds[mediaId] = trackId
     }
 
-    override fun loadSubtitleTrack(mediaId: String): Int? = subtitleTracks[mediaId]
-    override fun saveSubtitleTrack(mediaId: String, trackIndex: Int) {
-        subtitleTracks[mediaId] = trackIndex
+    override fun loadSubtitleTrackId(mediaId: String): String? = subtitleTrackIds[mediaId]
+    override fun saveSubtitleTrackId(mediaId: String, trackId: String) {
+        subtitleTrackIds[mediaId] = trackId
     }
 
     override fun loadZoom(mediaId: String): Float? = zooms[mediaId]

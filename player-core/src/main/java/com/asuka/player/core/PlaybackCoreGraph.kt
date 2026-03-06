@@ -3,6 +3,7 @@ package com.asuka.player.core
 import android.content.Context
 import androidx.annotation.DrawableRes
 import com.asuka.player.data.PlaybackStore
+import com.asuka.player.data.QueueHistoryStore
 
 interface PlaybackCoreGraph {
     val playbackStore: PlaybackStore
@@ -15,14 +16,6 @@ interface PlaybackCoreGraph {
     val notificationSmallIconResId: Int
 }
 
-interface PlaybackCoreGraphOwner {
-    val playbackCoreGraph: PlaybackCoreGraph
-}
-
 fun Context.requirePlaybackCoreGraph(): PlaybackCoreGraph {
-    val app = applicationContext
-    return (app as? PlaybackCoreGraphOwner)?.playbackCoreGraph
-        ?: error(
-            "Application must implement PlaybackCoreGraphOwner and expose a PlaybackCoreGraph.",
-        )
+    return PlaybackCoreRegistry.require(applicationContext)
 }

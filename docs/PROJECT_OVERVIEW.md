@@ -33,7 +33,7 @@
   - Overlay 面板、进度条、反馈组件、后台保活策略
 - `:player-core`
   - 播放控制抽象与 Media3 适配
-  - `PlaybackCoreGraph` / `PlaybackCoreGraphOwner` 把应用 composition root 暴露给 `PlaybackService`
+  - `PlaybackCoreGraph` / `PlaybackCoreRegistry` 把应用 composition root 暴露给 `PlaybackService`
   - `PlaybackSessionPlanner`、`QueuePlanner`、`IntentQueueReader` 负责队列/恢复规划
   - `PlaybackStateRepository`、`QueueHistoryRepository` 提供 typed 持久化访问
   - Service/Session、播放状态读写、轨道选择与恢复机制
@@ -41,7 +41,7 @@
   - 纯算法与状态机（手势相关）
   - 便于单元测试和复用
 - `:player-data`
-  - 数据存储抽象与基础实现（`PlaybackStore`、`InMemoryPlaybackStore`）
+  - 数据存储抽象与落盘实现（`PlaybackStore`、`QueueHistoryStore`、`AppSettingsStore`）
 
 ## 4. 关键页面与能力
 - 首页（媒体库）
@@ -57,11 +57,11 @@
   - 参数已接入运行时业务（如续播、默认倍速、双击动作、长按倍速、自动 PIP、后台播放等）
 
 ## 5. 数据与状态流（简版）
-- 用户在 `:app` 中选择媒体 -> `PlaybackLaunchCoordinator` 解析可播放 URI、补齐 `ClipData` 队列与 `PlayerRuntimeSettings`
+- 用户在 `:app` 中选择媒体 -> `PlaybackLaunchCoordinator` 解析可播放 URI、补齐 `ClipData` 队列与 `PlaybackRuntimeSettings`
 - `PlaybackActivity` 通过 `PlaybackSessionHost` 连接 `PlaybackService` 的 `MediaController`
 - `PlaybackSessionCoordinator` 调用 `PlaybackSessionPlanner` 生成 `PlaybackSessionPlan`
 - `:player-core` 把计划应用到 Media3，并通过 `PlaybackStateWriter` 写回位置、速度、轨道和缩放
-- `:player-data` 提供底层存储接口，`PlaybackStateRepository` / `QueueHistoryRepository` 提供 typed 访问，队列历史与播放状态一并持久化
+- `:player-data` 提供底层存储接口与 SharedPreferences 实现，`PlaybackStateRepository` / `QueueHistoryRepository` 提供 typed 访问，队列历史、播放状态与设置持久化都从这里落盘
 
 ## 6. 测试与质量
 - JVM 单元测试：

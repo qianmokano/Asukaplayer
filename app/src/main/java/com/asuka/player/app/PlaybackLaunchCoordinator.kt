@@ -8,8 +8,9 @@ import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import android.provider.MediaStore
+import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.SeekFallbackCopier
-import com.asuka.player.ui.PlayerRuntimeSettings
+import com.asuka.player.core.remapClipDataUri
 import com.asuka.player.ui.activity.PlaybackActivity
 import java.io.File
 
@@ -20,7 +21,7 @@ internal interface PlaybackUriResolver {
 internal data class PlaybackLaunchRequest(
     val mediaUri: Uri,
     val clipData: ClipData?,
-    val runtimeSettings: PlayerRuntimeSettings,
+    val runtimeSettings: PlaybackRuntimeSettings,
 )
 
 internal class PlaybackLaunchCoordinator(
@@ -36,10 +37,10 @@ internal class PlaybackLaunchCoordinator(
         val resolvedUri = uriResolver.resolveForPlayback(sourceUri)
         return PlaybackLaunchRequest(
             mediaUri = resolvedUri,
-            clipData = remapClipData(
+            clipData = remapClipDataUri(
                 clipData = sourceIntent?.clipData,
-                originalSourceUri = sourceUri,
-                forwardedSourceUri = resolvedUri,
+                originalUri = sourceUri,
+                replacementUri = resolvedUri,
             ),
             runtimeSettings = playerSettings.toRuntimeSettings(
                 keepConnectionInBackground = keepConnectionInBackground,
@@ -54,28 +55,8 @@ internal class PlaybackLaunchCoordinator(
             if (request.mediaUri.scheme == "content" || request.clipData != null) {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            putExtra(PlayerRuntimeSettings.EXTRA_KEY, request.runtimeSettings)
+            putExtra(PlaybackRuntimeSettings.EXTRA_KEY, request.runtimeSettings)
         }
-    }
-
-    private fun remapClipData(
-        clipData: ClipData?,
-        originalSourceUri: Uri,
-        forwardedSourceUri: Uri,
-    ): ClipData? {
-        if (clipData == null || clipData.itemCount == 0) return null
-
-        var remapped: ClipData? = null
-        for (index in 0 until clipData.itemCount) {
-            val rawUri = clipData.getItemAt(index).uri ?: continue
-            val mappedUri = if (rawUri == originalSourceUri) forwardedSourceUri else rawUri
-            remapped = if (remapped == null) {
-                ClipData.newRawUri(clipData.description.label, mappedUri)
-            } else {
-                remapped.apply { addItem(ClipData.Item(mappedUri)) }
-            }
-        }
-        return remapped
     }
 }
 
@@ -110,8 +91,8 @@ internal class SeekAwarePlaybackUriResolver(
 
 internal fun PlayerSettingsConfig.toRuntimeSettings(
     keepConnectionInBackground: Boolean,
-): PlayerRuntimeSettings {
-    return PlayerRuntimeSettings(
+): PlaybackRuntimeSettings {
+    return PlaybackRuntimeSettings(
         seekGestureEnabled = seekGestureEnabled,
         brightnessGestureEnabled = brightnessGestureEnabled,
         volumeGestureEnabled = volumeGestureEnabled,
@@ -119,9 +100,9 @@ internal fun PlayerSettingsConfig.toRuntimeSettings(
         panGestureEnabled = panGestureEnabled,
         doubleTapGestureEnabled = doubleTapGestureEnabled,
         doubleTapAction = when (doubleTapAction) {
-            DoubleTapActionSetting.Seek -> PlayerRuntimeSettings.DoubleTapAction.Seek
-            DoubleTapActionSetting.TogglePlayPause -> PlayerRuntimeSettings.DoubleTapAction.TogglePlayPause
-            DoubleTapActionSetting.Both -> PlayerRuntimeSettings.DoubleTapAction.Both
+            DoubleTapActionSetting.Seek -> PlaybackRuntimeSettings.DoubleTapAction.Seek
+            DoubleTapActionSetting.TogglePlayPause -> PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause
+            DoubleTapActionSetting.Both -> PlaybackRuntimeSettings.DoubleTapAction.Both
         },
         longPressGestureEnabled = longPressGestureEnabled,
         seekIncrementSec = seekIncrementSec,

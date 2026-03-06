@@ -5,8 +5,8 @@ import com.asuka.player.data.PlaybackStore
 data class ResumeState(
     val positionMs: Long,
     val speed: Float?,
-    val audioTrackIndex: Int?,
-    val subtitleTrackIndex: Int?,
+    val audioTrackSelection: PersistedTrackSelection?,
+    val subtitleTrackSelection: PersistedTrackSelection?,
     val zoom: Float?,
 )
 
@@ -21,8 +21,12 @@ class PlaybackStateRepository(
         return ResumeState(
             positionMs = store.loadPosition(mediaId) ?: 0L,
             speed = store.loadPlaybackSpeed(mediaId),
-            audioTrackIndex = store.loadAudioTrack(mediaId),
-            subtitleTrackIndex = store.loadSubtitleTrack(mediaId),
+            audioTrackSelection = store.loadAudioTrackId(mediaId)
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::PersistedTrackSelection),
+            subtitleTrackSelection = store.loadSubtitleTrackId(mediaId)
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::PersistedTrackSelection),
             zoom = store.loadZoom(mediaId),
         )
     }
@@ -33,12 +37,16 @@ class PlaybackStateRepository(
         store.savePlaybackSpeed(mediaId, speed)
     }
 
-    fun saveAudioTrack(mediaId: String, trackIndex: Int) {
-        store.saveAudioTrack(mediaId, trackIndex)
+    fun saveAudioTrack(mediaId: String, trackId: String) {
+        store.saveAudioTrackId(mediaId, trackId)
     }
 
-    fun saveSubtitleTrack(mediaId: String, trackIndex: Int) {
-        store.saveSubtitleTrack(mediaId, trackIndex)
+    fun saveSubtitleTrack(mediaId: String, trackId: String) {
+        store.saveSubtitleTrackId(mediaId, trackId)
+    }
+
+    fun disableSubtitles(mediaId: String) {
+        store.saveSubtitleTrackId(mediaId, PersistedTrackSelection.DISABLED_SUBTITLE_ID)
     }
 
     fun saveZoom(mediaId: String, zoom: Float) {

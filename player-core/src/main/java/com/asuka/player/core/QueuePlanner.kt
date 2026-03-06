@@ -7,10 +7,18 @@ import android.net.Uri
  */
 object QueuePlanner {
     fun plan(current: Uri, neighbors: List<Uri> = emptyList(), history: List<Uri> = emptyList()): List<Uri> {
-        // When the caller provides an explicit queue (e.g. ClipData order), preserve it verbatim.
-        // `distinct()` keeps the first occurrence so the current item stays at index 0.
-        val base = (listOf(current) + neighbors).distinct()
-        if (neighbors.isNotEmpty()) return base
+        if (neighbors.isNotEmpty()) {
+            // When the caller provides an explicit queue (e.g. ClipData order), preserve it
+            // verbatim if it already contains the current item. Otherwise prepend the current
+            // item and keep the remaining order as provided.
+            val explicitQueue = neighbors.distinct()
+            return if (current in explicitQueue) {
+                explicitQueue
+            } else {
+                listOf(current) + explicitQueue
+            }
+        }
+        val base = listOf(current)
         val baseSet = base.toHashSet()
         val remainingHistory = history.filter { it !in baseSet }
         return base + remainingHistory

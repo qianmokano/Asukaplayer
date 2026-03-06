@@ -1,11 +1,14 @@
 package com.asuka.player.ui.controller
 
-import com.asuka.player.core.TrackIndexCodec
+import androidx.media3.common.C
+import com.asuka.player.core.PersistedTrackSelection
+import com.asuka.player.core.TrackInfoReader
 import com.asuka.player.core.TrackSelectionRestoreRequest
 
 internal class TrackSelectionRestoreController(
     private val currentMediaIdProvider: () -> String?,
-    private val trackGroupCountProvider: () -> Int,
+    private val tracksReadyProvider: () -> Boolean,
+    private val availableTracksProvider: () -> List<TrackInfoReader.TrackInfo>,
     private val applyAudioTrack: (groupIndex: Int, trackIndex: Int) -> Unit,
     private val applySubtitleTrack: (groupIndex: Int, trackIndex: Int) -> Unit,
     private val disableSubtitles: () -> Unit,
@@ -23,24 +26,51 @@ internal class TrackSelectionRestoreController(
     fun applyIfReady(): Boolean {
         val request = pending ?: return false
         if (currentMediaIdProvider() != request.mediaId) return false
-        if (trackGroupCountProvider() <= 0) return false
+        if (!tracksReadyProvider()) return false
 
         pending = null
+        val availableTracks = availableTracksProvider()
 
-        when (val subtitleIndex = request.subtitleTrackIndex) {
+        when (val subtitleSelection = request.subtitleTrackSelection) {
             null -> Unit
-            TrackIndexCodec.SUBTITLE_DISABLED -> disableSubtitles()
-            else -> {
-                val (groupIndex, trackIndex) = TrackIndexCodec.decode(subtitleIndex)
-                applySubtitleTrack(groupIndex, trackIndex)
-            }
+            else -> restoreSubtitleSelection(subtitleSelection, availableTracks)
         }
 
-        request.audioTrackIndex?.let { encodedIndex ->
-            val (groupIndex, trackIndex) = TrackIndexCodec.decode(encodedIndex)
-            applyAudioTrack(groupIndex, trackIndex)
+        request.audioTrackSelection?.let { audioSelection ->
+            restoreSelection(
+                selection = audioSelection,
+                tracks = availableTracks,
+                type = C.TRACK_TYPE_AUDIO,
+                applyTrack = applyAudioTrack,
+            )
         }
 
         return true
+    }
+
+    private fun restoreSubtitleSelection(
+        selection: PersistedTrackSelection,
+        tracks: List<TrackInfoReader.TrackInfo>,
+    ) {
+        if (selection.isDisabledSubtitle) {
+            disableSubtitles()
+            return
+        }
+        restoreSelection(
+            selection = selection,
+            tracks = tracks,
+            type = C.TRACK_TYPE_TEXT,
+            applyTrack = applySubtitleTrack,
+        )
+    }
+
+    private fun restoreSelection(
+        selection: PersistedTrackSelection,
+        tracks: List<TrackInfoReader.TrackInfo>,
+        type: Int,
+        applyTrack: (groupIndex: Int, trackIndex: Int) -> Unit,
+    ) {
+        val track = tracks.firstOrNull { it.type == type && it.selectionId == selection.stableId } ?: return
+        applyTrack(track.groupIndex, track.trackIndex)
     }
 }

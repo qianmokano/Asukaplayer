@@ -1,14 +1,13 @@
-package com.asuka.player.core
+package com.asuka.player.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.asuka.player.data.PlaybackStore
 
 /**
  * SharedPreferences-backed PlaybackStore. Survives process restarts.
  *
  * Maintains an LRU list of up to [MAX_ENTRIES] distinct mediaIds under the key
- * [KEY_MEDIA_IDS]. When the limit is exceeded the oldest entry and all five of
+ * [KEY_MEDIA_IDS]. When the limit is exceeded the oldest entry and all seven of
  * its associated keys are removed in the same [SharedPreferences.Editor.apply] call.
  *
  * The list of mediaIds is cached in memory after first access so that repeated
@@ -34,7 +33,7 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         private const val LIST_PREFIX = "lp:"
     }
 
-    internal object MediaIdListCodec {
+    object MediaIdListCodec {
         fun encode(ids: List<String>): String {
             val builder = StringBuilder(LIST_PREFIX)
             ids.forEach { id ->
@@ -90,10 +89,12 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         while (ids.size > MAX_ENTRIES) {
             val evicted = ids.removeAt(0)
             editor.remove("pos:$evicted")
-                  .remove("spd:$evicted")
-                  .remove("aud:$evicted")
-                  .remove("sub:$evicted")
-                  .remove("zoom:$evicted")
+                .remove("spd:$evicted")
+                .remove("aud:$evicted")
+                .remove("sub:$evicted")
+                .remove("audid:$evicted")
+                .remove("subid:$evicted")
+                .remove("zoom:$evicted")
         }
         editor.putString(KEY_MEDIA_IDS, MediaIdListCodec.encode(ids))
     }
@@ -139,34 +140,34 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         }
     }
 
-    override fun loadAudioTrack(mediaId: String): Int? {
+    override fun loadAudioTrackId(mediaId: String): String? {
         synchronized(lock) {
-            val key = "aud:$mediaId"
-            return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+            val key = "audid:$mediaId"
+            return if (prefs.contains(key)) prefs.getString(key, null) else null
         }
     }
 
-    override fun saveAudioTrack(mediaId: String, trackIndex: Int) {
+    override fun saveAudioTrackId(mediaId: String, trackId: String) {
         synchronized(lock) {
             prefs.edit()
                 .also { touchMediaId(mediaId, it) }
-                .putInt("aud:$mediaId", trackIndex)
+                .putString("audid:$mediaId", trackId)
                 .apply()
         }
     }
 
-    override fun loadSubtitleTrack(mediaId: String): Int? {
+    override fun loadSubtitleTrackId(mediaId: String): String? {
         synchronized(lock) {
-            val key = "sub:$mediaId"
-            return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+            val key = "subid:$mediaId"
+            return if (prefs.contains(key)) prefs.getString(key, null) else null
         }
     }
 
-    override fun saveSubtitleTrack(mediaId: String, trackIndex: Int) {
+    override fun saveSubtitleTrackId(mediaId: String, trackId: String) {
         synchronized(lock) {
             prefs.edit()
                 .also { touchMediaId(mediaId, it) }
-                .putInt("sub:$mediaId", trackIndex)
+                .putString("subid:$mediaId", trackId)
                 .apply()
         }
     }

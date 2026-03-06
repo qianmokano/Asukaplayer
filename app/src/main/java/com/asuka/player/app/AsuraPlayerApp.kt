@@ -1,18 +1,15 @@
 package com.asuka.player.app
 
 import android.app.Application
-import com.asuka.player.core.PlaybackCoreGraph
-import com.asuka.player.core.PlaybackCoreGraphOwner
+import com.asuka.player.core.PlaybackCoreRegistry
 
-class AsuraPlayerApp : Application(), PlaybackCoreGraphOwner {
+class AsuraPlayerApp : Application() {
     internal lateinit var graph: AsukaAppGraph
         private set
-
-    override val playbackCoreGraph: PlaybackCoreGraph
-        get() = graph
 
     override fun onCreate() {
         super.onCreate()
         graph = AsukaAppGraph(this)
+        PlaybackCoreRegistry.install { graph }
     }
 }

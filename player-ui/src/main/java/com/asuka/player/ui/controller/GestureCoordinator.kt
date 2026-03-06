@@ -4,9 +4,9 @@ import android.os.SystemClock
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.asuka.player.core.PlaybackController
+import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.domain.GestureAlgorithms
 import com.asuka.player.domain.GestureStateMachine
-import com.asuka.player.ui.PlayerRuntimeSettings
 import com.asuka.player.ui.state.ControlsState
 import com.asuka.player.ui.state.SeekState
 import com.asuka.player.ui.state.VolumeBrightnessState
@@ -35,7 +35,7 @@ class GestureCoordinator(
     val enableZoomGesture: Boolean = true,
     val enablePanGesture: Boolean = true,
     val enableDoubleTapGesture: Boolean = true,
-    val doubleTapAction: PlayerRuntimeSettings.DoubleTapAction = PlayerRuntimeSettings.DoubleTapAction.Seek,
+    val doubleTapAction: PlaybackRuntimeSettings.DoubleTapAction = PlaybackRuntimeSettings.DoubleTapAction.Seek,
     val enableLongPressGesture: Boolean = true,
     val doubleTapSeekDeltaMs: Long = 10_000L,
     val longPressSpeed: Float = 2.0f,
@@ -61,13 +61,13 @@ class GestureCoordinator(
     fun onDoubleTap(offset: Offset, size: IntSize) {
         if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !enableDoubleTapGesture) return
         machine.onEvent(GestureStateMachine.Event.DoubleTap)
-        if (doubleTapAction == PlayerRuntimeSettings.DoubleTapAction.TogglePlayPause) {
+        if (doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause) {
             controller.togglePlayPause()
             return
         }
         val center = size.width / 2f
         val delta = doubleTapSeekDeltaMs
-        if (doubleTapAction == PlayerRuntimeSettings.DoubleTapAction.Both) {
+        if (doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.Both) {
             val centerBandHalfWidth = size.width / 6f
             if (abs(offset.x - center) <= centerBandHalfWidth) {
                 controller.togglePlayPause()

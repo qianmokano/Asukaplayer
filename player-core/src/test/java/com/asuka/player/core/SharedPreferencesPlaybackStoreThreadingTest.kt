@@ -1,5 +1,6 @@
 package com.asuka.player.core
 
+import com.asuka.player.data.SharedPreferencesPlaybackStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -57,6 +58,6 @@ class SharedPreferencesPlaybackStoreThreadingTest {
 
         assertEquals(789L, resumeState?.positionMs)
         assertEquals(1.25f, resumeState?.speed)
-        assertNull(resumeState?.audioTrackIndex)
+        assertNull(resumeState?.audioTrackSelection)
     }
 }

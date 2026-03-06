@@ -1,5 +1,6 @@
 package com.asuka.player.core
 
+import com.asuka.player.data.SharedPreferencesPlaybackStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.runner.RunWith
@@ -33,4 +34,3 @@ class SharedPreferencesPlaybackStoreRecentTest {
         assertEquals(listOf("b", "a"), store.recentMediaIds(limit = 10))
     }
 }
-

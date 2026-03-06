@@ -1,9 +1,9 @@
-package com.asuka.player.ui
+package com.asuka.player.core
 
 import android.os.Parcel
 import android.os.Parcelable
 
-data class PlayerRuntimeSettings(
+data class PlaybackRuntimeSettings(
     val seekGestureEnabled: Boolean = true,
     val brightnessGestureEnabled: Boolean = true,
     val volumeGestureEnabled: Boolean = true,
@@ -82,10 +82,10 @@ data class PlayerRuntimeSettings(
 
     override fun describeContents(): Int = 0
 
-    companion object CREATOR : Parcelable.Creator<PlayerRuntimeSettings> {
+    companion object CREATOR : Parcelable.Creator<PlaybackRuntimeSettings> {
         const val EXTRA_KEY = "player_runtime_settings"
 
-        override fun createFromParcel(parcel: Parcel): PlayerRuntimeSettings = PlayerRuntimeSettings(parcel)
-        override fun newArray(size: Int): Array<PlayerRuntimeSettings?> = arrayOfNulls(size)
+        override fun createFromParcel(parcel: Parcel): PlaybackRuntimeSettings = PlaybackRuntimeSettings(parcel)
+        override fun newArray(size: Int): Array<PlaybackRuntimeSettings?> = arrayOfNulls(size)
     }
 }
