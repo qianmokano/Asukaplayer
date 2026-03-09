@@ -1,84 +1,74 @@
 # Asuka Player
 
-一款 Android 本地视频播放器，基于 Jetpack Compose + Media3/ExoPlayer 构建。
+一款基于 Jetpack Compose + Media3/ExoPlayer 的 Android 本地视频播放器。
 
----
+## 当前能力
 
-## 特性
-
-- 手势控制：左右拖动快进/快退，左侧上下调亮度，右侧上下调音量，双指缩放
-- 双击快进/快退，长按加速播放
-- 音频轨道 / 字幕轨道选择
-- 视频缩放模式切换
-- 画中画（PiP）& 后台播放
-- 播放状态持久化（位置、速度、音轨、字幕、缩放）
-- 队列播放（支持 ClipData 多文件）
-- 深色模式完整适配
+- 本地媒体库浏览、文件夹分组、最近播放
+- 外部 `ACTION_VIEW` / `ClipData` 多文件启动
+- 手势控制：横向 seek、亮度、音量、双击、长按倍速、缩放、平移
+- 音轨 / 字幕切换、比例切换、倍速切换
+- PiP、后台播放、播放恢复
+- 播放状态持久化：位置、速度、音轨、字幕、缩放、最近历史
 
 ## 技术栈
 
 | 层 | 技术 |
 |---|---|
-| UI | Jetpack Compose + Material3 |
+| UI | Jetpack Compose + Material 3 |
 | 播放引擎 | Media3 / ExoPlayer 1.9.1 |
 | 语言 | Kotlin 2.3.0 |
-| 最低版本 | Android 6.0（API 23）|
-| 目标版本 | Android 16（API 36）|
+| Android | minSdk 23 / targetSdk 36 / compileSdk 36 |
+| 测试 | JUnit 4、Robolectric、Compose UI Test |
 
 ## 模块结构
 
-```
-app/            → 媒体库浏览、文件选择、设置页，启动播放
-player-ui/      → Compose 播放页、手势协调、会话编排与 UI 状态管理
-player-core/    → Media3/ExoPlayer 封装、MediaSessionService、队列/恢复规划
-player-domain/  → 纯 JVM 算法（手势数学、状态机），无 Android 依赖
-player-data/    → 持久化抽象与 SharedPreferences 落盘实现（PlaybackStore、QueueHistoryStore、AppSettingsStore）
+```text
+app/            应用入口、媒体库、设置页、组合根
+player-ui/      播放页 UI、会话宿主、UI 侧状态与动作翻译
+player-core/    播放抽象、MediaSessionService、队列/恢复规划
+player-domain/  纯 JVM 算法与状态机
+player-data/    持久化接口与 SharedPreferences 实现
 ```
 
 依赖方向：`app` → `player-ui` → `player-core` → `player-data`；`player-ui` → `player-domain`
 
-## 关键运行链路
+## 关键架构
 
-1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并通过 `PlaybackCoreRegistry` 向 `player-core` 暴露统一运行时依赖
-2. `MainActivity` 通过 `PlaybackLaunchCoordinator` 解析待播放 URI、处理 seek fallback、转发 `ClipData` 队列与运行时设置
-3. `PlaybackActivity` 通过 `PlaybackSessionHost` 承载 `MediaController` 生命周期，再由 `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 规划队列、恢复位置/速度/轨道状态并应用到控制器
-4. `PlaybackService` 与 `PlaybackStateWriter` 负责 MediaSession 与播放状态写回；`BackgroundPlaybackPolicy` 负责 PiP/后台保活策略
+1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并通过 `PlaybackCoreGraphProvider` 暴露唯一运行时依赖图。
+2. `MainActivity` 和 `PlaybackLaunchCoordinator` 负责解析启动 URI、seek fallback 与显式队列转发。
+3. `PlaybackActivity` 只从 `PlaybackRuntimeSettingsSource` 读取当前运行时设置；不再维护额外的启动快照。
+4. `PlaybackSessionHost` 使用 graph 提供的播放 service component 连接 `MediaController`，并把 Media3 状态翻译成 `PlaybackScreenModel` / `PlaybackScreenDependencies` 给 `PlayerScreen`。
+5. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复。
+6. `PlaybackService` + `PlaybackStateWriter` 负责播放状态写回，包含播放中 checkpoint 和销毁前 flush。
 
-## 构建
+## 本地验证
 
 ```bash
-# 编译
+# Kotlin 编译
 ./gradlew :app:compileDebugKotlin
 
-# JVM 单元测试（覆盖 app / player-core / player-domain / player-ui / player-data）
+# 全量 JVM 单元测试
 ./gradlew test
 
-# Android 仪器测试源码编译预检（无设备）
+# AndroidTest 源码编译预检（无设备）
 ./gradlew :player-ui:compileDebugAndroidTestKotlin
 
 # Lint
 ./gradlew lintDebug
 
-# UI 测试运行（需连接设备/模拟器）
+# 真机 / 模拟器 UI 测试
 ./gradlew :player-ui:connectedAndroidTest
-
-# 安装到设备
-./gradlew :app:installDebug
-
-# 生成第三方依赖许可/Notices（输出到 build/reports/third-party-notices/）
-./gradlew generateThirdPartyNotices
 ```
 
-## 开发进度
+当前无设备默认基线：
 
-- M0 基础播放骨架 ✅
-- M1 手势与控制栏状态 ✅
-- M2 完整 UI 布局 ✅
-- M3 持久化、队列、轨道选择、PiP ✅
-- M4 测试、性能检查、发布文档 ✅
-
-当前无设备质量基线：
 - `./gradlew test`
 - `./gradlew :player-ui:compileDebugAndroidTestKotlin`
 
-连接设备或模拟器后，再运行 `./gradlew :player-ui:connectedAndroidTest` 做真实 UI 回归。
+## 文档
+
+- [架构说明](docs/ARCHITECTURE.md)
+- [测试说明](docs/TESTING.md)
+- [路线与待办](docs/ROADMAP.md)
+- [变更记录](docs/CHANGELOG.md)

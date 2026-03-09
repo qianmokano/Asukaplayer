@@ -15,6 +15,9 @@ Asuka Player is a clean-room Android local video player rewrite built with Jetpa
 # Run all JVM unit tests (fast, no device needed)
 ./gradlew test
 
+# Compile AndroidTest sources without a device
+./gradlew :player-ui:compileDebugAndroidTestKotlin
+
 # Run a single test class
 ./gradlew :player-core:testDebugUnitTest --tests "com.asuka.player.core.PlaybackSessionPlannerTest"
 
@@ -27,8 +30,8 @@ Asuka Player is a clean-room Android local video player rewrite built with Jetpa
 # Install debug APK on connected device
 ./gradlew :app:installDebug
 
-# Full local verification
-./gradlew test lintDebug
+# Full local verification (no device)
+./gradlew test :player-ui:compileDebugAndroidTestKotlin lintDebug
 ```
 
 ## Module Architecture
@@ -54,18 +57,18 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 
 **Application wiring:**
 1. `AsuraPlayerApp` builds `AsukaAppGraph`.
-2. `AsukaAppGraph` implements `PlaybackCoreGraph`, and `AsuraPlayerApp` installs it into `PlaybackCoreRegistry` so `player-core` can resolve runtime dependencies from the application composition root.
+2. `AsuraPlayerApp` exposes that graph via `PlaybackCoreGraphProvider`; there is no registry fallback anymore.
 
 **Playback launch and control flow:**
-1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI, forward/remap `ClipData`, and package `PlaybackRuntimeSettings`.
+1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI and forward/remap explicit `ClipData` queues.
 2. `PlaybackActivity` connects to `PlaybackService` (a `MediaSessionService`) via `MediaController`.
 3. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
 4. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
-5. `PlayerUiStateHolder` holds Compose UI state, while `ControllerBindings` wires UI events to controller methods.
+5. `PlaybackSessionHost` translates Media3 state into `PlaybackScreenModel` / `PlaybackScreenDependencies`; `PlayerScreen` consumes those UI-facing contracts rather than raw wiring helpers.
 
 **State persistence:** `PlaybackStateWriter` writes position/speed/stable track IDs to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
 
-**Queue management:** `PlaybackLaunchCoordinator` preserves external `ClipData` queue information, `IntentQueueReader` reads launch neighbors, `QueuePlanner` merges those with queue history, and queue history now persists alongside playback resume state.
+**Queue management:** `PlaybackLaunchCoordinator` preserves external `ClipData` queue information, `IntentQueueReader` reads launch neighbors, and `QueuePlanner` only uses explicit neighbors. Queue history persists independently for recent playback UI.
 
 **Background retention:** `BackgroundPlaybackPolicy` centralizes whether the playback session should remain attached across backgrounding, PiP, and manual background-play requests.
 
@@ -79,11 +82,13 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 | `app/…/MainLibraryScreen.kt` | Library Compose UI |
 | `player-ui/…/PlaybackActivity.kt` | Playback screen host |
 | `player-ui/…/PlaybackSessionHost.kt` | MediaController/session lifecycle host for playback |
+| `player-ui/…/PlayerScreenContract.kt` | UI-facing playback model and dependency contract |
 | `player-ui/…/PlayerScreen.kt` | Root Compose composable for player |
 | `player-ui/…/controller/PlaybackSessionCoordinator.kt` | Applies planned queue/resume state to `MediaController` |
 | `player-ui/…/controller/BackgroundPlaybackPolicy.kt` | Background/PiP retention policy |
 | `player-ui/…/controller/GestureCoordinator.kt` | Gesture orchestration |
-| `player-ui/…/controller/PlayerUiStateHolder.kt` | All UI state |
+| `player-ui/…/controller/PlayerUiStateHolder.kt` | Playback title/progress/error/buffering state |
+| `player-ui/…/controller/PlaybackTrackUiStateHolder.kt` | Track/speed/media state translated for UI |
 | `player-core/…/PlaybackController.kt` | Abstract playback interface |
 | `player-core/…/PlaybackSessionPlanner.kt` | Queue + resume + track-restore planning |
 | `player-core/…/PlaybackCoreGraph.kt` | Runtime dependency contract exposed from the app graph |
@@ -105,12 +110,19 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 ## Testing Notes
 
 - `./gradlew test` is the current baseline local verification command and covers all JVM unit test suites in the repo.
+- `./gradlew :player-ui:compileDebugAndroidTestKotlin` is the no-device AndroidTest API compatibility check for the playback UI.
 - `player-domain` tests are plain JVM tests; `player-data` uses Robolectric-backed unit tests for Android persistence code.
 - `app`, `player-core`, and `player-ui` use JUnit/Robolectric for launch/session/controller logic.
 - Instrumented tests remain available through `:player-ui:connectedAndroidTest` and still require a device/emulator.
 - Test output (pass/fail/skip events) is configured in the root `build.gradle.kts`.
-- Docs with test plans are in `docs/M4_TEST_PLAN.md` and `docs/M4_UI_TEST_PLAN.md`.
+- Current testing guidance is in `docs/TESTING.md`.
 
 ## Documentation
 
-`docs/` contains milestone plans, known issues, performance checklists, and a Chinese-language project overview (`PROJECT_OVERVIEW.md`). `docs/STATUS_AND_TODO.md` tracks completion status and remaining work items.
+Current canonical docs are:
+
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/TESTING.md`
+- `docs/ROADMAP.md`
+- `docs/CHANGELOG.md`
