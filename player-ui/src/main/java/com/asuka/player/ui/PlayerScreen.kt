@@ -1,7 +1,5 @@
 package com.asuka.player.ui
 
-import android.app.Activity
-import android.media.AudioManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -15,9 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,14 +23,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
-import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.core.PlaybackStateRepository
 import com.asuka.player.ui.components.BottomBar
 import com.asuka.player.ui.components.DoubleTapIndicator
 import com.asuka.player.ui.components.ErrorOverlay
@@ -56,12 +48,9 @@ import com.asuka.player.ui.controller.OverlayTrackActions
 import com.asuka.player.ui.controller.PointerGestureDetector
 import com.asuka.player.ui.controller.QueueActions
 import com.asuka.player.ui.state.SeekState
-import com.asuka.player.ui.controller.SelectionState
-import com.asuka.player.ui.controller.TrackUiStateHolder
 import com.asuka.player.ui.controller.UiActions
 import com.asuka.player.ui.state.ControlsState
 import com.asuka.player.ui.state.LongPressSpeedState
-import com.asuka.player.ui.state.PlayerUiState
 import com.asuka.player.ui.state.ScaleState
 import com.asuka.player.ui.state.TapFeedbackState
 import com.asuka.player.ui.state.VolumeBrightnessState
@@ -77,32 +66,22 @@ import kotlinx.coroutines.withContext
  */
 @Composable
 fun PlayerScreen(
-    uiState: PlayerUiState,
-    player: Player?,
-    controller: PlaybackController,
-    bindings: com.asuka.player.ui.controller.ControllerBindings?,
-    playbackStateRepository: PlaybackStateRepository,
-    settings: PlaybackRuntimeSettings = PlaybackRuntimeSettings(),
-    isInPip: Boolean = false,
+    model: PlaybackScreenModel,
+    dependencies: PlaybackScreenDependencies,
     onVideoBoundsChanged: ((android.graphics.Rect) -> Unit)? = null,
     onBack: () -> Unit,
     onPip: () -> Unit,
     onBackground: () -> Unit,
     onRotate: () -> Unit = {},
 ) {
-    val context = LocalContext.current
-    val audioManager = remember(context) {
-        context.getSystemService(AudioManager::class.java)
-    }
-    val activity = remember(context) {
-        var ctx = context
-        while (ctx is android.content.ContextWrapper) {
-            if (ctx is Activity) return@remember ctx
-            ctx = ctx.baseContext
-        }
-        null
-    }
-
+    val uiState = model.uiState
+    val surfacePlayer = model.surfacePlayer
+    val trackUiState = model.trackUiState
+    val settings = model.settings
+    val isInPip = model.isInPip
+    val controller = dependencies.controller
+    val playbackPersistence = dependencies.playbackPersistence
+    val deviceController = dependencies.deviceController
     val scope = rememberCoroutineScope()
     val controlsState = remember(settings.controllerTimeoutSec) {
         ControlsState(scope = scope, autoHideDelay = settings.controllerTimeoutSec.coerceIn(1, 60).seconds)
@@ -122,78 +101,52 @@ fun PlayerScreen(
     }
     val positionMsState = rememberUpdatedState(uiState.positionMs)
     val durationMsState = rememberUpdatedState(uiState.durationMs)
-    val mediaIdState = rememberUpdatedState(player?.currentMediaItem?.mediaId)
-    val playbackSpeedState = rememberUpdatedState(player?.playbackParameters?.speed ?: 1.0f)
-    val overlayActions = remember(controller, playbackStateRepository) {
+    val mediaIdState = rememberUpdatedState(trackUiState.currentMediaId)
+    val playbackSpeedState = rememberUpdatedState(trackUiState.currentSpeed)
+    val overlayActions = remember(controller, playbackPersistence) {
         OverlayActions(
             controller = controller,
-            playbackStateRepository = playbackStateRepository,
+            playbackPersistence = playbackPersistence,
             mediaIdProvider = { mediaIdState.value },
         )
     }
-    val trackActions = remember(bindings, playbackStateRepository) {
-        bindings?.let {
+    val trackActions = remember(dependencies.trackSelectionController, playbackPersistence) {
+        dependencies.trackSelectionController?.let {
             OverlayTrackActions(
-                trackSelection = it.trackSelection,
-                playbackStateRepository = playbackStateRepository,
+                trackSelectionController = it,
+                playbackPersistence = playbackPersistence,
                 mediaIdProvider = { mediaIdState.value },
             )
         }
     }
     val queueActions = remember(controller) { QueueActions(controller) }
-    val trackStateHolder = remember(player) {
-        player?.let { TrackUiStateHolder(it) }
-    }
-    val selectionState = remember(player) {
-        player?.let { SelectionState(it) }
-    }
-    DisposableEffect(trackStateHolder) {
-        trackStateHolder?.attach()
-        onDispose { trackStateHolder?.detach() }
-    }
-    DisposableEffect(selectionState) {
-        selectionState?.attach()
-        onDispose { selectionState?.detach() }
-    }
     LaunchedEffect(mediaIdState.value) {
         val mediaId = mediaIdState.value ?: return@LaunchedEffect
         val zoom = withContext(Dispatchers.IO) {
-            playbackStateRepository.readResumeState(mediaId).zoom
+            playbackPersistence.readZoom(mediaId)
         } ?: 1f
-        zoomState.setTransform(zoom, androidx.compose.ui.geometry.Offset.Zero, pinching = false)
+        zoomState.setTransform(zoom, Offset.Zero, pinching = false)
     }
-    val pointerDetector = remember(settings.seekSensitivity, audioManager, activity) {
+    val pointerDetector = remember(settings.seekSensitivity, deviceController) {
         PointerGestureDetector(
             seekSensitivity = settings.seekSensitivity.coerceIn(0.1f, 2.0f),
             positionProvider = { positionMsState.value },
             durationProvider = { durationMsState.value },
-            volumeProvider = {
-                val am = audioManager
-                if (am != null) {
-                    val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-                    val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    ((cur.toFloat() / max) * 100f).toInt().coerceIn(0, 100)
-                } else {
-                    volumeBrightnessState.volumePercent
-                }
-            },
-            brightnessProvider = {
-                val act = activity
-                if (act != null) {
-                    val current = act.window.attributes.screenBrightness
-                    if (current >= 0f) {
-                        (current * 100f).toInt().coerceIn(0, 100)
-                    } else {
-                        50
-                    }
-                } else {
-                    volumeBrightnessState.brightnessPercent
-                }
-            },
+            volumeProvider = deviceController::currentVolumePercent,
+            brightnessProvider = deviceController::currentBrightnessPercent,
         )
     }
     val uiActions = remember(controller) { UiActions(controller) }
-    val gestureCoordinator = remember(controller, controlsState, volumeBrightnessState, seekState, zoomState, settings) {
+    val gestureCoordinator = remember(
+        controller,
+        controlsState,
+        volumeBrightnessState,
+        seekState,
+        zoomState,
+        settings,
+        playbackPersistence,
+        deviceController,
+    ) {
         GestureCoordinator(
             controller = controller,
             controlsState = controlsState,
@@ -201,29 +154,15 @@ fun PlayerScreen(
             seekState = seekState,
             zoomState = zoomState,
             onZoomEnd = { zoom ->
-                mediaIdState.value?.let { id -> playbackStateRepository.saveZoom(id, zoom) }
+                mediaIdState.value?.let { id -> playbackPersistence.saveZoom(id, zoom) }
             },
             playbackSpeedProvider = { playbackSpeedState.value },
             onDoubleTapFeedback = { delta -> tapFeedbackState.show(delta) },
             onLongPressFeedback = { active, speed ->
                 if (active) longPressSpeedState.start(speed) else longPressSpeedState.end()
             },
-            onVolumeChanged = { percent ->
-                val am = audioManager
-                if (am != null) {
-                    val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-                    val level = ((percent / 100f) * max).toInt().coerceIn(0, max)
-                    am.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
-                }
-            },
-            onBrightnessChanged = { percent ->
-                val act = activity
-                if (act != null) {
-                    val lp = act.window.attributes
-                    lp.screenBrightness = (percent / 100f).coerceIn(0f, 1f)
-                    act.window.attributes = lp
-                }
-            },
+            onVolumeChanged = deviceController::setVolumePercent,
+            onBrightnessChanged = deviceController::setBrightnessPercent,
             config = GestureConfig(
                 enableSeekGesture = settings.seekGestureEnabled,
                 enableBrightnessGesture = settings.brightnessGestureEnabled,
@@ -293,10 +232,10 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        player?.let { p ->
+        surfacePlayer?.let { player ->
             VideoSurfaceWithTransform(
                 modifier = videoBoundsModifier,
-                player = p,
+                player = player,
                 zoomState = zoomState,
                 scaleState = scaleState,
             )
@@ -378,23 +317,17 @@ fun PlayerScreen(
         VerticalAdjustIndicator(modifier = Modifier.align(Alignment.Center), state = volumeBrightnessState)
         ZoomIndicator(modifier = Modifier.align(Alignment.Center), zoomState = zoomState)
         LongPressSpeedIndicator(modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp), state = longPressSpeedState)
-        val audioTracks = trackStateHolder?.audioTracks?.collectAsState(initial = emptyList())?.value ?: emptyList()
-        val subtitleTracks = trackStateHolder?.subtitleTracks?.collectAsState(initial = emptyList())?.value ?: emptyList()
-        val selectedAudio = selectionState?.selectedAudio?.collectAsState(initial = null)?.value
-        val selectedSubtitle = selectionState?.selectedSubtitle?.collectAsState(initial = null)?.value
-        val currentSpeed = player?.playbackParameters?.speed ?: 1.0f
         OverlayPanel(
             type = overlayType,
-            controller = controller,
             overlayActions = overlayActions,
             scaleState = scaleState,
             trackActions = trackActions,
-            selectedAudio = selectedAudio,
-            selectedSubtitle = selectedSubtitle,
-            currentSpeed = currentSpeed,
+            selectedAudio = trackUiState.selectedAudio,
+            selectedSubtitle = trackUiState.selectedSubtitle,
+            currentSpeed = trackUiState.currentSpeed,
             currentScaleMode = scaleState.mode,
-            audioTracks = audioTracks,
-            subtitleTracks = subtitleTracks,
+            audioTracks = trackUiState.audioTracks,
+            subtitleTracks = trackUiState.subtitleTracks,
             onDismiss = { overlayType = null },
         )
         ErrorOverlay(

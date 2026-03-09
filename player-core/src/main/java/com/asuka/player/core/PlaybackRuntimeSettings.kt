@@ -38,7 +38,7 @@ data class PlaybackRuntimeSettings(
     val seekSensitivity: Float = 1.0f,
     val longPressSpeed: Float = 2.0f,
     val controllerTimeoutSec: Int = 3,
-    val hideButtonsBackground: Boolean = true,
+    val hideButtonsBackground: Boolean = false,
     val resumePlayback: Boolean = true,
     val defaultPlaybackSpeed: Float = 1.0f,
     val autoplay: Boolean = true,

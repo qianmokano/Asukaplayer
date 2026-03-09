@@ -38,15 +38,12 @@ class PlaybackLaunchCoordinatorTest {
 
         val request = coordinator.createLaunchRequest(
             mediaId = current.toString(),
-            playerSettings = PlayerSettingsConfig(),
-            keepConnectionInBackground = true,
             sourceIntent = sourceIntent,
         )
 
         assertEquals(resolved, request.mediaUri)
         assertEquals(resolved, request.clipData?.getItemAt(0)?.uri)
         assertEquals(next, request.clipData?.getItemAt(1)?.uri)
-        assertTrue(request.runtimeSettings.keepSessionConnectionInBackground)
 
         val playbackIntent = coordinator.createPlaybackIntent(
             context = RuntimeEnvironment.getApplication(),
@@ -56,5 +53,48 @@ class PlaybackLaunchCoordinatorTest {
         assertEquals(resolved, playbackIntent.data)
         assertNotNull(playbackIntent.clipData)
         assertTrue((playbackIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+    }
+
+    @Test
+    fun createLaunchRequest_buildsClipDataFromExplicitQueueWhenNoSourceIntent() {
+        val previous = Uri.parse("content://videos/previous.mp4")
+        val current = Uri.parse("content://videos/current.mp4")
+        val resolved = Uri.parse("file:///cache/current.mp4")
+        val next = Uri.parse("content://videos/next.mp4")
+        val coordinator = PlaybackLaunchCoordinator(
+            uriResolver = object : PlaybackUriResolver {
+                override fun resolveForPlayback(sourceUri: Uri): Uri = resolved
+            },
+        )
+
+        val request = coordinator.createLaunchRequest(
+            mediaId = current.toString(),
+            queueMediaIds = listOf(previous.toString(), current.toString(), next.toString()),
+        )
+
+        assertEquals(resolved, request.mediaUri)
+        assertEquals(previous, request.clipData?.getItemAt(0)?.uri)
+        assertEquals(resolved, request.clipData?.getItemAt(1)?.uri)
+        assertEquals(next, request.clipData?.getItemAt(2)?.uri)
+    }
+
+    @Test
+    fun createLaunchRequest_prependsCurrentItemWhenExplicitQueueDoesNotContainIt() {
+        val current = Uri.parse("content://videos/current.mp4")
+        val resolved = Uri.parse("file:///cache/current.mp4")
+        val next = Uri.parse("content://videos/next.mp4")
+        val coordinator = PlaybackLaunchCoordinator(
+            uriResolver = object : PlaybackUriResolver {
+                override fun resolveForPlayback(sourceUri: Uri): Uri = resolved
+            },
+        )
+
+        val request = coordinator.createLaunchRequest(
+            mediaId = current.toString(),
+            queueMediaIds = listOf(next.toString()),
+        )
+
+        assertEquals(resolved, request.clipData?.getItemAt(0)?.uri)
+        assertEquals(next, request.clipData?.getItemAt(1)?.uri)
     }
 }

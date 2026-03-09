@@ -17,11 +17,8 @@ class PlayerScreenTest {
     fun controlsVisible_onInitialRender() {
         composeRule.setContent {
             PlayerScreen(
-                uiState = PlayerUiState(title = "Test"),
-                player = null,
-                controller = TestPlaybackController,
-                bindings = null,
-                playbackStateRepository = testPlaybackStateRepository(),
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
                 onBackground = {},
@@ -34,11 +31,8 @@ class PlayerScreenTest {
     fun overlayOpens_onSpeedClick() {
         composeRule.setContent {
             PlayerScreen(
-                uiState = PlayerUiState(title = "Test"),
-                player = null,
-                controller = TestPlaybackController,
-                bindings = null,
-                playbackStateRepository = testPlaybackStateRepository(),
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
                 onBackground = {},

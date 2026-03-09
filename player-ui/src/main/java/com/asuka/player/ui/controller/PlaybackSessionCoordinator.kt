@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 
 class PlaybackSessionCoordinator(
     private val mediaController: MediaController,
-    private val controllerBindings: ControllerBindings,
+    private val trackSelectionController: PlaybackTrackSelectionController,
     private val sessionPlanner: PlaybackSessionPlanner,
     private val titleResolver: suspend (Uri) -> String?,
 ) : Player.Listener {
@@ -24,13 +24,13 @@ class PlaybackSessionCoordinator(
         tracksReadyProvider = { mediaController.currentTracks.groups.isNotEmpty() },
         availableTracksProvider = { trackInfoReader.listTracks() },
         applyAudioTrack = { groupIndex, trackIndex ->
-            controllerBindings.trackSelection.setAudioTrack(groupIndex, trackIndex)
+            trackSelectionController.setAudioTrack(groupIndex, trackIndex)
         },
         applySubtitleTrack = { groupIndex, trackIndex ->
-            controllerBindings.trackSelection.setSubtitleTrack(groupIndex, trackIndex)
+            trackSelectionController.setSubtitleTrack(groupIndex, trackIndex)
         },
         disableSubtitles = {
-            controllerBindings.trackSelection.disableSubtitles()
+            trackSelectionController.disableSubtitles()
         },
     )
 

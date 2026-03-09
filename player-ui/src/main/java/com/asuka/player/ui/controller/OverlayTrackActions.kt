@@ -1,32 +1,28 @@
 package com.asuka.player.ui.controller
 
-import com.asuka.player.core.PlaybackStateRepository
-import com.asuka.player.core.TrackInfoReader
-import com.asuka.player.core.TrackSelectionFacade
-
 class OverlayTrackActions(
-    private val trackSelection: TrackSelectionFacade,
-    private val playbackStateRepository: PlaybackStateRepository,
+    private val trackSelectionController: PlaybackTrackSelectionController,
+    private val playbackPersistence: PlaybackUiPersistence,
     private val mediaIdProvider: () -> String?,
 ) {
-    fun setAudioTrack(track: TrackInfoReader.TrackInfo) {
-        trackSelection.setAudioTrack(track.groupIndex, track.trackIndex)
+    fun setAudioTrack(track: TrackOption) {
+        trackSelectionController.setAudioTrack(track.groupIndex, track.trackIndex)
         mediaIdProvider()?.let { id ->
-            playbackStateRepository.saveAudioTrack(id, track.selectionId)
+            playbackPersistence.saveAudioTrack(id, track.selectionId)
         }
     }
 
-    fun setSubtitleTrack(track: TrackInfoReader.TrackInfo) {
-        trackSelection.setSubtitleTrack(track.groupIndex, track.trackIndex)
+    fun setSubtitleTrack(track: TrackOption) {
+        trackSelectionController.setSubtitleTrack(track.groupIndex, track.trackIndex)
         mediaIdProvider()?.let { id ->
-            playbackStateRepository.saveSubtitleTrack(id, track.selectionId)
+            playbackPersistence.saveSubtitleTrack(id, track.selectionId)
         }
     }
 
     fun disableSubtitles() {
-        trackSelection.disableSubtitles()
+        trackSelectionController.disableSubtitles()
         mediaIdProvider()?.let { id ->
-            playbackStateRepository.disableSubtitles(id)
+            playbackPersistence.disableSubtitles(id)
         }
     }
 }

@@ -88,6 +88,67 @@ class PlaybackStateWriterTest {
     }
 
     @Test
+    fun checkpoint_savesPlayingPositionAfterInterval() {
+        val store = InMemoryPlaybackStore()
+        val mediaItem = mediaItem("media://checkpoint")
+        val playerState = fakePlayer(
+            currentMediaItem = mediaItem,
+            currentPosition = 15_000L,
+            playbackState = Player.STATE_READY,
+            isPlaying = true,
+        )
+        val writer = PlaybackStateWriter(store)
+
+        writer.attach(playerState.asPlayer())
+
+        assertTrue(writer.checkpoint(nowMs = 10_000L, minIntervalMs = 5_000L))
+        assertEquals(15_000L, store.loadPosition(mediaItem.mediaId))
+
+        playerState.currentPosition = 17_500L
+        assertFalse(writer.checkpoint(nowMs = 12_000L, minIntervalMs = 5_000L))
+        assertEquals(15_000L, store.loadPosition(mediaItem.mediaId))
+
+        assertTrue(writer.checkpoint(nowMs = 16_000L, minIntervalMs = 5_000L))
+        assertEquals(17_500L, store.loadPosition(mediaItem.mediaId))
+    }
+
+    @Test
+    fun flushCurrentPosition_savesLatestKnownPosition() {
+        val store = InMemoryPlaybackStore()
+        val mediaItem = mediaItem("media://flush")
+        val playerState = fakePlayer(
+            currentMediaItem = mediaItem,
+            currentPosition = 42_000L,
+            playbackState = Player.STATE_READY,
+            isPlaying = true,
+        )
+        val writer = PlaybackStateWriter(store)
+
+        writer.attach(playerState.asPlayer())
+
+        assertTrue(writer.flushCurrentPosition())
+        assertEquals(42_000L, store.loadPosition(mediaItem.mediaId))
+    }
+
+    @Test
+    fun flushCurrentPosition_whenEnded_preservesResetToZero() {
+        val store = InMemoryPlaybackStore()
+        val mediaItem = mediaItem("media://ended-flush")
+        val playerState = fakePlayer(
+            currentMediaItem = mediaItem,
+            currentPosition = 99_000L,
+            playbackState = Player.STATE_ENDED,
+        )
+        val writer = PlaybackStateWriter(store)
+
+        store.savePosition(mediaItem.mediaId, 15_000L)
+        writer.attach(playerState.asPlayer())
+
+        assertTrue(writer.flushCurrentPosition())
+        assertEquals(0L, store.loadPosition(mediaItem.mediaId))
+    }
+
+    @Test
     fun onTracksChanged_savesSelectionsForActualCurrentItem() {
         val store = InMemoryPlaybackStore()
         val first = mediaItem("media://first")
@@ -157,6 +218,7 @@ class PlaybackStateWriterTest {
         var playbackState: Int = Player.STATE_IDLE,
         var currentTracks: Tracks = Tracks.EMPTY,
         var trackSelectionParameters: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
+        var isPlaying: Boolean = false,
     ) {
         fun asPlayer(): Player {
             return Proxy.newProxyInstance(
@@ -175,7 +237,7 @@ class PlaybackStateWriterTest {
                             ?: TrackSelectionParameters.DEFAULT
                         null
                     }
-                    "isPlaying" -> false
+                    "isPlaying" -> isPlaying
                     else -> defaultValue(method.returnType)
                 }
             } as Player
@@ -188,6 +250,7 @@ class PlaybackStateWriterTest {
         playbackState: Int = Player.STATE_IDLE,
         currentTracks: Tracks = Tracks.EMPTY,
         trackSelectionParameters: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
+        isPlaying: Boolean = false,
     ): FakePlayerState {
         return FakePlayerState(
             currentMediaItem = currentMediaItem,
@@ -195,6 +258,7 @@ class PlaybackStateWriterTest {
             playbackState = playbackState,
             currentTracks = currentTracks,
             trackSelectionParameters = trackSelectionParameters,
+            isPlaying = isPlaying,
         )
     }
 

@@ -8,7 +8,6 @@ import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import android.provider.MediaStore
-import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.remapClipDataUri
 import com.asuka.player.ui.activity.PlaybackActivity
@@ -21,7 +20,6 @@ internal interface PlaybackUriResolver {
 internal data class PlaybackLaunchRequest(
     val mediaUri: Uri,
     val clipData: ClipData?,
-    val runtimeSettings: PlaybackRuntimeSettings,
 )
 
 internal class PlaybackLaunchCoordinator(
@@ -29,21 +27,21 @@ internal class PlaybackLaunchCoordinator(
 ) {
     fun createLaunchRequest(
         mediaId: String,
-        playerSettings: PlayerSettingsConfig,
-        keepConnectionInBackground: Boolean,
         sourceIntent: Intent? = null,
+        queueMediaIds: List<String> = emptyList(),
     ): PlaybackLaunchRequest {
         val sourceUri = Uri.parse(mediaId)
         val resolvedUri = uriResolver.resolveForPlayback(sourceUri)
+        val queueClipData = sourceIntent?.clipData ?: buildQueueClipData(
+            currentUri = sourceUri,
+            queueMediaIds = queueMediaIds,
+        )
         return PlaybackLaunchRequest(
             mediaUri = resolvedUri,
             clipData = remapClipDataUri(
-                clipData = sourceIntent?.clipData,
+                clipData = queueClipData,
                 originalUri = sourceUri,
                 replacementUri = resolvedUri,
-            ),
-            runtimeSettings = playerSettings.toRuntimeSettings(
-                keepConnectionInBackground = keepConnectionInBackground,
             ),
         )
     }
@@ -55,7 +53,25 @@ internal class PlaybackLaunchCoordinator(
             if (request.mediaUri.scheme == "content" || request.clipData != null) {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            putExtra(PlaybackRuntimeSettings.EXTRA_KEY, request.runtimeSettings)
+        }
+    }
+
+    private fun buildQueueClipData(
+        currentUri: Uri,
+        queueMediaIds: List<String>,
+    ): ClipData? {
+        val queueUris = queueMediaIds
+            .map(Uri::parse)
+            .distinct()
+            .toMutableList()
+        if (currentUri !in queueUris) {
+            queueUris.add(0, currentUri)
+        }
+        if (queueUris.isEmpty()) return null
+        return ClipData.newRawUri("queue", queueUris.first()).apply {
+            queueUris.drop(1).forEach { uri ->
+                addItem(ClipData.Item(uri))
+            }
         }
     }
 }
@@ -87,36 +103,4 @@ internal class SeekAwarePlaybackUriResolver(
             false
         }
     }
-}
-
-internal fun PlayerSettingsConfig.toRuntimeSettings(
-    keepConnectionInBackground: Boolean,
-): PlaybackRuntimeSettings {
-    return PlaybackRuntimeSettings(
-        seekGestureEnabled = seekGestureEnabled,
-        brightnessGestureEnabled = brightnessGestureEnabled,
-        volumeGestureEnabled = volumeGestureEnabled,
-        zoomGestureEnabled = zoomGestureEnabled,
-        panGestureEnabled = panGestureEnabled,
-        doubleTapGestureEnabled = doubleTapGestureEnabled,
-        doubleTapAction = when (doubleTapAction) {
-            DoubleTapActionSetting.Seek -> PlaybackRuntimeSettings.DoubleTapAction.Seek
-            DoubleTapActionSetting.TogglePlayPause -> PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause
-            DoubleTapActionSetting.Both -> PlaybackRuntimeSettings.DoubleTapAction.Both
-        },
-        longPressGestureEnabled = longPressGestureEnabled,
-        seekIncrementSec = seekIncrementSec,
-        seekSensitivity = seekSensitivity,
-        longPressSpeed = longPressSpeed,
-        controllerTimeoutSec = controllerTimeoutSec,
-        hideButtonsBackground = hideButtonsBackground,
-        resumePlayback = resumePlayback,
-        defaultPlaybackSpeed = defaultPlaybackSpeed,
-        autoplay = autoplay,
-        autoPip = autoPip,
-        autoBackgroundPlay = autoBackgroundPlay,
-        rememberBrightness = rememberBrightness,
-        rememberSelections = rememberSelections,
-        keepSessionConnectionInBackground = keepConnectionInBackground,
-    )
 }

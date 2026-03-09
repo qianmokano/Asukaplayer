@@ -2,63 +2,81 @@ package com.asuka.player.app
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.core.PlaybackRuntimeSettingsSource
 import com.asuka.player.data.AppSettingsStore
 import com.asuka.player.data.CustomThemeRecord
 import com.asuka.player.data.PlaybackBehaviorRecord
 import com.asuka.player.data.PlayerSettingsRecord
 import com.asuka.player.data.UiSettingsRecord
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+
+internal data class UiSettingsState(
+    val themeConfig: ThemeConfig,
+    val customThemes: List<CustomThemeEntry>,
+    val navDurationMs: Int,
+    val hapticFeedbackEnabled: Boolean,
+)
 
 internal class UiSettingsRepository(
     private val store: AppSettingsStore,
 ) {
+    private val _settings = MutableStateFlow(store.loadUiSettings().toUiSettingsState())
+
+    val settings: StateFlow<UiSettingsState> = _settings.asStateFlow()
+
     var themeConfig: ThemeConfig
-        get() = store.loadUiSettings().toThemeConfig()
+        get() = settings.value.themeConfig
         set(value) {
-            store.updateUiSettings { current ->
-                current.copy(
-                    themeMode = value.mode.name,
-                    themeAppearance = value.appearance.name,
-                    customSeedArgb = value.customSeed?.toArgb(),
-                    customThemeId = value.customThemeId,
-                    customMonochrome = value.customMonochrome,
-                    pureBlack = value.pureBlack,
-                    fontScale = value.fontScale,
-                    fontScaleEnabled = value.fontScaleEnabled,
-                )
-            }
+            if (settings.value.themeConfig == value) return
+            persist(settings.value.copy(themeConfig = value))
         }
 
     var customThemes: List<CustomThemeEntry>
-        get() = store.loadUiSettings().customThemes.toCustomThemeEntries()
+        get() = settings.value.customThemes
         set(value) {
-            store.updateUiSettings { current ->
-                current.copy(customThemes = value.toCustomThemeRecords())
-            }
+            if (settings.value.customThemes == value) return
+            persist(settings.value.copy(customThemes = value))
         }
 
     var navDurationMs: Int
-        get() = store.loadUiSettings().navDurationMs
+        get() = settings.value.navDurationMs
         set(value) {
-            store.updateUiSettings { current ->
-                current.copy(navDurationMs = value)
-            }
+            if (settings.value.navDurationMs == value) return
+            persist(settings.value.copy(navDurationMs = value))
         }
 
     var hapticFeedbackEnabled: Boolean
-        get() = store.loadUiSettings().hapticFeedbackEnabled
+        get() = settings.value.hapticFeedbackEnabled
         set(value) {
-            store.updateUiSettings { current ->
-                current.copy(hapticFeedbackEnabled = value)
-            }
+            if (settings.value.hapticFeedbackEnabled == value) return
+            persist(settings.value.copy(hapticFeedbackEnabled = value))
         }
+
+    private fun persist(value: UiSettingsState) {
+        _settings.value = value
+        store.saveUiSettings(value.toUiSettingsRecord())
+    }
 }
 
 internal class PlayerSettingsRepository(
     private val store: AppSettingsStore,
 ) {
+    private val _settings = MutableStateFlow(store.loadPlayerSettings().toPlayerSettingsConfig())
+
+    val settings: StateFlow<PlayerSettingsConfig> = _settings.asStateFlow()
+
     var playerSettings: PlayerSettingsConfig
-        get() = store.loadPlayerSettings().toPlayerSettingsConfig()
+        get() = settings.value
         set(value) {
+            if (settings.value == value) return
+            _settings.value = value
             store.savePlayerSettings(value.toPlayerSettingsRecord())
         }
 }
@@ -66,15 +84,69 @@ internal class PlayerSettingsRepository(
 internal class PlaybackBehaviorRepository(
     private val store: AppSettingsStore,
 ) {
+    private val _settings = MutableStateFlow(store.loadPlaybackBehavior())
+
+    val settings: StateFlow<PlaybackBehaviorRecord> = _settings.asStateFlow()
+
     var keepConnectionInBackground: Boolean
-        get() = store.loadPlaybackBehavior().keepConnectionInBackground
+        get() = settings.value.keepConnectionInBackground
         set(value) {
-            store.savePlaybackBehavior(PlaybackBehaviorRecord(keepConnectionInBackground = value))
+            if (settings.value.keepConnectionInBackground == value) return
+            val updated = PlaybackBehaviorRecord(keepConnectionInBackground = value)
+            _settings.value = updated
+            store.savePlaybackBehavior(updated)
         }
 }
 
-private fun AppSettingsStore.updateUiSettings(transform: (UiSettingsRecord) -> UiSettingsRecord) {
-    saveUiSettings(transform(loadUiSettings()))
+internal class AppPlaybackRuntimeSettingsSource(
+    private val playerSettingsRepository: PlayerSettingsRepository,
+    private val playbackBehaviorRepository: PlaybackBehaviorRepository,
+    scope: CoroutineScope,
+) : PlaybackRuntimeSettingsSource {
+    override fun current(): PlaybackRuntimeSettings {
+        return playerSettingsRepository.settings.value.toRuntimeSettings(
+            keepConnectionInBackground = playbackBehaviorRepository.settings.value.keepConnectionInBackground,
+        )
+    }
+
+    override val settings: StateFlow<PlaybackRuntimeSettings> =
+        combine(
+            playerSettingsRepository.settings,
+            playbackBehaviorRepository.settings,
+        ) { playerSettings, behavior ->
+            playerSettings.toRuntimeSettings(
+                keepConnectionInBackground = behavior.keepConnectionInBackground,
+            )
+        }.stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = current(),
+        )
+}
+
+private fun UiSettingsRecord.toUiSettingsState(): UiSettingsState {
+    return UiSettingsState(
+        themeConfig = toThemeConfig(),
+        customThemes = customThemes.toCustomThemeEntries(),
+        navDurationMs = navDurationMs,
+        hapticFeedbackEnabled = hapticFeedbackEnabled,
+    )
+}
+
+private fun UiSettingsState.toUiSettingsRecord(): UiSettingsRecord {
+    return UiSettingsRecord(
+        themeMode = themeConfig.mode.name,
+        themeAppearance = themeConfig.appearance.name,
+        customSeedArgb = themeConfig.customSeed?.toArgb(),
+        customThemeId = themeConfig.customThemeId,
+        customMonochrome = themeConfig.customMonochrome,
+        pureBlack = themeConfig.pureBlack,
+        fontScale = themeConfig.fontScale,
+        fontScaleEnabled = themeConfig.fontScaleEnabled,
+        customThemes = customThemes.toCustomThemeRecords(),
+        navDurationMs = navDurationMs,
+        hapticFeedbackEnabled = hapticFeedbackEnabled,
+    )
 }
 
 private fun UiSettingsRecord.toThemeConfig(): ThemeConfig {
@@ -160,5 +232,37 @@ private fun PlayerSettingsConfig.toPlayerSettingsRecord(): PlayerSettingsRecord 
         autoBackgroundPlay = autoBackgroundPlay,
         rememberBrightness = rememberBrightness,
         rememberSelections = rememberSelections,
+    )
+}
+
+internal fun PlayerSettingsConfig.toRuntimeSettings(
+    keepConnectionInBackground: Boolean,
+): PlaybackRuntimeSettings {
+    return PlaybackRuntimeSettings(
+        seekGestureEnabled = seekGestureEnabled,
+        brightnessGestureEnabled = brightnessGestureEnabled,
+        volumeGestureEnabled = volumeGestureEnabled,
+        zoomGestureEnabled = zoomGestureEnabled,
+        panGestureEnabled = panGestureEnabled,
+        doubleTapGestureEnabled = doubleTapGestureEnabled,
+        doubleTapAction = when (doubleTapAction) {
+            DoubleTapActionSetting.Seek -> PlaybackRuntimeSettings.DoubleTapAction.Seek
+            DoubleTapActionSetting.TogglePlayPause -> PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause
+            DoubleTapActionSetting.Both -> PlaybackRuntimeSettings.DoubleTapAction.Both
+        },
+        longPressGestureEnabled = longPressGestureEnabled,
+        seekIncrementSec = seekIncrementSec,
+        seekSensitivity = seekSensitivity,
+        longPressSpeed = longPressSpeed,
+        controllerTimeoutSec = controllerTimeoutSec,
+        hideButtonsBackground = hideButtonsBackground,
+        resumePlayback = resumePlayback,
+        defaultPlaybackSpeed = defaultPlaybackSpeed,
+        autoplay = autoplay,
+        autoPip = autoPip,
+        autoBackgroundPlay = autoBackgroundPlay,
+        rememberBrightness = rememberBrightness,
+        rememberSelections = rememberSelections,
+        keepSessionConnectionInBackground = keepConnectionInBackground,
     )
 }

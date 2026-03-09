@@ -39,14 +39,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.yield
-import com.asuka.player.core.PlaybackController
 import com.asuka.player.ui.controller.OverlayActions
+import com.asuka.player.ui.controller.TrackOption
 import com.asuka.player.ui.state.ScaleState
-import com.asuka.player.core.TrackInfoReader
 import com.asuka.player.ui.controller.OverlayTrackActions
 import com.asuka.player.ui.R
 import com.asuka.player.ui.theme.PlayerUiTokens
+import kotlinx.coroutines.yield
 
 enum class OverlayType {
     AUDIO,
@@ -59,7 +58,6 @@ enum class OverlayType {
 fun OverlayPanel(
     modifier: Modifier = Modifier,
     type: OverlayType?,
-    controller: PlaybackController,
     overlayActions: OverlayActions,
     scaleState: ScaleState,
     trackActions: OverlayTrackActions?,
@@ -67,8 +65,8 @@ fun OverlayPanel(
     selectedSubtitle: Int?,
     currentSpeed: Float,
     currentScaleMode: com.asuka.player.core.VideoScaleMode,
-    audioTracks: List<TrackInfoReader.TrackInfo>,
-    subtitleTracks: List<TrackInfoReader.TrackInfo>,
+    audioTracks: List<TrackOption>,
+    subtitleTracks: List<TrackOption>,
     onDismiss: () -> Unit,
 ) {
     // Keep the last non-null type so panel content stays rendered during the exit animation.

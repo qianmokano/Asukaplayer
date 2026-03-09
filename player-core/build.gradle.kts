@@ -33,8 +33,9 @@ kotlin {
 }
 
 dependencies {
-    api(project(":player-data"))
+    implementation(project(":player-data"))
     implementation(libs.annotation)
+    implementation(libs.coroutines.core)
     implementation(libs.media3.common)
     implementation(libs.media3.session)
     implementation(libs.media3.exoplayer)

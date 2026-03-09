@@ -42,5 +42,14 @@ class BackgroundPlaybackPolicyTest {
         policy.setPictureInPicture(false)
         assertFalse(policy.shouldRetainSession())
     }
-}
 
+    @Test
+    fun shouldRetainSession_whenAutoBackgroundPlaybackEnabled() {
+        val policy = BackgroundPlaybackPolicy(
+            retainControllerConnection = false,
+            autoBackgroundPlaybackEnabled = true,
+        )
+
+        assertTrue(policy.shouldRetainSession())
+    }
+}

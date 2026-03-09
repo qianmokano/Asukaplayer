@@ -23,21 +23,10 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     private val uiSettingsRepository = appGraph.uiSettingsRepository
     private val playerSettingsRepository = appGraph.playerSettingsRepository
     private val playbackStateRepository = appGraph.playbackStateRepository
+    private val queueHistoryRepository = appGraph.queueHistoryRepository
 
-    private val _themeConfig = MutableStateFlow(uiSettingsRepository.themeConfig)
-    val themeConfig = _themeConfig.asStateFlow()
-
-    private val _customThemes = MutableStateFlow(uiSettingsRepository.customThemes)
-    val customThemes = _customThemes.asStateFlow()
-
-    private val _navDurationMs = MutableStateFlow(uiSettingsRepository.navDurationMs)
-    val navDurationMs = _navDurationMs.asStateFlow()
-
-    private val _hapticFeedbackEnabled = MutableStateFlow(uiSettingsRepository.hapticFeedbackEnabled)
-    val hapticFeedbackEnabled = _hapticFeedbackEnabled.asStateFlow()
-
-    private val _playerSettings = MutableStateFlow(playerSettingsRepository.playerSettings)
-    val playerSettings = _playerSettings.asStateFlow()
+    val uiSettings = uiSettingsRepository.settings
+    val playerSettings = playerSettingsRepository.settings
 
     private val _items = MutableStateFlow(emptyList<LocalVideoItem>())
     val items = _items.asStateFlow()
@@ -61,32 +50,27 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     val events = _events.asSharedFlow()
 
     fun setThemeConfig(value: ThemeConfig) {
-        if (_themeConfig.value == value) return
-        _themeConfig.value = value
+        if (uiSettings.value.themeConfig == value) return
         uiSettingsRepository.themeConfig = value
     }
 
     fun setCustomThemes(value: List<CustomThemeEntry>) {
-        if (_customThemes.value == value) return
-        _customThemes.value = value
+        if (uiSettings.value.customThemes == value) return
         uiSettingsRepository.customThemes = value
     }
 
     fun setNavDurationMs(value: Int) {
-        if (_navDurationMs.value == value) return
-        _navDurationMs.value = value
+        if (uiSettings.value.navDurationMs == value) return
         uiSettingsRepository.navDurationMs = value
     }
 
     fun setHapticFeedbackEnabled(value: Boolean) {
-        if (_hapticFeedbackEnabled.value == value) return
-        _hapticFeedbackEnabled.value = value
+        if (uiSettings.value.hapticFeedbackEnabled == value) return
         uiSettingsRepository.hapticFeedbackEnabled = value
     }
 
     fun setPlayerSettings(value: PlayerSettingsConfig) {
-        if (_playerSettings.value == value) return
-        _playerSettings.value = value
+        if (playerSettings.value == value) return
         playerSettingsRepository.playerSettings = value
     }
 
@@ -104,7 +88,10 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
 
     fun refreshRecentMediaIds() {
         viewModelScope.launch(Dispatchers.IO) {
-            _recentMediaIds.value = playbackStateRepository.recentMediaIds(limit = 100)
+            _recentMediaIds.value = resolveRecentMediaIds(
+                historyUris = queueHistoryRepository.items(),
+                fallbackMediaIds = playbackStateRepository.recentMediaIds(limit = 100),
+            )
         }
     }
 
@@ -159,4 +146,15 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
             }
         }
     }
+}
+
+internal fun resolveRecentMediaIds(
+    historyUris: List<Uri>,
+    fallbackMediaIds: List<String>,
+): List<String> {
+    val historyIds = historyUris
+        .asReversed()
+        .map(Uri::toString)
+        .distinct()
+    return historyIds.ifEmpty { fallbackMediaIds }
 }

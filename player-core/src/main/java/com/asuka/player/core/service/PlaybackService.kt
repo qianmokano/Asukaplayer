@@ -7,6 +7,9 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -32,11 +35,18 @@ import com.asuka.player.core.impl.Media3PlaybackController
  */
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
     private var writer: PlaybackStateWriter? = null
     private var historyWriter: QueueHistoryWriter? = null
+    private val positionCheckpointRunnable = object : Runnable {
+        override fun run() {
+            writer?.checkpoint(SystemClock.elapsedRealtime())
+            mainHandler.postDelayed(this, PlaybackStateWriter.POSITION_CHECKPOINT_INTERVAL_MS)
+        }
+    }
 
     private val notificationManager: NotificationManager by lazy {
         getSystemService(NotificationManager::class.java)
@@ -104,6 +114,10 @@ class PlaybackService : MediaSessionService() {
 
         w.attach(exoPlayer)
         exoPlayer.addListener(hw)
+        mainHandler.postDelayed(
+            positionCheckpointRunnable,
+            PlaybackStateWriter.POSITION_CHECKPOINT_INTERVAL_MS,
+        )
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -114,6 +128,8 @@ class PlaybackService : MediaSessionService() {
         // Run each cleanup step independently so that a failure in one step does not
         // prevent the remaining steps from executing (the nested try-finally alternative
         // makes it easy to accidentally swallow exceptions from outer blocks).
+        runCatching { mainHandler.removeCallbacks(positionCheckpointRunnable) }
+        runCatching { writer?.flushCurrentPosition() }
         runCatching { session?.let { removeSession(it) } }
         runCatching { player?.let { writer?.detach(it) } }
         runCatching { historyWriter?.let { player?.removeListener(it) } }

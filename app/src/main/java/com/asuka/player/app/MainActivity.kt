@@ -35,7 +35,6 @@ class MainActivity : ComponentActivity() {
             }
             requestPlayback(
                 mediaId = incomingData.toString(),
-                playerSettings = appGraph.playerSettingsRepository.playerSettings,
                 sourceIntent = intent,
             )
             return
@@ -43,23 +42,24 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MainLibraryScreen(
-                onPlay = { mediaId, playerSettings -> requestPlayback(mediaId, playerSettings) },
+                onPlay = { mediaId, queueMediaIds ->
+                    requestPlayback(mediaId, queueMediaIds = queueMediaIds)
+                },
             )
         }
     }
 
     private fun requestPlayback(
         mediaId: String,
-        playerSettings: PlayerSettingsConfig,
         sourceIntent: Intent? = null,
+        queueMediaIds: List<String> = emptyList(),
     ) {
         lifecycleScope.launch {
             val launchRequest = withContext(Dispatchers.IO) {
                 appGraph.playbackLaunchCoordinator.createLaunchRequest(
                     mediaId = mediaId,
-                    playerSettings = playerSettings,
-                    keepConnectionInBackground = appGraph.playbackBehaviorRepository.keepConnectionInBackground,
                     sourceIntent = sourceIntent,
+                    queueMediaIds = queueMediaIds,
                 )
             }
             startPlayback(launchRequest)

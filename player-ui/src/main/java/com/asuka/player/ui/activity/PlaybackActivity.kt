@@ -1,6 +1,7 @@
 package com.asuka.player.ui.activity
 
 import android.app.PendingIntent
+import android.media.AudioManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -28,8 +29,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.requirePlaybackCoreGraph
+import com.asuka.player.ui.PlaybackScreenDependencies
+import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.R
+import com.asuka.player.ui.controller.PlaybackDeviceController
+import com.asuka.player.ui.controller.PlaybackUiPersistence
+import kotlinx.coroutines.launch
 
 /**
  * Minimal playback Activity for M0.
@@ -48,10 +54,63 @@ class PlaybackActivity : ComponentActivity() {
 
     private var composableIsPip by mutableStateOf(false)
     private var videoRect: android.graphics.Rect? = null
-    private val backgroundPolicy = com.asuka.player.ui.controller.BackgroundPlaybackPolicy()
+    private val activityBehavior = PlaybackActivityBehavior()
     private val playbackGraph by lazy { applicationContext.requirePlaybackCoreGraph() }
     private val playbackPrefs by lazy { getSharedPreferences("player_runtime", MODE_PRIVATE) }
     private val playbackStateRepository by lazy { playbackGraph.playbackStateRepository }
+    private val playbackDeviceController = object : PlaybackDeviceController {
+        override fun currentVolumePercent(): Int {
+            val audioManager = getSystemService(AudioManager::class.java) ?: return 50
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            return ((current.toFloat() / max) * 100f).toInt().coerceIn(0, 100)
+        }
+
+        override fun setVolumePercent(percent: Int) {
+            val audioManager = getSystemService(AudioManager::class.java) ?: return
+            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+            val level = ((percent.coerceIn(0, 100) / 100f) * max).toInt().coerceIn(0, max)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
+        }
+
+        override fun currentBrightnessPercent(): Int {
+            val current = window.attributes.screenBrightness
+            return if (current >= 0f) {
+                (current * 100f).toInt().coerceIn(0, 100)
+            } else {
+                50
+            }
+        }
+
+        override fun setBrightnessPercent(percent: Int) {
+            val attrs = window.attributes
+            attrs.screenBrightness = (percent.coerceIn(0, 100) / 100f).coerceIn(0f, 1f)
+            window.attributes = attrs
+        }
+    }
+    private val playbackUiPersistence = object : PlaybackUiPersistence {
+        override fun readZoom(mediaId: String): Float? = playbackStateRepository.readResumeState(mediaId).zoom
+
+        override fun savePlaybackSpeed(mediaId: String, speed: Float) {
+            playbackStateRepository.savePlaybackSpeed(mediaId, speed)
+        }
+
+        override fun saveAudioTrack(mediaId: String, trackId: String) {
+            playbackStateRepository.saveAudioTrack(mediaId, trackId)
+        }
+
+        override fun saveSubtitleTrack(mediaId: String, trackId: String) {
+            playbackStateRepository.saveSubtitleTrack(mediaId, trackId)
+        }
+
+        override fun disableSubtitles(mediaId: String) {
+            playbackStateRepository.disableSubtitles(mediaId)
+        }
+
+        override fun saveZoom(mediaId: String, zoom: Float) {
+            playbackStateRepository.saveZoom(mediaId, zoom)
+        }
+    }
     private val sessionHost by lazy {
         PlaybackSessionHost(
             contentResolver = contentResolver,
@@ -61,7 +120,7 @@ class PlaybackActivity : ComponentActivity() {
             controllerContext = this,
         )
     }
-    private lateinit var runtimeSettings: PlaybackRuntimeSettings
+    private var runtimeSettings by mutableStateOf(PlaybackRuntimeSettings())
     private var pipReceiverRegistered = false
 
     private val pipPlayStateListener = object : Player.Listener {
@@ -87,7 +146,8 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        runtimeSettings = readRuntimeSettings(intent)
+        runtimeSettings = playbackGraph.playbackRuntimeSettingsSource.current()
+        activityBehavior.onRuntimeSettingsChanged(runtimeSettings)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
         @Suppress("DEPRECATION")
@@ -100,9 +160,9 @@ class PlaybackActivity : ComponentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             addOnPictureInPictureModeChangedListener { info ->
-                composableIsPip = info.isInPictureInPictureMode
-                backgroundPolicy.setPictureInPicture(info.isInPictureInPictureMode)
-                if (info.isInPictureInPictureMode) {
+                val transition = activityBehavior.onPictureInPictureModeChanged(info.isInPictureInPictureMode)
+                composableIsPip = transition.isInPictureInPicture
+                if (transition.shouldRegisterReceiver) {
                     registerPipReceiver()
                     sessionHost.currentPlayer?.addListener(pipPlayStateListener)
                 } else {
@@ -112,58 +172,54 @@ class PlaybackActivity : ComponentActivity() {
             }
         }
 
+        observeRuntimeSettings()
         applyRememberedBrightnessIfNeeded()
-        backgroundPolicy.update(
-            retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
-            autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
-        )
         applyStatusBarVisibilityForOrientation()
 
         setContent {
             val hostState by sessionHost.state.collectAsState()
             val controller = hostState.controller ?: return@setContent
             PlayerScreen(
-                uiState = hostState.uiState,
-                player = hostState.player,
-                controller = controller,
-                bindings = hostState.bindings,
-                playbackStateRepository = playbackStateRepository,
-                settings = runtimeSettings,
-                isInPip = composableIsPip,
+                model = PlaybackScreenModel(
+                    uiState = hostState.uiState,
+                    surfacePlayer = hostState.surfacePlayer,
+                    trackUiState = hostState.trackUiState,
+                    settings = runtimeSettings,
+                    isInPip = composableIsPip,
+                ),
+                dependencies = PlaybackScreenDependencies(
+                    controller = controller,
+                    trackSelectionController = hostState.trackSelectionController,
+                    playbackPersistence = playbackUiPersistence,
+                    deviceController = playbackDeviceController,
+                ),
                 onVideoBoundsChanged = { videoRect = it },
                 onBack = { finish() },
                 onPip = { enterPipMode() },
                 onBackground = {
-                    backgroundPolicy.requestBackgroundPlayback()
+                    activityBehavior.onBackgroundPlaybackRequested()
                     finish()
                 },
                 onRotate = { toggleOrientation() },
             )
         }
 
-        sessionHost.ensureControllerReady(intent, runtimeSettings)
+        sessionHost.ensureControllerReady(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        runtimeSettings = readRuntimeSettings(intent)
-        backgroundPolicy.update(
-            retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
-            autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
-        )
-        sessionHost.onNewIntent(intent, runtimeSettings)
+        runtimeSettings = playbackGraph.playbackRuntimeSettingsSource.current()
+        activityBehavior.onRuntimeSettingsChanged(runtimeSettings)
+        sessionHost.onNewIntent(intent)
     }
 
     override fun onStart() {
         super.onStart()
-        backgroundPolicy.update(
-            retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,
-            autoBackgroundPlaybackEnabled = runtimeSettings.autoBackgroundPlay,
-        )
-        backgroundPolicy.clearManualBackgroundPlaybackRequest()
+        activityBehavior.onStart()
         applyStatusBarVisibilityForOrientation()
-        sessionHost.ensureControllerReady(intent, runtimeSettings)
+        sessionHost.ensureControllerReady(intent)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             setPictureInPictureParams(buildPipParams())
         }
@@ -175,13 +231,13 @@ class PlaybackActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        if (runtimeSettings.rememberBrightness) {
+        if (activityBehavior.shouldRememberBrightness()) {
             val brightness = window.attributes.screenBrightness
             if (brightness >= 0f) {
                 playbackPrefs.edit().putFloat("last_brightness", brightness).apply()
             }
         }
-        sessionHost.onStop(backgroundPolicy.shouldRetainSession())
+        sessionHost.onStop(activityBehavior.shouldRetainSessionOnStop())
         super.onStop()
     }
 
@@ -192,11 +248,23 @@ class PlaybackActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    private fun observeRuntimeSettings() {
+        lifecycleScope.launch {
+            playbackGraph.playbackRuntimeSettingsSource.settings.collect { latest ->
+                runtimeSettings = latest
+                activityBehavior.onRuntimeSettingsChanged(latest)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    runCatching { setPictureInPictureParams(buildPipParams()) }
+                }
+            }
+        }
+    }
+
     private fun enterPipMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Enable background before enterPictureInPictureMode so that onStop() —
             // which fires synchronously after the transition — does not release resources.
-            backgroundPolicy.setPictureInPicture(true)
+            activityBehavior.onEnterPictureInPictureRequested()
             registerPipReceiver()
             enterPictureInPictureMode(buildPipParams())
         }
@@ -286,7 +354,7 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (runtimeSettings.autoPip) {
+        if (activityBehavior.shouldAutoEnterPictureInPictureOnUserLeave()) {
             enterPipMode()
         }
     }
@@ -317,16 +385,6 @@ class PlaybackActivity : ComponentActivity() {
         } else {
             controller.show(WindowInsetsCompat.Type.systemBars())
         }
-    }
-
-    private fun readRuntimeSettings(intent: Intent?): PlaybackRuntimeSettings {
-        @Suppress("DEPRECATION")
-        val fromParcel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent?.getParcelableExtra(PlaybackRuntimeSettings.EXTRA_KEY, PlaybackRuntimeSettings::class.java)
-        } else {
-            intent?.getParcelableExtra(PlaybackRuntimeSettings.EXTRA_KEY)
-        }
-        return fromParcel ?: PlaybackRuntimeSettings()
     }
 
     private fun applyRememberedBrightnessIfNeeded() {

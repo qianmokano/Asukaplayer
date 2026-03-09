@@ -3,9 +3,12 @@ package com.asuka.player.ui
 import android.net.Uri
 import com.asuka.player.core.LoopMode
 import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackStateRepository
 import com.asuka.player.core.VideoScaleMode
-import com.asuka.player.data.InMemoryPlaybackStore
+import com.asuka.player.ui.controller.PlaybackDeviceController
+import com.asuka.player.ui.controller.PlaybackTrackSelectionController
+import com.asuka.player.ui.controller.PlaybackTrackUiState
+import com.asuka.player.ui.controller.PlaybackUiPersistence
+import com.asuka.player.ui.state.PlayerUiState
 
 internal object TestPlaybackController : PlaybackController {
     override fun prepare() {}
@@ -45,6 +48,69 @@ internal object TestPlaybackController : PlaybackController {
     override fun isShuffleEnabled(): Boolean = false
 }
 
-internal fun testPlaybackStateRepository(): PlaybackStateRepository {
-    return PlaybackStateRepository(InMemoryPlaybackStore())
+internal fun testPlaybackUiPersistence(): PlaybackUiPersistence {
+    return object : PlaybackUiPersistence {
+        private val speeds = mutableMapOf<String, Float>()
+        private val audioTracks = mutableMapOf<String, String>()
+        private val subtitleTracks = mutableMapOf<String, String>()
+        private val zooms = mutableMapOf<String, Float>()
+
+        override fun readZoom(mediaId: String): Float? = zooms[mediaId]
+
+        override fun savePlaybackSpeed(mediaId: String, speed: Float) {
+            speeds[mediaId] = speed
+        }
+
+        override fun saveAudioTrack(mediaId: String, trackId: String) {
+            audioTracks[mediaId] = trackId
+        }
+
+        override fun saveSubtitleTrack(mediaId: String, trackId: String) {
+            subtitleTracks[mediaId] = trackId
+        }
+
+        override fun disableSubtitles(mediaId: String) {
+            subtitleTracks[mediaId] = "__disabled__"
+        }
+
+        override fun saveZoom(mediaId: String, zoom: Float) {
+            zooms[mediaId] = zoom
+        }
+    }
+}
+
+internal object TestPlaybackDeviceController : PlaybackDeviceController {
+    override fun currentVolumePercent(): Int = 50
+
+    override fun setVolumePercent(percent: Int) {}
+
+    override fun currentBrightnessPercent(): Int = 50
+
+    override fun setBrightnessPercent(percent: Int) {}
+}
+
+internal object TestPlaybackTrackSelectionController : PlaybackTrackSelectionController {
+    override fun setAudioTrack(groupIndex: Int, trackIndex: Int) {}
+
+    override fun setSubtitleTrack(groupIndex: Int, trackIndex: Int) {}
+
+    override fun disableSubtitles() {}
+}
+
+internal fun testPlaybackScreenModel(
+    uiState: PlayerUiState = PlayerUiState(),
+): PlaybackScreenModel {
+    return PlaybackScreenModel(
+        uiState = uiState,
+        trackUiState = PlaybackTrackUiState(),
+    )
+}
+
+internal fun testPlaybackScreenDependencies(): PlaybackScreenDependencies {
+    return PlaybackScreenDependencies(
+        controller = TestPlaybackController,
+        trackSelectionController = TestPlaybackTrackSelectionController,
+        playbackPersistence = testPlaybackUiPersistence(),
+        deviceController = TestPlaybackDeviceController,
+    )
 }

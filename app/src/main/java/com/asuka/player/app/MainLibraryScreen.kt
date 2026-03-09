@@ -55,16 +55,13 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
+internal fun MainLibraryScreen(onPlay: (String, List<String>) -> Unit) {
     val context = LocalContext.current
     val vm: MainLibraryViewModel = viewModel()
     val uiScope = rememberCoroutineScope()
     val appVersion = remember(context) { readAppVersion(context) }
 
-    val themeConfig by vm.themeConfig.collectAsState()
-    val customThemes by vm.customThemes.collectAsState()
-    val navDurationMs by vm.navDurationMs.collectAsState()
-    val hapticFeedbackEnabled by vm.hapticFeedbackEnabled.collectAsState()
+    val uiSettings by vm.uiSettings.collectAsState()
     val playerSettings by vm.playerSettings.collectAsState()
     val permissionGranted by vm.permissionGranted.collectAsState()
     val userSelectedPermissionGranted by vm.userSelectedPermissionGranted.collectAsState()
@@ -72,6 +69,10 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
     val hasLoadedOnce by vm.hasLoadedOnce.collectAsState()
     val items by vm.items.collectAsState()
     val recentMediaIds by vm.recentMediaIds.collectAsState()
+    val themeConfig = uiSettings.themeConfig
+    val customThemes = uiSettings.customThemes
+    val navDurationMs = uiSettings.navDurationMs
+    val hapticFeedbackEnabled = uiSettings.hapticFeedbackEnabled
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -118,7 +119,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
-            onPlay(uri.toString(), playerSettings)
+            onPlay(uri.toString(), emptyList())
         }
     }
 
@@ -174,7 +175,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                     onPlay = { url ->
                         val trimmed = vm.validateNetworkStreamUrl(url) ?: return@OpenNetworkStreamDialog
                         showOpenNetworkStreamDialog = false
-                        onPlay(trimmed, playerSettings)
+                        onPlay(trimmed, emptyList())
                     },
                 )
             }
@@ -245,7 +246,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             initialLoading = loading && !hasLoadedOnce,
                             isRefreshing = loading && hasLoadedOnce,
                             videos = items,
-                            onPlay = { mediaId -> onPlay(mediaId, playerSettings) },
+                            onPlay = { mediaId, queueMediaIds -> onPlay(mediaId, queueMediaIds) },
                             onRefresh = { vm.refresh() },
                         )
                     }
@@ -280,7 +281,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             modifier = Modifier.padding(innerPadding),
                             recentMediaIds = recentMediaIds,
                             knownVideos = knownByUri,
-                            onPlay = { mediaId -> onPlay(mediaId, playerSettings) },
+                            onPlay = { mediaId, queueMediaIds -> onPlay(mediaId, queueMediaIds) },
                         )
                     }
                 }
@@ -310,7 +311,7 @@ internal fun MainLibraryScreen(onPlay: (String, PlayerSettingsConfig) -> Unit) {
                             initialLoading = loading && !hasLoadedOnce,
                             isRefreshing = loading && hasLoadedOnce,
                             folder = folder,
-                            onPlay = { mediaId -> onPlay(mediaId, playerSettings) },
+                            onPlay = { mediaId, queueMediaIds -> onPlay(mediaId, queueMediaIds) },
                             onRefresh = { vm.refresh() },
                         )
                     }

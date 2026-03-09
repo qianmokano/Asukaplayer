@@ -430,9 +430,10 @@ internal fun VideosPageContent(
     initialLoading: Boolean,
     isRefreshing: Boolean,
     videos: List<LocalVideoItem>,
-    onPlay: (String) -> Unit,
+    onPlay: (String, List<String>) -> Unit,
     onRefresh: () -> Unit,
 ) {
+    val queueMediaIds = remember(videos) { videos.map { it.uri.toString() } }
     val pullToRefreshState = rememberPullToRefreshState()
     PullToRefreshBox(
         modifier = modifier.fillMaxSize(),
@@ -479,7 +480,7 @@ internal fun VideosPageContent(
                             durationLabel = item.durationLabel,
                             title = item.title,
                             description = item.folderPath,
-                            onClick = { onPlay(item.uri.toString()) },
+                            onClick = { onPlay(item.uri.toString(), queueMediaIds) },
                         )
                     }
                 }
@@ -496,9 +497,10 @@ internal fun FolderPageContent(
     initialLoading: Boolean,
     isRefreshing: Boolean,
     folder: LocalVideoFolder?,
-    onPlay: (String) -> Unit,
+    onPlay: (String, List<String>) -> Unit,
     onRefresh: () -> Unit,
 ) {
+    val queueMediaIds = remember(folder) { folder?.videos.orEmpty().map { it.uri.toString() } }
     val pullToRefreshState = rememberPullToRefreshState()
     PullToRefreshBox(
         modifier = modifier.fillMaxSize(),
@@ -547,7 +549,7 @@ internal fun FolderPageContent(
                                 durationLabel = item.durationLabel,
                                 title = item.title,
                                 description = item.folderPath,
-                                onClick = { onPlay(item.uri.toString()) },
+                                onClick = { onPlay(item.uri.toString(), queueMediaIds) },
                             )
                         }
                     }
@@ -564,9 +566,10 @@ internal fun RecentPageContent(
     modifier: Modifier = Modifier,
     recentMediaIds: List<String>,
     knownVideos: Map<String, LocalVideoItem>,
-    onPlay: (String) -> Unit,
+    onPlay: (String, List<String>) -> Unit,
 ) {
     val context = LocalContext.current
+    val queueMediaIds = remember(recentMediaIds) { recentMediaIds.distinct() }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -613,14 +616,14 @@ internal fun RecentPageContent(
                             durationLabel = known.durationLabel,
                             title = known.title,
                             description = known.folderPath,
-                            onClick = { onPlay(known.uri.toString()) },
+                            onClick = { onPlay(known.uri.toString(), queueMediaIds) },
                         )
                     } else {
                         SettingsNavigationItem(
                             icon = Icons.Outlined.VideoLibrary,
                             title = title,
                             description = uri?.toString() ?: mediaId,
-                            onClick = { onPlay(mediaId) },
+                            onClick = { onPlay(mediaId, queueMediaIds) },
                         )
                     }
                 }

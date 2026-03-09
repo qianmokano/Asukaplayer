@@ -16,11 +16,8 @@ class ControlsLockTest {
     fun lockHidesControls() {
         composeRule.setContent {
             PlayerScreen(
-                uiState = PlayerUiState(title = "Test"),
-                player = null,
-                controller = TestPlaybackController,
-                bindings = null,
-                playbackStateRepository = testPlaybackStateRepository(),
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
                 onBackground = {},

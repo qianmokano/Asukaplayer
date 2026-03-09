@@ -44,17 +44,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.asuka.player.core.TrackIndexCodec
-import com.asuka.player.core.TrackInfoReader
 import com.asuka.player.core.VideoScaleMode
 import com.asuka.player.ui.R
+import com.asuka.player.ui.controller.TrackOption
 
 // ── Audio ──────────────────────────────────────────────────────────────────────
 
 @Composable
 fun AudioSelectorPanel(
-    tracks: List<TrackInfoReader.TrackInfo>,
+    tracks: List<TrackOption>,
     selected: Int?,
-    onSelect: (TrackInfoReader.TrackInfo) -> Unit,
+    onSelect: (TrackOption) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -86,10 +86,10 @@ fun AudioSelectorPanel(
 
 @Composable
 fun SubtitleSelectorPanel(
-    tracks: List<TrackInfoReader.TrackInfo>,
+    tracks: List<TrackOption>,
     selected: Int?,
     onDisable: () -> Unit,
-    onSelect: (TrackInfoReader.TrackInfo) -> Unit,
+    onSelect: (TrackOption) -> Unit,
 ) {
     Column(
         modifier = Modifier

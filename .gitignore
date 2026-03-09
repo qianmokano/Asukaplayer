@@ -35,3 +35,5 @@ google-services.json
 
 .workflow/
 .codex/
+.claude/
+.github/

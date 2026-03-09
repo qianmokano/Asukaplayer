@@ -19,6 +19,8 @@ class PlaybackStateWriter(
 ) : Player.Listener {
 
     companion object {
+        internal const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
+
         internal fun shouldSavePositionOnPause(isPlaying: Boolean, playbackState: Int): Boolean {
             if (isPlaying) return false
             return playbackState != Player.STATE_IDLE &&
@@ -29,6 +31,8 @@ class PlaybackStateWriter(
 
     private var currentMediaId: String? = null
     private var attachedPlayer: Player? = null
+    private var lastCheckpointMediaId: String? = null
+    private var lastCheckpointRealtimeMs: Long = Long.MIN_VALUE
 
     fun attach(player: Player) {
         attachedPlayer = player
@@ -40,6 +44,38 @@ class PlaybackStateWriter(
         player.removeListener(this)
         attachedPlayer = null
         currentMediaId = null
+        lastCheckpointMediaId = null
+        lastCheckpointRealtimeMs = Long.MIN_VALUE
+    }
+
+    /**
+     * Saves the current playback position while playback is actively progressing.
+     *
+     * Returns true when a checkpoint was written, false when the player was not in a state
+     * worth checkpointing yet or when the minimum interval has not elapsed.
+     */
+    fun checkpoint(nowMs: Long, minIntervalMs: Long = POSITION_CHECKPOINT_INTERVAL_MS): Boolean {
+        val player = attachedPlayer ?: return false
+        if (!player.isPlaying) return false
+        val mediaId = resolveCurrentMediaId(player) ?: return false
+        val lastSavedForSameMedia = lastCheckpointMediaId == mediaId
+        if (lastSavedForSameMedia && nowMs - lastCheckpointRealtimeMs < minIntervalMs) {
+            return false
+        }
+        if (!saveCurrentPosition(player, mediaId, force = false)) return false
+        lastCheckpointMediaId = mediaId
+        lastCheckpointRealtimeMs = nowMs
+        return true
+    }
+
+    /**
+     * Persists the latest known position regardless of whether playback is currently paused.
+     * Intended for lifecycle boundaries such as service destruction.
+     */
+    fun flushCurrentPosition(): Boolean {
+        val player = attachedPlayer ?: return false
+        val mediaId = resolveCurrentMediaId(player) ?: return false
+        return saveCurrentPosition(player, mediaId, force = true)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -52,12 +88,13 @@ class PlaybackStateWriter(
         val state = player.playbackState
         if (!shouldSavePositionOnPause(isPlaying = isPlaying, playbackState = state)) return
         val mediaId = currentMediaId ?: return
-        val position = player.currentPosition
-        store.savePosition(mediaId, position)
+        saveCurrentPosition(player, mediaId, force = false)
     }
 
     override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
         currentMediaId = mediaItem?.mediaId
+        lastCheckpointMediaId = null
+        lastCheckpointRealtimeMs = Long.MIN_VALUE
     }
 
     override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
@@ -78,7 +115,7 @@ class PlaybackStateWriter(
     override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) {
             val mediaId = currentMediaId ?: return
-            store.savePosition(mediaId, 0L)
+            saveCurrentPosition(attachedPlayer ?: return, mediaId, force = true)
         }
     }
 
@@ -125,5 +162,27 @@ class PlaybackStateWriter(
         ) {
             store.saveSubtitleTrackId(mediaId, PersistedTrackSelection.DISABLED_SUBTITLE_ID)
         }
+    }
+
+    private fun resolveCurrentMediaId(player: Player): String? {
+        return player.currentMediaItem?.mediaId ?: currentMediaId
+    }
+
+    private fun saveCurrentPosition(
+        player: Player,
+        mediaId: String,
+        force: Boolean,
+    ): Boolean {
+        val playbackState = player.playbackState
+        if (!force && (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED)) {
+            return false
+        }
+        val position = if (playbackState == Player.STATE_ENDED) {
+            0L
+        } else {
+            player.currentPosition.coerceAtLeast(0L)
+        }
+        store.savePosition(mediaId, position)
+        return true
     }
 }

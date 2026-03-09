@@ -15,11 +15,8 @@ class ErrorOverlayTest {
     fun errorOverlayButtonsExist() {
         composeRule.setContent {
             PlayerScreen(
-                uiState = PlayerUiState(title = "Test", errorMessage = "Error"),
-                player = null,
-                controller = TestPlaybackController,
-                bindings = null,
-                playbackStateRepository = testPlaybackStateRepository(),
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test", errorMessage = "Error")),
+                dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
                 onBackground = {},
