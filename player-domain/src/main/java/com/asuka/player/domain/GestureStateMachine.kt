@@ -3,6 +3,35 @@ package com.asuka.player.domain
 /**
  * Gesture state machine (UI-agnostic). The UI layer should translate pointer events into these events.
  *
+ * ## State transitions
+ * ```
+ *                       Disable
+ *          ┌──────────────────────────────────────────────────────┐
+ *          │                                                      ▼
+ *   ┌──────────────┐  Enable   ┌──────────┐
+ *   │   DISABLED   │ ────────► │   IDLE   │◄─────────────────────────────────────┐
+ *   └──────────────┘           └──────────┘                                      │
+ *          ▲                        │  Tap / DoubleTap / LongPressStart /        │
+ *          │              ┌─────────┤  HorizontalStart / VerticalStart /         │
+ *          │              │         │  TransformStart                            │
+ *          │              ▼         ▼                                            │
+ *          │   ┌─────┐  ┌──────────────┐   HorizontalStart/VerticalStart/  ┌─────────────────┐
+ *          │   │ TAP │  │ DOUBLE_TAP   │   TransformStart/LongPressStart   │ HORIZONTAL_SEEK │
+ *          │   └─────┘  └──────────────┘ ──────────────────────────────►  │ VERTICAL_ADJUST │
+ *          │     (any other event → IDLE)                                  │ TRANSFORM_ZOOM  │
+ *          │                                                               │ LONG_PRESS      │
+ *          │                                                               └─────────────────┘
+ *          │                                                                       │
+ *          └───────────────────── Disable ────────────────────────────────────────┘
+ *                                                    MatchingEnd / Cancel → IDLE
+ * ```
+ *
+ * Each active state (HORIZONTAL_SEEK, VERTICAL_ADJUST, TRANSFORM_ZOOM, LONG_PRESS) ignores
+ * unrelated events (the `else` branch) and stays in the current state, enforcing gesture
+ * exclusivity — only one gesture type can be active at a time.
+ *
+ * TAP and DOUBLE_TAP are transient: any event that does not start a new gesture returns to IDLE.
+ *
  * **Threading:** This class is NOT thread-safe. All calls to [onEvent] must be made from the same
  * thread (typically the main/UI thread). No internal synchronization is performed.
  */

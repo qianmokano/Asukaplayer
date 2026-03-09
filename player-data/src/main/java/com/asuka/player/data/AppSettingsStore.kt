@@ -185,6 +185,11 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
             buildList {
                 for (idx in 0 until array.length()) {
                     val obj = array.optJSONObject(idx) ?: continue
+                    // Records written before version tagging are treated as version 1.
+                    // Records with an unrecognised version are skipped to avoid loading
+                    // fields that may no longer exist in the current schema.
+                    val version = obj.optInt("version", 1)
+                    if (version != CUSTOM_THEME_JSON_VERSION) continue
                     val id = obj.optString("id")
                     val name = obj.optString("name")
                     val seedArgb = obj.optInt("seedArgb", Int.MIN_VALUE)
@@ -206,6 +211,7 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         val array = org.json.JSONArray()
         value.forEach { theme ->
             val obj = org.json.JSONObject()
+            obj.put("version", CUSTOM_THEME_JSON_VERSION)
             obj.put("id", theme.id)
             obj.put("name", theme.name)
             obj.put("seedArgb", theme.seedArgb)
@@ -213,5 +219,11 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
             array.put(obj)
         }
         return array.toString()
+    }
+
+    private companion object {
+        // Increment when adding/removing fields in encodeCustomThemes so that old code
+        // skips records it cannot safely read, rather than silently producing corrupt data.
+        const val CUSTOM_THEME_JSON_VERSION = 1
     }
 }

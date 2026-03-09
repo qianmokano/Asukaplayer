@@ -16,7 +16,7 @@ class QueuePlannerTest {
             Uri.parse("file:///c.mp4"),
             Uri.parse("file:///a.mp4"),
         )
-        val result = QueuePlanner.plan(current, neighbors, history = emptyList())
+        val result = QueuePlanner.plan(current, neighbors)
         assertEquals(listOf(current, Uri.parse("file:///c.mp4"), Uri.parse("file:///a.mp4")), result)
     }
 
@@ -29,29 +29,25 @@ class QueuePlannerTest {
         val result = QueuePlanner.plan(
             current = current,
             neighbors = listOf(a, current, c),
-            history = emptyList(),
         )
 
         assertEquals(listOf(a, current, c), result)
     }
 
     @Test
-    fun plan_mergesHistoryDistinct() {
+    fun plan_returnsOnlyCurrentWhenNoExplicitQueueProvided() {
         val current = Uri.parse("file:///b.mp4")
-        val history = listOf(Uri.parse("file:///x.mp4"), current)
-        val result = QueuePlanner.plan(current, neighbors = emptyList(), history = history)
-        // current is always first; history items not already in the base trail at the end;
-        // current appears in history so it is deduplicated and stays at index 0.
-        assertEquals(listOf(current, Uri.parse("file:///x.mp4")), result)
+        val result = QueuePlanner.plan(current, neighbors = emptyList())
+
+        assertEquals(listOf(current), result)
     }
 
     @Test
-    fun plan_ignoresHistoryWhenExplicitQueueProvided() {
+    fun plan_withExplicitQueueDoesNotIncludeExtraItems() {
         val current = Uri.parse("file:///current.mp4")
         val neighbors = listOf(Uri.parse("file:///next.mp4"))
-        val history = listOf(Uri.parse("file:///history.mp4"))
 
-        val result = QueuePlanner.plan(current, neighbors, history)
+        val result = QueuePlanner.plan(current, neighbors)
 
         assertEquals(listOf(current, Uri.parse("file:///next.mp4")), result)
     }

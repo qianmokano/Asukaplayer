@@ -39,7 +39,10 @@ import java.io.File
 import java.io.FileOutputStream
 
 internal object VideoThumbnailCache {
-    private val cache = object : LruCache<String, Bitmap>(48 * 1024 * 1024) {
+    // Use 1/8 of the available heap rather than a fixed constant so the cache scales
+    // appropriately across low-memory (256 MB heap → ~32 MB) and high-memory devices.
+    private val maxBytes = (Runtime.getRuntime().maxMemory() / 8).toInt()
+    private val cache = object : LruCache<String, Bitmap>(maxBytes) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
     val loadSemaphore = Semaphore(2)

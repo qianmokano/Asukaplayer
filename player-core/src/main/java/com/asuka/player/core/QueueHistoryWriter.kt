@@ -12,7 +12,8 @@ class QueueHistoryWriter(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         val uri = mediaItem?.localConfiguration?.uri
         if (mediaItem != null && uri == null) {
-            Log.w(TAG, "Media item '${mediaItem.mediaId}' has no local URI, skipping history")
+            // Remote/stream media without a local URI is expected; silently skip history.
+            Log.v(TAG, "Media item '${mediaItem.mediaId}' has no local URI, skipping history")
         }
         uri?.let { store.push(it) }
     }

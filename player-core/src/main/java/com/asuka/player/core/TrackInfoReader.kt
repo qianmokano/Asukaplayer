@@ -24,6 +24,9 @@ class TrackInfoReader(private val player: Player) {
     fun listTracks(): List<TrackInfo> {
         val tracks = player.currentTracks
         val results = mutableListOf<TrackInfo>()
+        // Per-type counter used to generate "Audio 1", "Audio 2", "Sub 1" fallback labels.
+        // Every track from every group is added to results (no type filtering), so the counter
+        // increments exactly once per track per type, keeping ordinals consecutive within each type.
         val typeCounters = mutableMapOf<Int, Int>()
         tracks.groups.forEachIndexed { groupIndex, group ->
             val type = group.type

@@ -59,6 +59,10 @@ class ControlsState(
 
     private fun armAutoDismiss() {
         val snapshot = ++generation
+        // If `scope` is already cancelled (e.g. the enclosing Composable has left composition),
+        // `scope.launch` returns an already-cancelled Job without throwing. The auto-hide
+        // simply does not fire, which is correct — a disposed composable has no visible state
+        // to hide. This is intentional behaviour, not a silent failure.
         scope.launch {
             delay(autoHideDelay)
             if (generation == snapshot && !locked) {

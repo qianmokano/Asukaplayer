@@ -68,7 +68,8 @@
   - `./gradlew test`
   - 当前覆盖 `:app`、`:player-core`、`:player-domain`、`:player-ui`、`:player-data`
 - UI/仪器测试：
-  - `:player-ui:connectedAndroidTest`
+  - `:player-ui:compileDebugAndroidTestKotlin`（无设备编译预检）
+  - `:player-ui:connectedAndroidTest`（需设备/模拟器）
 - 已有文档：
   - `docs/M4_TEST_PLAN.md`
   - `docs/M4_UI_TEST_PLAN.md`
@@ -84,6 +85,8 @@
   - `./gradlew lintDebug`
 - 运行 UI 测试（需设备）：
   - `./gradlew :player-ui:connectedAndroidTest`
+- 运行 Android 仪器测试源码编译预检（无设备）：
+  - `./gradlew :player-ui:compileDebugAndroidTestKotlin`
 - 安装 Debug 包：
   - `./gradlew :app:installDebug`
 

@@ -14,7 +14,7 @@
   - 自定义进度条、反馈层
 - **M3 持久化与播放恢复** ✅
   - 位置/速度/音轨/字幕/缩放写回
-  - 队列策略（ClipData + history）
+  - 队列策略（显式队列 / ClipData）
   - PIP + 后台播放基础接入
 - **M4 质量与打磨** ✅
   - 单元测试通过
@@ -37,9 +37,11 @@
 
 ## 测试结果摘要
 - `./gradlew test` ✅
-- `./gradlew lintDebug` ✅
+- `./gradlew :player-ui:compileDebugAndroidTestKotlin` ✅
+- `./gradlew lintDebug`
+  - 作为补充质量检查保留
 - `:player-ui:connectedAndroidTest`
-  - 需要连接设备或模拟器，未纳入当前本地基线
+  - 需要连接设备或模拟器，不属于当前无设备默认基线
 
 ## 待办清单（建议）
 
@@ -50,6 +52,7 @@
 ### 2) 仪器测试补强（高优）
 - 外部 `ACTION_VIEW` + `ClipData` 多文件播放
 - PiP、后台播放、通知链路
+- 保持 `:player-ui:compileDebugAndroidTestKotlin` 作为 PR 预检，避免仪器测试源码再次失编
 
 ### 3) 队列策略与媒体扫描（中优）
 - 目录扫描/排序策略

@@ -2,7 +2,29 @@ package com.asuka.player.core
 
 import android.os.Parcel
 import android.os.Parcelable
+import kotlinx.parcelize.Parceler
+import kotlinx.parcelize.Parcelize
+import kotlinx.parcelize.TypeParceler
 
+/**
+ * Serialises [DoubleTapAction] by enum name rather than ordinal, so reordering
+ * or inserting enum entries never silently corrupts persisted / in-flight parcels.
+ */
+private object DoubleTapActionParceler : Parceler<PlaybackRuntimeSettings.DoubleTapAction> {
+    override fun create(parcel: Parcel): PlaybackRuntimeSettings.DoubleTapAction {
+        val name = parcel.readString()
+        return PlaybackRuntimeSettings.DoubleTapAction.entries
+            .firstOrNull { it.name == name }
+            ?: PlaybackRuntimeSettings.DoubleTapAction.Seek
+    }
+
+    override fun PlaybackRuntimeSettings.DoubleTapAction.write(parcel: Parcel, flags: Int) {
+        parcel.writeString(name)
+    }
+}
+
+@Parcelize
+@TypeParceler<PlaybackRuntimeSettings.DoubleTapAction, DoubleTapActionParceler>
 data class PlaybackRuntimeSettings(
     val seekGestureEnabled: Boolean = true,
     val brightnessGestureEnabled: Boolean = true,
@@ -32,60 +54,7 @@ data class PlaybackRuntimeSettings(
         Both,
     }
 
-    constructor(parcel: Parcel) : this(
-        seekGestureEnabled = parcel.readByte() != 0.toByte(),
-        brightnessGestureEnabled = parcel.readByte() != 0.toByte(),
-        volumeGestureEnabled = parcel.readByte() != 0.toByte(),
-        zoomGestureEnabled = parcel.readByte() != 0.toByte(),
-        panGestureEnabled = parcel.readByte() != 0.toByte(),
-        doubleTapGestureEnabled = parcel.readByte() != 0.toByte(),
-        doubleTapAction = DoubleTapAction.entries.getOrElse(parcel.readInt()) { DoubleTapAction.Seek },
-        longPressGestureEnabled = parcel.readByte() != 0.toByte(),
-        seekIncrementSec = parcel.readInt(),
-        seekSensitivity = parcel.readFloat(),
-        longPressSpeed = parcel.readFloat(),
-        controllerTimeoutSec = parcel.readInt(),
-        hideButtonsBackground = parcel.readByte() != 0.toByte(),
-        resumePlayback = parcel.readByte() != 0.toByte(),
-        defaultPlaybackSpeed = parcel.readFloat(),
-        autoplay = parcel.readByte() != 0.toByte(),
-        autoPip = parcel.readByte() != 0.toByte(),
-        autoBackgroundPlay = parcel.readByte() != 0.toByte(),
-        rememberBrightness = parcel.readByte() != 0.toByte(),
-        rememberSelections = parcel.readByte() != 0.toByte(),
-        keepSessionConnectionInBackground = parcel.readByte() != 0.toByte(),
-    )
-
-    override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeByte(if (seekGestureEnabled) 1 else 0)
-        parcel.writeByte(if (brightnessGestureEnabled) 1 else 0)
-        parcel.writeByte(if (volumeGestureEnabled) 1 else 0)
-        parcel.writeByte(if (zoomGestureEnabled) 1 else 0)
-        parcel.writeByte(if (panGestureEnabled) 1 else 0)
-        parcel.writeByte(if (doubleTapGestureEnabled) 1 else 0)
-        parcel.writeInt(doubleTapAction.ordinal)
-        parcel.writeByte(if (longPressGestureEnabled) 1 else 0)
-        parcel.writeInt(seekIncrementSec)
-        parcel.writeFloat(seekSensitivity)
-        parcel.writeFloat(longPressSpeed)
-        parcel.writeInt(controllerTimeoutSec)
-        parcel.writeByte(if (hideButtonsBackground) 1 else 0)
-        parcel.writeByte(if (resumePlayback) 1 else 0)
-        parcel.writeFloat(defaultPlaybackSpeed)
-        parcel.writeByte(if (autoplay) 1 else 0)
-        parcel.writeByte(if (autoPip) 1 else 0)
-        parcel.writeByte(if (autoBackgroundPlay) 1 else 0)
-        parcel.writeByte(if (rememberBrightness) 1 else 0)
-        parcel.writeByte(if (rememberSelections) 1 else 0)
-        parcel.writeByte(if (keepSessionConnectionInBackground) 1 else 0)
-    }
-
-    override fun describeContents(): Int = 0
-
-    companion object CREATOR : Parcelable.Creator<PlaybackRuntimeSettings> {
+    companion object {
         const val EXTRA_KEY = "player_runtime_settings"
-
-        override fun createFromParcel(parcel: Parcel): PlaybackRuntimeSettings = PlaybackRuntimeSettings(parcel)
-        override fun newArray(size: Int): Array<PlaybackRuntimeSettings?> = arrayOfNulls(size)
     }
 }

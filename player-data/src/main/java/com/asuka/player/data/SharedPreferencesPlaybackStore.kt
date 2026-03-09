@@ -34,6 +34,10 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
     }
 
     object MediaIdListCodec {
+        // Reasonable upper bound for a single media ID / URI entry (e.g. long content:// URI).
+        // Prevents integer overflow in (colonIdx + 1 + len) and limits per-entry allocations.
+        private const val MAX_ENTRY_LEN = 4096
+
         fun encode(ids: List<String>): String {
             val builder = StringBuilder(LIST_PREFIX)
             ids.forEach { id ->
@@ -51,7 +55,7 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
                     val colonIdx = raw.indexOf(':', startIndex = idx)
                     require(colonIdx > idx) { "missing length delimiter" }
                     val len = raw.substring(idx, colonIdx).toInt()
-                    require(len >= 0) { "negative length" }
+                    require(len in 0..MAX_ENTRY_LEN) { "entry length out of bounds: $len" }
                     val start = colonIdx + 1
                     val end = start + len
                     require(end <= raw.length) { "truncated entry" }

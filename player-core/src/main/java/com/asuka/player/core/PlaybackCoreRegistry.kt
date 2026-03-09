@@ -8,6 +8,10 @@ object PlaybackCoreRegistry {
 
     fun install(provider: (Context) -> PlaybackCoreGraph) {
         synchronized(lock) {
+            require(this.provider == null) {
+                "PlaybackCoreRegistry.install() called more than once. " +
+                    "Call clear() first if you need to re-install (e.g. in tests)."
+            }
             this.provider = provider
         }
     }

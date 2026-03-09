@@ -5,6 +5,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
 import com.asuka.player.R
@@ -88,7 +89,10 @@ internal fun queryLocalVideos(context: Context): List<LocalVideoItem> {
                             ?.takeIf { it.isNotBlank() }
                     } else {
                         null
-                    }?.replace("/storage/emulated/0", context.getString(R.string.internal_storage)) ?: fallbackFolderName
+                    }?.replace(
+                        Environment.getExternalStorageDirectory().absolutePath,
+                        context.getString(R.string.internal_storage),
+                    ) ?: fallbackFolderName
                     add(
                         LocalVideoItem(
                             id = id,

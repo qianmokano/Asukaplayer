@@ -25,7 +25,16 @@ object TrackIndexCodec {
         return (groupIndex shl 16) or trackIndex
     }
 
+    /**
+     * Decodes a value previously produced by [encode].
+     * **Callers must check [SUBTITLE_DISABLED] before calling this** — decoding -1 produces
+     * invalid indices because the sentinel was never passed through [encode].
+     */
     fun decode(value: Int): Pair<Int, Int> {
+        require(value >= 0) {
+            "decode() expects a non-negative value from encode(). " +
+                "Check for SUBTITLE_DISABLED (-1) before calling decode()."
+        }
         val groupIndex = value ushr 16          // unsigned shift avoids sign extension
         val trackIndex = value and MAX_TRACK_INDEX
         return groupIndex to trackIndex

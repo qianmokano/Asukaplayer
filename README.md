@@ -53,10 +53,13 @@ player-data/    → 持久化抽象与 SharedPreferences 落盘实现（Playback
 # JVM 单元测试（覆盖 app / player-core / player-domain / player-ui / player-data）
 ./gradlew test
 
+# Android 仪器测试源码编译预检（无设备）
+./gradlew :player-ui:compileDebugAndroidTestKotlin
+
 # Lint
 ./gradlew lintDebug
 
-# UI 测试（需连接设备/模拟器）
+# UI 测试运行（需连接设备/模拟器）
 ./gradlew :player-ui:connectedAndroidTest
 
 # 安装到设备
@@ -73,3 +76,9 @@ player-data/    → 持久化抽象与 SharedPreferences 落盘实现（Playback
 - M2 完整 UI 布局 ✅
 - M3 持久化、队列、轨道选择、PiP ✅
 - M4 测试、性能检查、发布文档 ✅
+
+当前无设备质量基线：
+- `./gradlew test`
+- `./gradlew :player-ui:compileDebugAndroidTestKotlin`
+
+连接设备或模拟器后，再运行 `./gradlew :player-ui:connectedAndroidTest` 做真实 UI 回归。

@@ -87,14 +87,15 @@ class PointerGestureDetector(
                             } else {
                                 brightnessProvider()
                             }
-                            verticalMode = mode
-                            verticalStart = VerticalStart(
+                            val vStart = VerticalStart(
                                 startY = startPosition.y,
                                 value = startValue,
                                 maxValue = 100,
                             )
+                            verticalMode = mode
+                            verticalStart = vStart
                             onVerticalStart(startPosition, size)
-                            onVerticalDrag(verticalStart!!, change.position.y, mode)
+                            onVerticalDrag(vStart, change.position.y, mode)
                         }
                         null -> Unit
                     }

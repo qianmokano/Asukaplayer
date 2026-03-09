@@ -111,25 +111,19 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        try {
-            session?.let { removeSession(it) }
-            player?.let { writer?.detach(it) }
-            historyWriter?.let { player?.removeListener(it) }
-        } finally {
-            try {
-                session?.release()
-            } finally {
-                try {
-                    player?.release()
-                } finally {
-                    session = null
-                    player = null
-                    writer = null
-                    historyWriter = null
-                    super.onDestroy()
-                }
-            }
-        }
+        // Run each cleanup step independently so that a failure in one step does not
+        // prevent the remaining steps from executing (the nested try-finally alternative
+        // makes it easy to accidentally swallow exceptions from outer blocks).
+        runCatching { session?.let { removeSession(it) } }
+        runCatching { player?.let { writer?.detach(it) } }
+        runCatching { historyWriter?.let { player?.removeListener(it) } }
+        runCatching { session?.release() }
+        runCatching { player?.release() }
+        session = null
+        player = null
+        writer = null
+        historyWriter = null
+        super.onDestroy()
     }
 
     private fun buildSessionActivity(): PendingIntent? {

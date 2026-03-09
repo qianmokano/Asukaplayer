@@ -23,7 +23,6 @@ data class PlaybackSessionPlan(
 
 class PlaybackSessionPlanner(
     private val playbackStateRepository: PlaybackStateRepository,
-    private val queueHistoryRepository: QueueHistoryRepository,
 ) {
     fun plan(
         targetUri: Uri,
@@ -34,7 +33,6 @@ class PlaybackSessionPlanner(
         val queueUris = QueuePlanner.plan(
             current = targetUri,
             neighbors = launchNeighbors,
-            history = queueHistoryRepository.items(),
         )
         val queue = QueueBuilder.build(
             uris = queueUris,

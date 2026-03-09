@@ -49,6 +49,7 @@ import com.asuka.player.ui.components.TopBar
 import com.asuka.player.ui.components.VerticalAdjustIndicator
 import com.asuka.player.ui.components.VideoSurfaceWithTransform
 import com.asuka.player.ui.components.ZoomIndicator
+import com.asuka.player.ui.controller.GestureConfig
 import com.asuka.player.ui.controller.GestureCoordinator
 import com.asuka.player.ui.controller.OverlayActions
 import com.asuka.player.ui.controller.OverlayTrackActions
@@ -67,7 +68,9 @@ import com.asuka.player.ui.state.VolumeBrightnessState
 import com.asuka.player.ui.state.ZoomState
 import com.asuka.player.ui.theme.PlayerUiTokens
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * M1 minimal UI: title + controls + gesture layer.
@@ -154,8 +157,9 @@ fun PlayerScreen(
     }
     LaunchedEffect(mediaIdState.value) {
         val mediaId = mediaIdState.value ?: return@LaunchedEffect
-        val resume = playbackStateRepository.readResumeState(mediaId)
-        val zoom = resume.zoom ?: 1f
+        val zoom = withContext(Dispatchers.IO) {
+            playbackStateRepository.readResumeState(mediaId).zoom
+        } ?: 1f
         zoomState.setTransform(zoom, androidx.compose.ui.geometry.Offset.Zero, pinching = false)
     }
     val pointerDetector = remember(settings.seekSensitivity, audioManager, activity) {
@@ -220,16 +224,18 @@ fun PlayerScreen(
                     act.window.attributes = lp
                 }
             },
-            enableSeekGesture = settings.seekGestureEnabled,
-            enableBrightnessGesture = settings.brightnessGestureEnabled,
-            enableVolumeGesture = settings.volumeGestureEnabled,
-            enableZoomGesture = settings.zoomGestureEnabled,
-            enablePanGesture = settings.panGestureEnabled,
-            enableDoubleTapGesture = settings.doubleTapGestureEnabled,
-            doubleTapAction = settings.doubleTapAction,
-            enableLongPressGesture = settings.longPressGestureEnabled,
-            doubleTapSeekDeltaMs = settings.seekIncrementSec.coerceIn(1, 60) * 1000L,
-            longPressSpeed = settings.longPressSpeed.coerceIn(0.2f, 4.0f),
+            config = GestureConfig(
+                enableSeekGesture = settings.seekGestureEnabled,
+                enableBrightnessGesture = settings.brightnessGestureEnabled,
+                enableVolumeGesture = settings.volumeGestureEnabled,
+                enableZoomGesture = settings.zoomGestureEnabled,
+                enablePanGesture = settings.panGestureEnabled,
+                enableDoubleTapGesture = settings.doubleTapGestureEnabled,
+                doubleTapAction = settings.doubleTapAction,
+                enableLongPressGesture = settings.longPressGestureEnabled,
+                doubleTapSeekDeltaMs = settings.seekIncrementSec.coerceIn(1, 60) * 1000L,
+                longPressSpeed = settings.longPressSpeed.coerceIn(0.2f, 4.0f),
+            ),
         )
     }
     LaunchedEffect(uiState.isPlaying) {
@@ -262,6 +268,7 @@ fun PlayerScreen(
             lockedOverlayVisible = false
         }
     }
+    val controlsVisible = controlsState.visible && !controlsState.locked
     val visibleError = uiState.errorMessage?.takeIf { it != dismissedErrorMessage }
     val videoBoundsModifier = remember(onVideoBoundsChanged) {
         if (onVideoBoundsChanged != null) {
@@ -300,7 +307,7 @@ fun PlayerScreen(
         if (!isInPip) {
         Column(modifier = Modifier.fillMaxSize()) {
             AnimatedVisibility(
-                visible = controlsState.visible && !controlsState.locked,
+                visible = controlsVisible,
                 enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
                 exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
             ) {
@@ -321,7 +328,7 @@ fun PlayerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 AnimatedVisibility(
-                    visible = controlsState.visible && !controlsState.locked,
+                    visible = controlsVisible,
                     enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
                     exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
                 ) {
@@ -334,7 +341,7 @@ fun PlayerScreen(
                 }
             }
             AnimatedVisibility(
-                visible = controlsState.visible && !controlsState.locked,
+                visible = controlsVisible,
                 enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
                 exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
             ) {

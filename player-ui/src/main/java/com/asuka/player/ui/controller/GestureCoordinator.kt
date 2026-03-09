@@ -1,6 +1,7 @@
 package com.asuka.player.ui.controller
 
 import android.os.SystemClock
+import androidx.annotation.MainThread
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.asuka.player.core.PlaybackController
@@ -14,8 +15,35 @@ import com.asuka.player.ui.state.ZoomState
 import kotlin.math.abs
 
 /**
- * UI-side gesture coordinator; translates pointer input into playback actions.
+ * Immutable gesture configuration for [GestureCoordinator].
+ * Collecting all enable-flags and tuning constants here keeps the coordinator constructor
+ * to a manageable size and makes it easy to derive a config from [PlaybackRuntimeSettings].
  */
+data class GestureConfig(
+    val enableSeekGesture: Boolean = true,
+    val enableBrightnessGesture: Boolean = true,
+    val enableVolumeGesture: Boolean = true,
+    val enableZoomGesture: Boolean = true,
+    val enablePanGesture: Boolean = true,
+    val enableDoubleTapGesture: Boolean = true,
+    val doubleTapAction: PlaybackRuntimeSettings.DoubleTapAction = PlaybackRuntimeSettings.DoubleTapAction.Seek,
+    val enableLongPressGesture: Boolean = true,
+    val doubleTapSeekDeltaMs: Long = 10_000L,
+    val longPressSpeed: Float = 2.0f,
+    val minSeekDeltaMs: Long = 250L,
+)
+
+/**
+ * UI-side gesture coordinator; translates pointer input into playback actions.
+ *
+ * **Threading:** All public methods must be called from the **main thread**.
+ * Compose gesture callbacks (`detectTapGestures`, `detectTransformGestures`, etc.) always
+ * dispatch on the main thread, so this invariant is upheld automatically when using the
+ * standard Compose gesture APIs. The private mutable fields ([seekStartPositionMs],
+ * [lastSeekIpcMs], etc.) are therefore intentionally unsynchronised — adding locks would
+ * add overhead without benefit given the single-threaded access pattern.
+ */
+@MainThread
 class GestureCoordinator(
     private val controller: PlaybackController,
     private val controlsState: ControlsState,
@@ -28,17 +56,7 @@ class GestureCoordinator(
     private val onLongPressFeedback: (Boolean, Float) -> Unit = { _, _ -> },
     private val onVolumeChanged: (Int) -> Unit = {},
     private val onBrightnessChanged: (Int) -> Unit = {},
-    private val minSeekDeltaMs: Long = 250L,
-    val enableSeekGesture: Boolean = true,
-    val enableBrightnessGesture: Boolean = true,
-    val enableVolumeGesture: Boolean = true,
-    val enableZoomGesture: Boolean = true,
-    val enablePanGesture: Boolean = true,
-    val enableDoubleTapGesture: Boolean = true,
-    val doubleTapAction: PlaybackRuntimeSettings.DoubleTapAction = PlaybackRuntimeSettings.DoubleTapAction.Seek,
-    val enableLongPressGesture: Boolean = true,
-    val doubleTapSeekDeltaMs: Long = 10_000L,
-    val longPressSpeed: Float = 2.0f,
+    val config: GestureConfig = GestureConfig(),
 ) {
     private val machine = GestureStateMachine()
 
@@ -59,15 +77,15 @@ class GestureCoordinator(
     }
 
     fun onDoubleTap(offset: Offset, size: IntSize) {
-        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !enableDoubleTapGesture) return
+        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !config.enableDoubleTapGesture) return
         machine.onEvent(GestureStateMachine.Event.DoubleTap)
-        if (doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause) {
+        if (config.doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause) {
             controller.togglePlayPause()
             return
         }
         val center = size.width / 2f
-        val delta = doubleTapSeekDeltaMs
-        if (doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.Both) {
+        val delta = config.doubleTapSeekDeltaMs
+        if (config.doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.Both) {
             val centerBandHalfWidth = size.width / 6f
             if (abs(offset.x - center) <= centerBandHalfWidth) {
                 controller.togglePlayPause()
@@ -84,13 +102,13 @@ class GestureCoordinator(
     }
 
     fun onLongPressStart() {
-        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !enableLongPressGesture) return
+        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !config.enableLongPressGesture) return
         machine.onEvent(GestureStateMachine.Event.LongPressStart)
         savedSpeed = playbackSpeedProvider()
         longPressActive = true
         controlsState.hide()
-        controller.setPlaybackSpeed(longPressSpeed)
-        onLongPressFeedback(true, longPressSpeed)
+        controller.setPlaybackSpeed(config.longPressSpeed)
+        onLongPressFeedback(true, config.longPressSpeed)
     }
 
     fun onLongPressEnd() {
@@ -103,7 +121,7 @@ class GestureCoordinator(
     }
 
     fun onHorizontalDragStart(positionMs: Long, x: Float) {
-        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !enableSeekGesture) return
+        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !config.enableSeekGesture) return
         machine.onEvent(GestureStateMachine.Event.HorizontalStart)
         seekStartPositionMs = positionMs
         seekStartX = x
@@ -134,7 +152,7 @@ class GestureCoordinator(
         pendingSeekPositionMs = result.newPositionMs
         seekState.update(result.deltaMs)
         val nowMs = SystemClock.elapsedRealtime()
-        if (abs(result.deltaMs) >= minSeekDeltaMs && (nowMs - lastSeekIpcMs) >= SEEK_THROTTLE_MS) {
+        if (abs(result.deltaMs) >= config.minSeekDeltaMs && (nowMs - lastSeekIpcMs) >= SEEK_THROTTLE_MS) {
             controller.seekTo(result.newPositionMs)
             lastSeekIpcMs = nowMs
         }
@@ -143,7 +161,7 @@ class GestureCoordinator(
     fun onHorizontalDragEnd() {
         if (machine.state != GestureStateMachine.State.HORIZONTAL_SEEK) return
         val target = pendingSeekPositionMs
-        if (target != null && abs(lastSeekDeltaMs) >= minSeekDeltaMs) {
+        if (target != null && abs(lastSeekDeltaMs) >= config.minSeekDeltaMs) {
             controller.seekTo(target)
         }
         pendingSeekPositionMs = null
@@ -159,8 +177,8 @@ class GestureCoordinator(
             VolumeBrightnessState.Mode.VOLUME
         }
         val enabled = when (mode) {
-            VolumeBrightnessState.Mode.VOLUME -> enableVolumeGesture
-            VolumeBrightnessState.Mode.BRIGHTNESS -> enableBrightnessGesture
+            VolumeBrightnessState.Mode.VOLUME -> config.enableVolumeGesture
+            VolumeBrightnessState.Mode.BRIGHTNESS -> config.enableBrightnessGesture
         }
         // If the gesture for this side is disabled, the drag is silently ignored.
         // This is intentional: left side = brightness, right side = volume, and each
@@ -208,13 +226,13 @@ class GestureCoordinator(
     }
 
     fun onTransformGesture(viewWidth: Float, viewHeight: Float, panChange: Offset, zoomChange: Float) {
-        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !enableZoomGesture) return
+        if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !config.enableZoomGesture) return
         if (!transformGestureStarted) {
             machine.onEvent(GestureStateMachine.Event.TransformStart)
             if (machine.state != GestureStateMachine.State.TRANSFORM_ZOOM) return
             transformGestureStarted = true
         }
-        val effectivePanChange = if (enablePanGesture) panChange else Offset.Zero
+        val effectivePanChange = if (config.enablePanGesture) panChange else Offset.Zero
         val newZoom = GestureAlgorithms.clampZoom(
             GestureAlgorithms.ZoomInput(
                 currentZoom = zoomState.scale,

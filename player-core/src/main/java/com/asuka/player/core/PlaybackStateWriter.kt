@@ -71,8 +71,8 @@ class PlaybackStateWriter(
         reason: Int,
     ) {
         if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
-        val mediaId = oldPosition.mediaItem?.mediaId ?: return
-        store.savePosition(mediaId, oldPosition.positionMs)
+        val mediaId = newPosition.mediaItem?.mediaId ?: oldPosition.mediaItem?.mediaId ?: return
+        store.savePosition(mediaId, newPosition.positionMs)
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
@@ -83,9 +83,18 @@ class PlaybackStateWriter(
     }
 
     override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-        // Guard: onTracksChanged can fire before onMediaItemTransition for the same item,
-        // causing tracks to be saved against the wrong mediaId. Use the player's current
-        // media item directly to guarantee we write to the correct key.
+        // Why read from attachedPlayer?.currentMediaItem?.mediaId instead of currentMediaId:
+        //
+        // Media3 does NOT guarantee that onMediaItemTransition fires before onTracksChanged
+        // when the media item changes. If onTracksChanged fires first:
+        //   - currentMediaId still points to the OLD item (not yet updated)
+        //   - attachedPlayer.currentMediaItem already reflects the NEW item
+        //   - the `tracks` parameter already belongs to the NEW item
+        // Using currentMediaId here would associate new-item tracks with the old mediaId.
+        //
+        // By reading directly from the player we get the mediaId that matches `tracks`,
+        // regardless of the onMediaItemTransition ordering. In the converse case where
+        // onMediaItemTransition fires first, both sources agree, so the result is the same.
         val mediaId = attachedPlayer?.currentMediaItem?.mediaId ?: return
         var selectedAudioId: String? = null
         var selectedSubtitleId: String? = null

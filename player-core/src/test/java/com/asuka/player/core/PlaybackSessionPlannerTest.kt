@@ -1,7 +1,6 @@
 package com.asuka.player.core
 
 import android.net.Uri
-import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.data.InMemoryPlaybackStore
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -14,7 +13,6 @@ class PlaybackSessionPlannerTest {
 
     private val target = Uri.parse("file:///video/target.mp4")
     private val extra = Uri.parse("file:///video/extra.mp4")
-    private val history = Uri.parse("file:///video/history.mp4")
     private val previous = Uri.parse("file:///video/previous.mp4")
 
     @Test
@@ -25,10 +23,8 @@ class PlaybackSessionPlannerTest {
             saveAudioTrackId(target.toString(), "audio-1")
             saveSubtitleTrackId(target.toString(), PersistedTrackSelection.DISABLED_SUBTITLE_ID)
         }
-        val historyStore = InMemoryQueueHistoryStore().apply { push(history) }
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(store),
-            queueHistoryRepository = QueueHistoryRepository(historyStore),
         )
 
         val plan = planner.plan(
@@ -57,7 +53,6 @@ class PlaybackSessionPlannerTest {
         }
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(store),
-            queueHistoryRepository = QueueHistoryRepository(InMemoryQueueHistoryStore()),
         )
 
         val plan = planner.plan(
@@ -83,11 +78,29 @@ class PlaybackSessionPlannerTest {
     }
 
     @Test
-    fun plan_usesResolvedTitlesForExplicitQueue() {
-        val historyStore = InMemoryQueueHistoryStore().apply { push(history) }
+    fun plan_withoutExplicitNeighborsKeepsQueueScopedToCurrentItem() {
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
-            queueHistoryRepository = QueueHistoryRepository(historyStore),
+        )
+
+        val plan = planner.plan(
+            targetUri = target,
+            launchNeighbors = emptyList(),
+            policy = PlaybackStartupPolicy(
+                resumePlayback = false,
+                defaultPlaybackSpeed = 1.0f,
+                rememberTrackSelections = false,
+            ),
+        )
+
+        assertEquals(listOf(target), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(0, plan.queue.startIndex)
+    }
+
+    @Test
+    fun plan_usesResolvedTitlesForExplicitQueue() {
+        val planner = PlaybackSessionPlanner(
+            playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
         )
 
         val plan = planner.plan(
@@ -115,7 +128,6 @@ class PlaybackSessionPlannerTest {
     fun plan_preservesExplicitQueueOrderWhenTargetIsNotFirstItem() {
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
-            queueHistoryRepository = QueueHistoryRepository(InMemoryQueueHistoryStore()),
         )
 
         val plan = planner.plan(

@@ -4,7 +4,6 @@ import android.app.Application
 import com.asuka.player.core.PlaybackCoreGraph
 import com.asuka.player.core.PlaybackStateRepository
 import com.asuka.player.core.PlaybackSessionPlanner
-import com.asuka.player.core.QueueHistoryRepository
 import com.asuka.player.core.R as CoreR
 import com.asuka.player.data.SharedPreferencesAppSettingsStore
 import com.asuka.player.data.SharedPreferencesPlaybackStore
@@ -30,10 +29,8 @@ internal class AsukaAppGraph(
     override val notificationSmallIconResId: Int = CoreR.drawable.ic_stat_playback
 
     override val playbackStateRepository = PlaybackStateRepository(playbackStore)
-    private val queueHistoryRepository = QueueHistoryRepository(queueHistoryStore)
     override val playbackSessionPlanner = PlaybackSessionPlanner(
         playbackStateRepository = playbackStateRepository,
-        queueHistoryRepository = queueHistoryRepository,
     )
     val playbackLaunchCoordinator = PlaybackLaunchCoordinator(uriResolver)
 }

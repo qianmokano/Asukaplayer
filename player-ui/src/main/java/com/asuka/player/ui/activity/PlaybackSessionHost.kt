@@ -130,6 +130,11 @@ internal class PlaybackSessionHost(
         seekFallbackJob = null
         uiStateFeedJob?.cancel()
         uiStateFeedJob = null
+        // Always cancel initJob: if retaining the session, ensureControllerReady() on the next
+        // resume will reconnect cleanly rather than racing against an in-flight connection that
+        // might recreate stateHolder / sessionCoordinator over the state we just cleared.
+        initJob?.cancel()
+        initJob = null
         stateHolder?.detach()
         stateHolder = null
         sessionCoordinator?.detach()
@@ -137,8 +142,6 @@ internal class PlaybackSessionHost(
         mediaController?.removeListener(seekFallbackListener)
 
         if (!retainSession) {
-            initJob?.cancel()
-            initJob = null
             mediaController?.pause()
             controllerProvider.release()
             mediaController = null
