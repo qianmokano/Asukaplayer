@@ -48,6 +48,7 @@ data class PlayerSettingsRecord(
 
 data class PlaybackBehaviorRecord(
     val keepConnectionInBackground: Boolean = true,
+    val rememberedBrightness: Float? = null,
 )
 
 interface AppSettingsStore {
@@ -166,6 +167,10 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         synchronized(lock) {
             return PlaybackBehaviorRecord(
                 keepConnectionInBackground = prefs.getBoolean("keep_connection_in_background", true),
+                rememberedBrightness = prefs
+                    .takeIf { it.contains("playback_remembered_brightness") }
+                    ?.getFloat("playback_remembered_brightness", 0f)
+                    ?.coerceIn(0f, 1f),
             )
         }
     }
@@ -174,6 +179,16 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         synchronized(lock) {
             prefs.edit()
                 .putBoolean("keep_connection_in_background", record.keepConnectionInBackground)
+                .apply {
+                    if (record.rememberedBrightness != null) {
+                        putFloat(
+                            "playback_remembered_brightness",
+                            record.rememberedBrightness.coerceIn(0f, 1f),
+                        )
+                    } else {
+                        remove("playback_remembered_brightness")
+                    }
+                }
                 .apply()
         }
     }

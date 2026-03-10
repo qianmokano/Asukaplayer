@@ -12,7 +12,13 @@
 ### `app`
 - 应用入口与组合根
 - 媒体库、设置页、导航
+- 不直接装配 `player-core` / `player-data` 细节
+
+### `player-runtime`
+- `AsukaAppGraph`
+- 设置仓库与 `PlaybackRuntimeSettingsSource`
 - 播放启动编排：`PlaybackLaunchCoordinator`
+- `PlaybackUiPersistence`、`PlaybackDeviceControllerFactory`
 
 ### `player-ui`
 - `PlaybackActivity`、`PlaybackSessionHost`
@@ -47,6 +53,8 @@
 - `playbackStateRepository`
 - `playbackSessionPlanner`
 - `playbackRuntimeSettingsSource`
+- `playbackUiPersistence`
+- `playbackDeviceControllerFactory`
 - `playbackServiceComponent`
 - `sessionActivityClass`
 - `notificationSmallIconResId`
@@ -60,7 +68,7 @@
 
 ### 1. 启动阶段
 
-- `MainActivity` 接收媒体选择或外部 `ACTION_VIEW`
+- `MainActivity` 接收媒体选择或外部 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE`
 - `PlaybackLaunchCoordinator` 负责：
   - 解析目标 URI
   - 必要时做 seek fallback
@@ -70,7 +78,7 @@
 说明：
 
 - 播放运行时设置不再通过 intent snapshot 传递
-- `PlaybackActivity` 启动后直接读取当前 `PlaybackRuntimeSettingsSource`
+- `PlaybackActivity` 启动后直接读取 graph 提供的当前运行时环境
 
 ### 2. 会话连接阶段
 
@@ -118,6 +126,7 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
 - 播放页启动时读取的是当前值，而不是旧的 intent 快照
 - `hideButtonsBackground` 等默认值与 `PlayerSettingsConfig` 保持一致
 - 设置变化通过 flow 持续同步到播放页
+- 亮度记忆、缩放/轨道/倍速持久化、音量/亮度控制都不再由 `PlaybackActivity` 私自持有
 
 ## 持久化与恢复
 
@@ -140,8 +149,8 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
 ## 当前推荐阅读顺序
 
 1. `README.md`
-2. `app/src/main/java/com/asuka/player/app/AppGraph.kt`
-3. `app/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
+2. `player-runtime/src/main/java/com/asuka/player/app/AppGraph.kt`
+3. `player-runtime/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
 4. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackActivity.kt`
 5. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackSessionHost.kt`
 6. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreenContract.kt`

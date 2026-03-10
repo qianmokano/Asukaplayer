@@ -3,11 +3,11 @@ package com.asuka.player.ui
 import android.net.Uri
 import com.asuka.player.core.LoopMode
 import com.asuka.player.core.PlaybackController
+import com.asuka.player.core.PlaybackDeviceController
+import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.core.VideoScaleMode
-import com.asuka.player.ui.controller.PlaybackDeviceController
 import com.asuka.player.ui.controller.PlaybackTrackSelectionController
 import com.asuka.player.ui.controller.PlaybackTrackUiState
-import com.asuka.player.ui.controller.PlaybackUiPersistence
 import com.asuka.player.ui.state.PlayerUiState
 
 internal object TestPlaybackController : PlaybackController {
@@ -76,6 +76,10 @@ internal fun testPlaybackUiPersistence(): PlaybackUiPersistence {
         override fun saveZoom(mediaId: String, zoom: Float) {
             zooms[mediaId] = zoom
         }
+
+        override fun readRememberedBrightness(): Float? = null
+
+        override fun saveRememberedBrightness(brightness: Float) {}
     }
 }
 

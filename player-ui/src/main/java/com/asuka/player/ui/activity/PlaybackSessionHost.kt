@@ -13,7 +13,9 @@ import com.asuka.player.core.PlaybackStartupPolicy
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.copyIntentWithRemappedUri
 import com.asuka.player.core.impl.Media3PlaybackController
+import com.asuka.player.ui.R
 import com.asuka.player.ui.controller.ControllerProvider
+import com.asuka.player.ui.controller.PlaybackControllerConnector
 import com.asuka.player.ui.controller.PlaybackTrackSelectionController
 import com.asuka.player.ui.controller.PlaybackTrackUiState
 import com.asuka.player.ui.controller.PlaybackTrackUiStateHolder
@@ -38,6 +40,8 @@ internal data class PlaybackHostState(
     val surfacePlayer: Player? = null,
     val trackUiState: PlaybackTrackUiState = PlaybackTrackUiState(),
     val trackSelectionController: PlaybackTrackSelectionController? = null,
+    val isConnectingController: Boolean = false,
+    val controllerErrorMessage: String? = null,
 )
 
 internal class PlaybackSessionHost(
@@ -46,11 +50,12 @@ internal class PlaybackSessionHost(
     private val scope: CoroutineScope,
     private val graph: PlaybackCoreGraph,
     controllerContext: android.content.Context,
-) {
-    private val controllerProvider = ControllerProvider(
+    private val controllerProvider: PlaybackControllerConnector = ControllerProvider(
         context = controllerContext.applicationContext,
         playbackServiceComponent = graph.playbackServiceComponent,
-    )
+    ),
+) {
+    private val appContext = controllerContext.applicationContext
     private val seekFallbackCopier = SeekFallbackCopier(contentResolver, cacheDir)
     private val mediaMetadataBridge = PlaybackSessionMediaMetadataBridge(
         contentResolver = contentResolver,
@@ -167,6 +172,12 @@ internal class PlaybackSessionHost(
 
     private fun connectController() {
         if (initJob?.isActive == true) return
+        _state.update { current ->
+            current.copy(
+                isConnectingController = true,
+                controllerErrorMessage = null,
+            )
+        }
         initJob = scope.launch {
             try {
                 val mc = controllerProvider.buildAsync().await()
@@ -175,8 +186,18 @@ internal class PlaybackSessionHost(
                 startSingleMedia(currentIntent?.data)
             } catch (_: CancellationException) {
                 // Lifecycle moved on; connection will be retried on next start.
+                _state.update { current ->
+                    current.copy(isConnectingController = false)
+                }
             } catch (error: Throwable) {
                 Log.e(TAG, "failed to connect controller", error)
+                controllerProvider.release()
+                _state.update { current ->
+                    current.copy(
+                        isConnectingController = false,
+                        controllerErrorMessage = appContext.getString(R.string.playback_session_connection_failed),
+                    )
+                }
             } finally {
                 initJob = null
             }
@@ -230,6 +251,8 @@ internal class PlaybackSessionHost(
                 controller = playbackController,
                 surfacePlayer = mc,
                 trackSelectionController = trackSelectionController,
+                isConnectingController = false,
+                controllerErrorMessage = null,
             )
         }
     }

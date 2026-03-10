@@ -44,6 +44,65 @@ class MainActivityDirectPlaybackTest {
         assertTrue(activity.isFinishing)
     }
 
+    @Test
+    fun clipDataOnlyIntent_startsPlaybackActivityUsingFirstClipItem() {
+        val current = Uri.parse("content://videos/current.mp4")
+        val next = Uri.parse("content://videos/next.mp4")
+        val launchIntent = Intent(Intent.ACTION_VIEW).apply {
+            clipData = ClipData.newRawUri("queue", current).apply {
+                addItem(ClipData.Item(next))
+            }
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertEquals(next, startedIntent.clipData?.getItemAt(1)?.uri)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun sendIntentWithExtraStream_startsPlaybackActivityAndFinishesCaller() {
+        val current = Uri.parse("content://videos/current.mp4")
+        val launchIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "video/*"
+            putExtra(Intent.EXTRA_STREAM, current)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun sendMultipleIntent_preservesSharedQueueOrder() {
+        val current = Uri.parse("content://videos/current.mp4")
+        val next = Uri.parse("content://videos/next.mp4")
+        val launchIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "video/*"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, arrayListOf(current, next))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertEquals(next, startedIntent.clipData?.getItemAt(1)?.uri)
+        assertTrue(activity.isFinishing)
+    }
+
     private fun waitForStartedIntent(activity: MainActivity): Intent {
         repeat(50) {
             shadowOf(Looper.getMainLooper()).idle()

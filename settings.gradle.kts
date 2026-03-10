@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "asuka"
 
-include(":app", ":player-domain", ":player-core", ":player-data", ":player-ui")
+include(":app", ":player-domain", ":player-core", ":player-data", ":player-ui", ":player-runtime")

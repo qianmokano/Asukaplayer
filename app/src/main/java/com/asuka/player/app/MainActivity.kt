@@ -27,15 +27,16 @@ class MainActivity : ComponentActivity() {
             window.isNavigationBarContrastEnforced = false
         }
 
-        val incomingData = try { intent?.data } catch (_: Throwable) { null }
-        if (incomingData != null) {
+        val incomingPlayback = runCatching { IncomingPlaybackIntentReader.read(intent) }.getOrNull()
+        if (incomingPlayback != null) {
             launchedForDirectPlayback = true
             setContent {
                 Box(Modifier.fillMaxSize().background(Color.Black))
             }
             requestPlayback(
-                mediaId = incomingData.toString(),
-                sourceIntent = intent,
+                mediaId = incomingPlayback.mediaId,
+                sourceIntent = incomingPlayback.sourceIntent,
+                queueMediaIds = incomingPlayback.queueMediaIds,
             )
             return
         }

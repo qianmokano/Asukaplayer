@@ -1,7 +1,6 @@
 package com.asuka.player.ui.activity
 
 import android.app.PendingIntent
-import android.media.AudioManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,24 +16,36 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
+import com.asuka.player.core.PlaybackDeviceController
 import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.core.requirePlaybackCoreGraph
 import com.asuka.player.ui.PlaybackScreenDependencies
 import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.R
-import com.asuka.player.ui.controller.PlaybackDeviceController
-import com.asuka.player.ui.controller.PlaybackUiPersistence
 import kotlinx.coroutines.launch
 
 /**
@@ -56,60 +67,12 @@ class PlaybackActivity : ComponentActivity() {
     private var videoRect: android.graphics.Rect? = null
     private val activityBehavior = PlaybackActivityBehavior()
     private val playbackGraph by lazy { applicationContext.requirePlaybackCoreGraph() }
-    private val playbackPrefs by lazy { getSharedPreferences("player_runtime", MODE_PRIVATE) }
-    private val playbackStateRepository by lazy { playbackGraph.playbackStateRepository }
-    private val playbackDeviceController = object : PlaybackDeviceController {
-        override fun currentVolumePercent(): Int {
-            val audioManager = getSystemService(AudioManager::class.java) ?: return 50
-            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-            val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            return ((current.toFloat() / max) * 100f).toInt().coerceIn(0, 100)
-        }
-
-        override fun setVolumePercent(percent: Int) {
-            val audioManager = getSystemService(AudioManager::class.java) ?: return
-            val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-            val level = ((percent.coerceIn(0, 100) / 100f) * max).toInt().coerceIn(0, max)
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
-        }
-
-        override fun currentBrightnessPercent(): Int {
-            val current = window.attributes.screenBrightness
-            return if (current >= 0f) {
-                (current * 100f).toInt().coerceIn(0, 100)
-            } else {
-                50
-            }
-        }
-
-        override fun setBrightnessPercent(percent: Int) {
-            val attrs = window.attributes
-            attrs.screenBrightness = (percent.coerceIn(0, 100) / 100f).coerceIn(0f, 1f)
-            window.attributes = attrs
-        }
-    }
-    private val playbackUiPersistence = object : PlaybackUiPersistence {
-        override fun readZoom(mediaId: String): Float? = playbackStateRepository.readResumeState(mediaId).zoom
-
-        override fun savePlaybackSpeed(mediaId: String, speed: Float) {
-            playbackStateRepository.savePlaybackSpeed(mediaId, speed)
-        }
-
-        override fun saveAudioTrack(mediaId: String, trackId: String) {
-            playbackStateRepository.saveAudioTrack(mediaId, trackId)
-        }
-
-        override fun saveSubtitleTrack(mediaId: String, trackId: String) {
-            playbackStateRepository.saveSubtitleTrack(mediaId, trackId)
-        }
-
-        override fun disableSubtitles(mediaId: String) {
-            playbackStateRepository.disableSubtitles(mediaId)
-        }
-
-        override fun saveZoom(mediaId: String, zoom: Float) {
-            playbackStateRepository.saveZoom(mediaId, zoom)
-        }
+    private val playbackUiPersistence: PlaybackUiPersistence by lazy { playbackGraph.playbackUiPersistence }
+    private val playbackDeviceController: PlaybackDeviceController by lazy {
+        playbackGraph.playbackDeviceControllerFactory.create(
+            context = this,
+            window = window,
+        )
     }
     private val sessionHost by lazy {
         PlaybackSessionHost(
@@ -178,7 +141,15 @@ class PlaybackActivity : ComponentActivity() {
 
         setContent {
             val hostState by sessionHost.state.collectAsState()
-            val controller = hostState.controller ?: return@setContent
+            val controller = hostState.controller
+            if (controller == null) {
+                PlaybackStartupScreen(
+                    errorMessage = hostState.controllerErrorMessage,
+                    onRetry = { sessionHost.ensureControllerReady(intent) },
+                    onClose = { finish() },
+                )
+                return@setContent
+            }
             PlayerScreen(
                 model = PlaybackScreenModel(
                     uiState = hostState.uiState,
@@ -234,7 +205,7 @@ class PlaybackActivity : ComponentActivity() {
         if (activityBehavior.shouldRememberBrightness()) {
             val brightness = window.attributes.screenBrightness
             if (brightness >= 0f) {
-                playbackPrefs.edit().putFloat("last_brightness", brightness).apply()
+                playbackUiPersistence.saveRememberedBrightness(brightness)
             }
         }
         sessionHost.onStop(activityBehavior.shouldRetainSessionOnStop())
@@ -389,10 +360,44 @@ class PlaybackActivity : ComponentActivity() {
 
     private fun applyRememberedBrightnessIfNeeded() {
         if (!runtimeSettings.rememberBrightness) return
-        val remembered = playbackPrefs.getFloat("last_brightness", -1f)
-        if (remembered < 0f) return
+        val remembered = playbackUiPersistence.readRememberedBrightness() ?: return
         val attrs = window.attributes
         attrs.screenBrightness = remembered.coerceIn(0f, 1f)
         window.attributes = attrs
+    }
+}
+
+@Composable
+private fun PlaybackStartupScreen(
+    errorMessage: String?,
+    onRetry: () -> Unit,
+    onClose: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color.Black),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (errorMessage.isNullOrBlank()) {
+            CircularProgressIndicator()
+            return@Box
+        }
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = errorMessage,
+                color = androidx.compose.ui.graphics.Color.White,
+            )
+            TextButton(onClick = onRetry) {
+                Text(text = androidx.compose.ui.res.stringResource(id = R.string.retry))
+            }
+            TextButton(onClick = onClose) {
+                Text(text = androidx.compose.ui.res.stringResource(id = R.string.close))
+            }
+        }
     }
 }

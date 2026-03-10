@@ -1,6 +1,7 @@
 package com.asuka.player.ui.controller
 
 import com.asuka.player.core.PlaybackController
+import com.asuka.player.core.PlaybackUiPersistence
 
 /**
  * Connects overlay actions to persistence when applicable.

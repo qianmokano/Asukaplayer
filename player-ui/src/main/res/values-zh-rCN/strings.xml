@@ -35,6 +35,7 @@
     <string name="subtitle">字幕</string>
     <string name="playback_speed">播放速度</string>
     <string name="content_scale">画面比例</string>
+    <string name="playback_session_connection_failed">无法连接到播放会话。</string>
     <string name="no_audio_track">无可用音轨</string>
     <string name="off">关闭</string>
     <string name="fit">适应</string>

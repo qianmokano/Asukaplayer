@@ -35,6 +35,7 @@
     <string name="subtitle">Subtitle</string>
     <string name="playback_speed">Playback Speed</string>
     <string name="content_scale">Content Scale</string>
+    <string name="playback_session_connection_failed">Unable to connect to the playback session.</string>
     <string name="no_audio_track">No audio track found</string>
     <string name="off">Off</string>
     <string name="fit">Fit</string>

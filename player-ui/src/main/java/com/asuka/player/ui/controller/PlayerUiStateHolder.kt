@@ -22,29 +22,27 @@ class PlayerUiStateHolder(
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state
     private var tickerJob: Job? = null
+    private var tickerScope: CoroutineScope? = null
+    private var tickerIntervalMs: Long = 160L
     private var attached = false
 
     fun attach() {
         attached = true
         player.addListener(this)
         updateFromPlayer()
+        syncProgressTicker()
     }
 
     fun detach() {
         attached = false
         player.removeListener(this)
-        tickerJob?.cancel()
-        tickerJob = null
+        stopProgressTicker()
     }
 
     fun startProgressTicker(scope: CoroutineScope, intervalMs: Long = 160L) {
-        tickerJob?.cancel()
-        tickerJob = scope.launch {
-            while (isActive) {
-                updateFromPlayer()
-                delay(intervalMs)
-            }
-        }
+        tickerScope = scope
+        tickerIntervalMs = intervalMs
+        syncProgressTicker()
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -55,6 +53,7 @@ class PlayerUiStateHolder(
                 errorMessage = if (isPlaying) null else it.errorMessage,
             )
         }
+        syncProgressTicker()
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
@@ -93,5 +92,31 @@ class PlayerUiStateHolder(
                 errorMessage = if (clearError) null else it.errorMessage,
             )
         }
+    }
+
+    private fun syncProgressTicker() {
+        if (!attached || !player.isPlaying) {
+            stopProgressTicker()
+            return
+        }
+        if (tickerJob?.isActive == true) return
+        val scope = tickerScope ?: return
+        val job = scope.launch {
+            while (isActive && attached && player.isPlaying) {
+                updateFromPlayer()
+                delay(tickerIntervalMs)
+            }
+        }
+        job.invokeOnCompletion {
+            if (tickerJob === job) {
+                tickerJob = null
+            }
+        }
+        tickerJob = job
+    }
+
+    private fun stopProgressTicker() {
+        tickerJob?.cancel()
+        tickerJob = null
     }
 }

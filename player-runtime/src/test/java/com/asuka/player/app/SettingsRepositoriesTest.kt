@@ -78,6 +78,15 @@ class SettingsRepositoriesTest {
         )
     }
 
+    @Test
+    fun playbackBehaviorRepository_persistsRememberedBrightness() {
+        val repository = PlaybackBehaviorRepository(freshStore())
+
+        repository.rememberedBrightness = 0.42f
+
+        assertEquals(0.42f, repository.rememberedBrightness)
+    }
+
     private fun freshStore(): SharedPreferencesAppSettingsStore {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("app_settings", Context.MODE_PRIVATE).edit().clear().commit()

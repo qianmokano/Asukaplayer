@@ -2,11 +2,11 @@ package com.asuka.player.ui
 
 import androidx.media3.common.Player
 import com.asuka.player.core.PlaybackController
+import com.asuka.player.core.PlaybackDeviceController
 import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.ui.controller.PlaybackDeviceController
+import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.ui.controller.PlaybackTrackSelectionController
 import com.asuka.player.ui.controller.PlaybackTrackUiState
-import com.asuka.player.ui.controller.PlaybackUiPersistence
 import com.asuka.player.ui.state.PlayerUiState
 
 data class PlaybackScreenModel(

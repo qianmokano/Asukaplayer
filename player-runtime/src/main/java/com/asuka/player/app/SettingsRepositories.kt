@@ -10,21 +10,21 @@ import com.asuka.player.data.PlaybackBehaviorRecord
 import com.asuka.player.data.PlayerSettingsRecord
 import com.asuka.player.data.UiSettingsRecord
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
-internal data class UiSettingsState(
+data class UiSettingsState(
     val themeConfig: ThemeConfig,
     val customThemes: List<CustomThemeEntry>,
     val navDurationMs: Int,
     val hapticFeedbackEnabled: Boolean,
 )
 
-internal class UiSettingsRepository(
+class UiSettingsRepository(
     private val store: AppSettingsStore,
 ) {
     private val _settings = MutableStateFlow(store.loadUiSettings().toUiSettingsState())
@@ -65,7 +65,7 @@ internal class UiSettingsRepository(
     }
 }
 
-internal class PlayerSettingsRepository(
+class PlayerSettingsRepository(
     private val store: AppSettingsStore,
 ) {
     private val _settings = MutableStateFlow(store.loadPlayerSettings().toPlayerSettingsConfig())
@@ -81,7 +81,7 @@ internal class PlayerSettingsRepository(
         }
 }
 
-internal class PlaybackBehaviorRepository(
+class PlaybackBehaviorRepository(
     private val store: AppSettingsStore,
 ) {
     private val _settings = MutableStateFlow(store.loadPlaybackBehavior())
@@ -92,13 +92,24 @@ internal class PlaybackBehaviorRepository(
         get() = settings.value.keepConnectionInBackground
         set(value) {
             if (settings.value.keepConnectionInBackground == value) return
-            val updated = PlaybackBehaviorRecord(keepConnectionInBackground = value)
-            _settings.value = updated
-            store.savePlaybackBehavior(updated)
+            persist(settings.value.copy(keepConnectionInBackground = value))
         }
+
+    var rememberedBrightness: Float?
+        get() = settings.value.rememberedBrightness
+        set(value) {
+            val clamped = value?.coerceIn(0f, 1f)
+            if (settings.value.rememberedBrightness == clamped) return
+            persist(settings.value.copy(rememberedBrightness = clamped))
+        }
+
+    private fun persist(value: PlaybackBehaviorRecord) {
+        _settings.value = value
+        store.savePlaybackBehavior(value)
+    }
 }
 
-internal class AppPlaybackRuntimeSettingsSource(
+class AppPlaybackRuntimeSettingsSource(
     private val playerSettingsRepository: PlayerSettingsRepository,
     private val playbackBehaviorRepository: PlaybackBehaviorRepository,
     scope: CoroutineScope,
@@ -235,7 +246,7 @@ private fun PlayerSettingsConfig.toPlayerSettingsRecord(): PlayerSettingsRecord 
     )
 }
 
-internal fun PlayerSettingsConfig.toRuntimeSettings(
+fun PlayerSettingsConfig.toRuntimeSettings(
     keepConnectionInBackground: Boolean,
 ): PlaybackRuntimeSettings {
     return PlaybackRuntimeSettings(

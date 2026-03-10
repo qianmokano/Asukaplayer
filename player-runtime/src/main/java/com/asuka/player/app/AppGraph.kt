@@ -3,8 +3,11 @@ package com.asuka.player.app
 import android.app.Application
 import android.content.ComponentName
 import com.asuka.player.core.PlaybackCoreGraph
-import com.asuka.player.core.PlaybackStateRepository
+import com.asuka.player.core.PlaybackCoreGraphProvider
+import com.asuka.player.core.PlaybackDeviceControllerFactory
 import com.asuka.player.core.PlaybackSessionPlanner
+import com.asuka.player.core.PlaybackStateRepository
+import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.core.QueueHistoryRepository
 import com.asuka.player.core.R as CoreR
 import com.asuka.player.core.service.PlaybackService
@@ -16,7 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
-internal class AsukaAppGraph(
+class AsukaAppGraph(
     application: Application,
 ) : PlaybackCoreGraph {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -46,8 +49,16 @@ internal class AsukaAppGraph(
     override val playbackSessionPlanner = PlaybackSessionPlanner(
         playbackStateRepository = playbackStateRepository,
     )
+    override val playbackUiPersistence: PlaybackUiPersistence = PlaybackStateUiPersistence(
+        playbackStateRepository = playbackStateRepository,
+        playbackBehaviorRepository = playbackBehaviorRepository,
+    )
+    override val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory =
+        DefaultPlaybackDeviceControllerFactory
+
     val playbackLaunchCoordinator = PlaybackLaunchCoordinator(uriResolver)
 }
 
-internal val Application.appGraph: AsukaAppGraph
-    get() = (this as AsuraPlayerApp).graph
+val Application.appGraph: AsukaAppGraph
+    get() = ((this as? PlaybackCoreGraphProvider)?.playbackCoreGraph as? AsukaAppGraph)
+        ?: error("Application must expose AsukaAppGraph via PlaybackCoreGraphProvider.")

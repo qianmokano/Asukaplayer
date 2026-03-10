@@ -5,7 +5,7 @@
 ## 当前能力
 
 - 本地媒体库浏览、文件夹分组、最近播放
-- 外部 `ACTION_VIEW` / `ClipData` 多文件启动
+- 外部 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` / `ClipData` 多文件启动
 - 手势控制：横向 seek、亮度、音量、双击、长按倍速、缩放、平移
 - 音轨 / 字幕切换、比例切换、倍速切换
 - PiP、后台播放、播放恢复
@@ -25,19 +25,20 @@
 
 ```text
 app/            应用入口、媒体库、设置页、组合根
+player-runtime/ 设置仓库、运行时 graph、播放启动编排、设备/持久化适配
 player-ui/      播放页 UI、会话宿主、UI 侧状态与动作翻译
 player-core/    播放抽象、MediaSessionService、队列/恢复规划
 player-domain/  纯 JVM 算法与状态机
 player-data/    持久化接口与 SharedPreferences 实现
 ```
 
-依赖方向：`app` → `player-ui` → `player-core` → `player-data`；`player-ui` → `player-domain`
+依赖方向：`app` → `player-runtime`；`player-runtime` → `player-ui` / `player-core` / `player-data`；`player-ui` → `player-core` / `player-domain`
 
 ## 关键架构
 
 1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并通过 `PlaybackCoreGraphProvider` 暴露唯一运行时依赖图。
-2. `MainActivity` 和 `PlaybackLaunchCoordinator` 负责解析启动 URI、seek fallback 与显式队列转发。
-3. `PlaybackActivity` 只从 `PlaybackRuntimeSettingsSource` 读取当前运行时设置；不再维护额外的启动快照。
+2. `MainActivity` 和 `PlaybackLaunchCoordinator` 负责解析 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` 启动 URI、seek fallback 与显式队列转发。
+3. `PlaybackActivity` 只从 graph 提供的 `PlaybackRuntimeSettingsSource` / `PlaybackUiPersistence` / `PlaybackDeviceControllerFactory` 读取运行时依赖。
 4. `PlaybackSessionHost` 使用 graph 提供的播放 service component 连接 `MediaController`，并把 Media3 状态翻译成 `PlaybackScreenModel` / `PlaybackScreenDependencies` 给 `PlayerScreen`。
 5. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复。
 6. `PlaybackService` + `PlaybackStateWriter` 负责播放状态写回，包含播放中 checkpoint 和销毁前 flush。

@@ -23,6 +23,8 @@ interface PlaybackCoreGraph {
     val playbackStateRepository: PlaybackStateRepository
     val playbackSessionPlanner: PlaybackSessionPlanner
     val playbackRuntimeSettingsSource: PlaybackRuntimeSettingsSource
+    val playbackUiPersistence: PlaybackUiPersistence
+    val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
     val playbackServiceComponent: ComponentName
     val sessionActivityClass: Class<*>?
 

@@ -4,25 +4,25 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.MediaStore
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
-import android.provider.MediaStore
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.remapClipDataUri
 import com.asuka.player.ui.activity.PlaybackActivity
 import java.io.File
 
-internal interface PlaybackUriResolver {
+interface PlaybackUriResolver {
     fun resolveForPlayback(sourceUri: Uri): Uri
 }
 
-internal data class PlaybackLaunchRequest(
+data class PlaybackLaunchRequest(
     val mediaUri: Uri,
     val clipData: ClipData?,
 )
 
-internal class PlaybackLaunchCoordinator(
+class PlaybackLaunchCoordinator(
     private val uriResolver: PlaybackUriResolver,
 ) {
     fun createLaunchRequest(
@@ -76,7 +76,7 @@ internal class PlaybackLaunchCoordinator(
     }
 }
 
-internal class SeekAwarePlaybackUriResolver(
+class SeekAwarePlaybackUriResolver(
     private val contentResolver: android.content.ContentResolver,
     cacheDir: File,
 ) : PlaybackUriResolver {
