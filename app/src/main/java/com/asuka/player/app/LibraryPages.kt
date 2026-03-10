@@ -34,8 +34,7 @@ internal fun HomePageContent(
     modifier: Modifier = Modifier,
     permissionGranted: Boolean,
     hasLimitedMediaAccess: Boolean,
-    initialLoading: Boolean,
-    isRefreshing: Boolean,
+    mediaLibraryState: MediaLibraryRefreshState,
     folders: List<LocalVideoFolder>,
     onRequestPermission: () -> Unit,
     onRefresh: () -> Unit,
@@ -45,12 +44,12 @@ internal fun HomePageContent(
     PullToRefreshBox(
         modifier = modifier.fillMaxSize(),
         state = pullToRefreshState,
-        isRefreshing = isRefreshing,
+        isRefreshing = mediaLibraryState.isLoading && mediaLibraryState.hasLoadedOnce,
         onRefresh = onRefresh,
         indicator = {
             PullToRefreshDefaults.Indicator(
                 modifier = Modifier.align(Alignment.TopCenter),
-                isRefreshing = isRefreshing,
+                isRefreshing = mediaLibraryState.isLoading && mediaLibraryState.hasLoadedOnce,
                 state = pullToRefreshState,
             )
         },
@@ -100,8 +99,17 @@ internal fun HomePageContent(
 
             item { Spacer(modifier = Modifier.size(4.dp)) }
 
-            if (initialLoading) {
+            if (mediaLibraryState.isLoading && !mediaLibraryState.hasLoadedOnce) {
                 item { LoadingBlock() }
+            } else if (folders.isEmpty() && mediaLibraryState.errorMessage != null) {
+                item {
+                    ErrorBlock(
+                        title = stringResource(id = R.string.media_library_refresh_error_title),
+                        text = mediaLibraryState.errorMessage,
+                        actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                        onAction = onRefresh,
+                    )
+                }
             } else if (folders.isEmpty()) {
                 item {
                     EmptyBlock(
@@ -113,6 +121,16 @@ internal fun HomePageContent(
                     )
                 }
             } else {
+                mediaLibraryState.errorMessage?.let { message ->
+                    item {
+                        ErrorBlock(
+                            title = stringResource(id = R.string.media_library_refresh_error_title),
+                            text = message,
+                            actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                            onAction = onRefresh,
+                        )
+                    }
+                }
                 item {
                     SectionTitle(text = stringResource(id = R.string.folders_group_title, folders.size))
                 }
@@ -146,23 +164,22 @@ internal fun HomePageContent(
 @Composable
 internal fun VideosPageContent(
     modifier: Modifier = Modifier,
-    initialLoading: Boolean,
-    isRefreshing: Boolean,
-    videos: List<LocalVideoItem>,
+    mediaLibraryState: MediaLibraryRefreshState,
     onPlay: (String, List<String>) -> Unit,
     onRefresh: () -> Unit,
 ) {
+    val videos = mediaLibraryState.items
     val queueMediaIds = remember(videos) { videos.map { it.uri.toString() } }
     val pullToRefreshState = rememberPullToRefreshState()
     PullToRefreshBox(
         modifier = modifier.fillMaxSize(),
         state = pullToRefreshState,
-        isRefreshing = isRefreshing,
+        isRefreshing = mediaLibraryState.isLoading && mediaLibraryState.hasLoadedOnce,
         onRefresh = onRefresh,
         indicator = {
             PullToRefreshDefaults.Indicator(
                 modifier = Modifier.align(Alignment.TopCenter),
-                isRefreshing = isRefreshing,
+                isRefreshing = mediaLibraryState.isLoading && mediaLibraryState.hasLoadedOnce,
                 state = pullToRefreshState,
             )
         },
@@ -175,11 +192,30 @@ internal fun VideosPageContent(
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
 
-            if (initialLoading) {
+            if (mediaLibraryState.isLoading && !mediaLibraryState.hasLoadedOnce) {
                 item { LoadingBlock() }
+            } else if (videos.isEmpty() && mediaLibraryState.errorMessage != null) {
+                item {
+                    ErrorBlock(
+                        title = stringResource(id = R.string.media_library_refresh_error_title),
+                        text = mediaLibraryState.errorMessage,
+                        actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                        onAction = onRefresh,
+                    )
+                }
             } else if (videos.isEmpty()) {
                 item { EmptyBlock(text = stringResource(id = R.string.empty_video_list)) }
             } else {
+                mediaLibraryState.errorMessage?.let { message ->
+                    item {
+                        ErrorBlock(
+                            title = stringResource(id = R.string.media_library_refresh_error_title),
+                            text = message,
+                            actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                            onAction = onRefresh,
+                        )
+                    }
+                }
                 item {
                     SectionTitle(text = stringResource(id = R.string.videos_group_title, videos.size))
                 }
@@ -213,8 +249,7 @@ internal fun VideosPageContent(
 @Composable
 internal fun FolderPageContent(
     modifier: Modifier = Modifier,
-    initialLoading: Boolean,
-    isRefreshing: Boolean,
+    mediaLibraryState: MediaLibraryRefreshState,
     folder: LocalVideoFolder?,
     onPlay: (String, List<String>) -> Unit,
     onRefresh: () -> Unit,
@@ -224,12 +259,12 @@ internal fun FolderPageContent(
     PullToRefreshBox(
         modifier = modifier.fillMaxSize(),
         state = pullToRefreshState,
-        isRefreshing = isRefreshing,
+        isRefreshing = mediaLibraryState.isLoading && mediaLibraryState.hasLoadedOnce,
         onRefresh = onRefresh,
         indicator = {
             PullToRefreshDefaults.Indicator(
                 modifier = Modifier.align(Alignment.TopCenter),
-                isRefreshing = isRefreshing,
+                isRefreshing = mediaLibraryState.isLoading && mediaLibraryState.hasLoadedOnce,
                 state = pullToRefreshState,
             )
         },
@@ -242,13 +277,32 @@ internal fun FolderPageContent(
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
 
-            if (initialLoading) {
+            if (mediaLibraryState.isLoading && !mediaLibraryState.hasLoadedOnce) {
                 item { LoadingBlock() }
             } else {
                 val videos = folder?.videos.orEmpty()
-                if (videos.isEmpty()) {
+                if (videos.isEmpty() && mediaLibraryState.errorMessage != null) {
+                    item {
+                        ErrorBlock(
+                            title = stringResource(id = R.string.media_library_refresh_error_title),
+                            text = mediaLibraryState.errorMessage,
+                            actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                            onAction = onRefresh,
+                        )
+                    }
+                } else if (videos.isEmpty()) {
                     item { EmptyBlock(text = stringResource(id = R.string.empty_video_list)) }
                 } else {
+                    mediaLibraryState.errorMessage?.let { message ->
+                        item {
+                            ErrorBlock(
+                                title = stringResource(id = R.string.media_library_refresh_error_title),
+                                text = message,
+                                actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                                onAction = onRefresh,
+                            )
+                        }
+                    }
                     item {
                         SectionTitle(text = stringResource(id = R.string.selected_folder_group_title, videos.size))
                     }

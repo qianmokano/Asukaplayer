@@ -3,10 +3,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-parcelize")
 }
 
 android {
-    namespace = "com.asuka.player.data"
+    namespace = "com.asuka.player.contract"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
@@ -16,6 +17,9 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.failOnNoDiscoveredTests = false
+        }
     }
 
     compileOptions {
@@ -31,7 +35,11 @@ kotlin {
 }
 
 dependencies {
-    api(project(":player-contract"))
+    implementation(libs.annotation)
+    implementation(libs.coroutines.core)
+    api(libs.media3.common)
+    api(libs.media3.session)
+
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

@@ -24,20 +24,23 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.asuka.player.core.PlaybackDependencyRegistry
+import com.asuka.player.core.PlaybackDependenciesProvider
 import com.asuka.player.core.R
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.QueueHistoryWriter
+import com.asuka.player.core.PlaybackServiceDependencies
 import com.asuka.player.core.impl.Media3PlaybackController
 
 /**
  * Clean-room playback service. Owns ExoPlayer + MediaSession.
  */
 @OptIn(UnstableApi::class)
-class PlaybackService(
-    private val playbackDependencies: com.asuka.player.core.PlaybackServiceDependencies =
-        PlaybackDependencyRegistry.requireServiceDependencies(),
-) : MediaSessionService() {
+class PlaybackService : MediaSessionService() {
+    private val playbackDependencies: PlaybackServiceDependencies by lazy(LazyThreadSafetyMode.NONE) {
+        (application as? PlaybackDependenciesProvider)?.playbackServiceDependencies
+            ?: error("Application does not provide PlaybackServiceDependencies.")
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var player: ExoPlayer? = null

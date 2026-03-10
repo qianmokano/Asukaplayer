@@ -9,9 +9,6 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.asuka.player.core.PlaybackActivityDependencies
 import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackStartupPolicy
-import com.asuka.player.core.SeekFallbackCopier
-import com.asuka.player.core.copyIntentWithRemappedUri
 import com.asuka.player.core.impl.Media3PlaybackController
 import com.asuka.player.ui.R
 import com.asuka.player.ui.controller.ControllerProvider
@@ -25,14 +22,12 @@ import com.asuka.player.ui.state.PlayerUiState
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal data class PlaybackHostState(
     val uiState: PlayerUiState = PlayerUiState(),
@@ -56,10 +51,15 @@ internal class PlaybackSessionHost(
     ),
 ) {
     private val appContext = controllerContext.applicationContext
-    private val seekFallbackCopier = SeekFallbackCopier(contentResolver, cacheDir)
     private val mediaMetadataBridge = PlaybackSessionMediaMetadataBridge(
         contentResolver = contentResolver,
         scope = scope,
+    )
+    private val launchOrchestrator = PlaybackLaunchOrchestrator(
+        contentResolver = contentResolver,
+        cacheDir = cacheDir,
+        scope = scope,
+        runtimeSettingsSource = dependencies.playbackRuntimeSettingsSource,
     )
     private val _state = MutableStateFlow(PlaybackHostState())
 
@@ -79,37 +79,43 @@ internal class PlaybackSessionHost(
     private var uiStateFeedJob: Job? = null
     private var trackUiStateFeedJob: Job? = null
     private var sessionCoordinator: PlaybackSessionCoordinator? = null
-    private var currentIntent: Intent? = null
-    private val seekFallbackAttemptedUris = mutableSetOf<String>()
 
     private val seekFallbackListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState != Player.STATE_READY) return
             val mc = mediaController ?: return
             val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: return
-            if (mc.isCurrentMediaItemSeekable) return
-            trySeekFallback(currentUri, "not_seekable_ready")
+            launchOrchestrator.handlePlaybackReady(
+                currentUri = currentUri,
+                isSeekable = mc.isCurrentMediaItemSeekable,
+            ) { copiedUri ->
+                startSingleMedia(copiedUri)
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
             val mc = mediaController ?: return
-            val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: currentIntent?.data ?: return
-            trySeekFallback(currentUri, "player_error_${error.errorCode}")
+            val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: launchOrchestrator.currentIntentData()
+            launchOrchestrator.handlePlaybackError(
+                currentUri = currentUri,
+                error = error,
+            ) { copiedUri ->
+                startSingleMedia(copiedUri)
+            }
         }
     }
 
     fun ensureControllerReady(
         launchIntent: Intent?,
     ) {
-        currentIntent = launchIntent
+        launchOrchestrator.updateIntent(launchIntent)
         mediaController?.let { attachToResolvedController(it) } ?: connectController()
     }
 
     fun onNewIntent(
         launchIntent: Intent,
     ) {
-        currentIntent = launchIntent
-        seekFallbackAttemptedUris.clear()
+        launchOrchestrator.updateIntent(launchIntent, clearSeekFallbackAttempts = true)
         if (mediaController == null) {
             ensureControllerReady(launchIntent)
         } else {
@@ -118,8 +124,7 @@ internal class PlaybackSessionHost(
     }
 
     fun onStop(retainSession: Boolean) {
-        seekFallbackJob?.cancel()
-        seekFallbackJob = null
+        launchOrchestrator.cancelPending()
         uiStateFeedJob?.cancel()
         uiStateFeedJob = null
         trackUiStateFeedJob?.cancel()
@@ -148,8 +153,7 @@ internal class PlaybackSessionHost(
     }
 
     fun releaseAll() {
-        seekFallbackJob?.cancel()
-        seekFallbackJob = null
+        launchOrchestrator.cancelPending()
         uiStateFeedJob?.cancel()
         uiStateFeedJob = null
         trackUiStateFeedJob?.cancel()
@@ -183,7 +187,7 @@ internal class PlaybackSessionHost(
                 val mc = controllerProvider.buildAsync().await()
                 mediaController = mc
                 attachToResolvedController(mc)
-                startSingleMedia(currentIntent?.data)
+                startSingleMedia(launchOrchestrator.currentIntentData())
             } catch (_: CancellationException) {
                 // Lifecycle moved on; connection will be retried on next start.
                 _state.update { current ->
@@ -259,44 +263,25 @@ internal class PlaybackSessionHost(
 
     private suspend fun startSingleMedia(uri: Uri?) {
         val controller = mediaController ?: return
-        val target = uri ?: return
-        val runtimeSettings = dependencies.playbackRuntimeSettingsSource.current()
-        val plan = sessionCoordinator?.start(
-            targetUri = target,
-            launchIntent = currentIntent,
-            autoplay = runtimeSettings.autoplay,
-            policy = PlaybackStartupPolicy(
-                resumePlayback = runtimeSettings.resumePlayback,
-                defaultPlaybackSpeed = runtimeSettings.defaultPlaybackSpeed,
-                rememberTrackSelections = runtimeSettings.rememberSelections,
-            ),
-        ) ?: return
-
-        mediaMetadataBridge.maybeLoadAndSetArtwork(
-            controller = controller,
-            mediaId = target.toString(),
-            index = plan.queue.startIndex,
-            uri = target,
+        launchOrchestrator.startPlayback(
+            targetUri = uri,
+            sessionStarter = { targetUri, launchIntent, autoplay, policy ->
+                sessionCoordinator?.start(
+                    targetUri = targetUri,
+                    launchIntent = launchIntent,
+                    autoplay = autoplay,
+                    policy = policy,
+                )
+            },
+            applyArtwork = { mediaId, startIndex, targetUri ->
+                mediaMetadataBridge.maybeLoadAndSetArtwork(
+                    controller = controller,
+                    mediaId = mediaId,
+                    index = startIndex,
+                    uri = targetUri,
+                )
+            },
         )
-    }
-
-    private fun trySeekFallback(currentUri: Uri, reason: String) {
-        if (currentUri.scheme != "content") return
-        val key = currentUri.toString()
-        if (!seekFallbackAttemptedUris.add(key)) return
-        if (seekFallbackJob?.isActive == true) return
-        seekFallbackJob = scope.launch {
-            val copiedUri = withContext(Dispatchers.IO) {
-                seekFallbackCopier.copy(currentUri, checkSize = true)
-            } ?: return@launch
-            Log.i(TAG, "fallback[$reason] src=${currentUri.authority} dst=${copiedUri.lastPathSegment}")
-            currentIntent = copyIntentWithRemappedUri(
-                intent = currentIntent,
-                originalUri = currentUri,
-                replacementUri = copiedUri,
-            )
-            startSingleMedia(copiedUri)
-        }
     }
 
     private companion object {

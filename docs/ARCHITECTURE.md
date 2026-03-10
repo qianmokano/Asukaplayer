@@ -2,8 +2,8 @@
 
 ## 设计原则
 
-- 单一组合根：`AsuraPlayerApp` 是唯一装配入口，负责 graph、entry point 和 registry 初始化。
-- framework 入口显式注入：`MainActivity`、`PlaybackActivity`、`PlaybackService` 通过 `AsukaAppComponentFactory` + 窄依赖对象创建，不再从 `Application` 反查 provider。
+- 单一组合根：`AsuraPlayerApp` 是唯一装配入口，负责 graph、entry point 和应用级依赖 container 初始化。
+- framework 入口显式注入：`MainActivity`、`PlaybackActivity`、`PlaybackService` 通过 `AsuraPlayerApp` 提供的窄依赖 container 读取依赖，不再通过静态 registry 注入。
 - 单一设置真相源：播放运行时设置统一来自 `PlaybackRuntimeSettingsSource`。
 - UI 依赖 UI 模型：播放页消费 `PlaybackScreenModel` / `PlaybackScreenDependencies`，不直接拼装 Media3 细节。
 - 策略与落盘分离：规划、执行、持久化分别由独立对象负责，减少隐式耦合。
@@ -13,10 +13,17 @@
 
 ### `app`
 - 应用入口与组合根
-- `AsukaAppComponentFactory`
+- `AsuraPlayerApp` 依赖 container
 - 媒体库、设置页、导航
 - `MediaLibraryDataSources` / `MediaLibraryRepository` / use cases
 - UI 层按 feature slice 组织页面壳子与页面内容
+
+### `player-contract`
+- 稳定契约与模型
+- `PlayerSettings` / `PlaybackRuntimeSettings`
+- `PlaybackController` / `PlaybackStore` / `QueueHistoryStore`
+- `PlaybackSessionPlanner`、`PlaybackStateRepository`、`QueueHistoryRepository`
+- `PlaybackActivityDependencies` / `PlaybackServiceDependencies`
 
 ### `player-runtime`
 - `AsukaAppGraph`
@@ -27,13 +34,14 @@
 
 ### `player-ui`
 - `PlaybackActivity`、`PlaybackSessionHost`
+- `PlaybackLaunchOrchestrator`
+- `PlaybackWindowChromeController` / `PlaybackPictureInPictureController`
 - `PlayerScreen` 与播放 UI 组件
 - 手势编排、UI 状态、Media3 -> UI 的翻译层
 
-### `player-core`
-- `PlaybackController` 抽象
-- `PlaybackSessionPlanner`、`QueuePlanner`
-- `PlaybackService`、`PlaybackStateWriter`
+### `player-engine`
+- `PlaybackService`、Media3 controller/service 实现
+- intent / seek fallback / track reader 等 Android/Media3 运行实现
 
 ### `player-domain`
 - 手势算法与状态机
@@ -49,10 +57,10 @@
 
 1. `AsuraPlayerApp` 创建 `AsukaAppGraph`
 2. `AsuraPlayerApp` 组装 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`
-3. `AsuraPlayerApp` 将窄依赖注册到 `MainActivityDependencyRegistry` / `PlaybackDependencyRegistry`
-4. `AsukaAppComponentFactory` 为系统入口组件注入这些依赖
+3. `AsuraPlayerApp` 暴露 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`
+4. `MainActivity` / `PlaybackActivity` / `PlaybackService` 在各自入口内从 `Application` 读取这些窄依赖
 
-播放 registry 目前只暴露两个窄入口：
+播放入口目前只暴露两个窄依赖：
 
 - `PlaybackActivityDependencies`
 - `PlaybackServiceDependencies`
@@ -60,7 +68,7 @@
 这意味着：
 
 - `MainActivity`、`PlaybackActivity`、`PlaybackService` 不会直接拿到整张 `AsukaAppGraph`
-- `player-core` / `player-ui` 只知道窄依赖接口，而不知道 `app` 层的装配细节
+- `player-contract` / `player-ui` 只知道窄依赖接口，而不知道 `app` 层的装配细节
 
 ## 播放链路
 
@@ -81,7 +89,9 @@
 ### 2. 会话连接阶段
 
 - `PlaybackActivity` 持有 `PlaybackSessionHost`
+- `PlaybackActivity` 将窗口副作用委托给 `PlaybackWindowChromeController` / `PlaybackPictureInPictureController`
 - `PlaybackSessionHost` 通过 `ControllerProvider` 和注入的 `playbackServiceComponent` 建立 `MediaController`
+- `PlaybackLaunchOrchestrator` 负责当前 launch intent、seek fallback 与 runtime policy 编排
 - `PlaybackSessionHost` 维护两类状态：
   - `PlayerUiStateHolder`：播放中的标题、时长、进度、错误、buffering
   - `PlaybackTrackUiStateHolder`：音轨、字幕、当前倍速、当前媒体 ID、选中项
@@ -141,7 +151,7 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
 关键结果：
 
 - 播放页启动时读取的是当前值，而不是旧的 intent 快照
-- `hideButtonsBackground` 等默认值与 `PlayerSettingsConfig` 保持一致
+- `hideButtonsBackground` 等默认值与 `PlayerSettings` 保持一致
 - 设置变化通过 flow 持续同步到播放页
 - 亮度记忆、缩放/轨道/倍速持久化、音量/亮度控制都不再由 `PlaybackActivity` 私自持有
 
@@ -176,7 +186,7 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
 1. `README.md`
 2. `player-runtime/src/main/java/com/asuka/player/app/AppGraph.kt`
 3. `app/src/main/java/com/asuka/player/app/AsuraPlayerApp.kt`
-4. `app/src/main/java/com/asuka/player/app/AsukaAppComponentFactory.kt`
+4. `app/src/main/java/com/asuka/player/app/AsuraPlayerApp.kt`
 5. `player-runtime/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
 6. `app/src/main/java/com/asuka/player/app/MediaLibraryDataSources.kt`
 7. `app/src/main/java/com/asuka/player/app/MediaLibraryRepository.kt`
@@ -184,5 +194,6 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
 9. `app/src/main/java/com/asuka/player/app/MainLibraryNavHost.kt`
 10. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackActivity.kt`
 11. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackSessionHost.kt`
-12. `player-core/src/main/java/com/asuka/player/core/PlaybackSessionPlanner.kt`
-13. `player-core/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
+12. `player-contract/src/main/java/com/asuka/player/core/PlaybackSessionPlanner.kt`
+13. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackLaunchOrchestrator.kt`
+14. `player-engine/src/main/java/com/asuka/player/core/service/PlaybackService.kt`

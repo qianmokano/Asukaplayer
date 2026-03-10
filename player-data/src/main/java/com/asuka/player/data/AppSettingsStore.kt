@@ -69,18 +69,18 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     override fun loadUiSettings(): UiSettingsRecord {
         synchronized(lock) {
             return UiSettingsRecord(
-                themeMode = prefs.getString("theme_mode", UiSettingsRecord().themeMode) ?: UiSettingsRecord().themeMode,
-                themeAppearance = prefs.getString("theme_appearance", UiSettingsRecord().themeAppearance)
+                themeMode = prefs.getString(Keys.THEME_MODE, UiSettingsRecord().themeMode) ?: UiSettingsRecord().themeMode,
+                themeAppearance = prefs.getString(Keys.THEME_APPEARANCE, UiSettingsRecord().themeAppearance)
                     ?: UiSettingsRecord().themeAppearance,
-                customSeedArgb = prefs.takeIf { it.contains("theme_custom_seed") }?.getInt("theme_custom_seed", 0),
-                customThemeId = prefs.getString("theme_custom_theme_id", null),
-                customMonochrome = prefs.getBoolean("theme_custom_mono", false),
-                pureBlack = prefs.getBoolean("theme_pure_black", true),
-                fontScale = prefs.getFloat("theme_font_scale", 1.0f).coerceIn(0.85f, 1.3f),
-                fontScaleEnabled = prefs.getBoolean("theme_font_scale_enabled", false),
+                customSeedArgb = prefs.takeIf { it.contains(Keys.THEME_CUSTOM_SEED) }?.getInt(Keys.THEME_CUSTOM_SEED, 0),
+                customThemeId = prefs.getString(Keys.THEME_CUSTOM_THEME_ID, null),
+                customMonochrome = prefs.getBoolean(Keys.THEME_CUSTOM_MONO, false),
+                pureBlack = prefs.getBoolean(Keys.THEME_PURE_BLACK, true),
+                fontScale = prefs.getFloat(Keys.THEME_FONT_SCALE, 1.0f).coerceIn(0.85f, 1.3f),
+                fontScaleEnabled = prefs.getBoolean(Keys.THEME_FONT_SCALE_ENABLED, false),
                 customThemes = loadCustomThemes(),
-                navDurationMs = prefs.getInt("nav_duration_ms", 350).coerceIn(0, 2000),
-                hapticFeedbackEnabled = prefs.getBoolean("haptic_feedback_enabled", true),
+                navDurationMs = prefs.getInt(Keys.NAV_DURATION_MS, 350).coerceIn(0, 2000),
+                hapticFeedbackEnabled = prefs.getBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, true),
             )
         }
     }
@@ -88,21 +88,21 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     override fun saveUiSettings(record: UiSettingsRecord) {
         synchronized(lock) {
             prefs.edit()
-                .putString("theme_mode", record.themeMode)
-                .putString("theme_appearance", record.themeAppearance)
-                .putBoolean("theme_pure_black", record.pureBlack)
-                .putFloat("theme_font_scale", record.fontScale.coerceIn(0.85f, 1.3f))
-                .putBoolean("theme_font_scale_enabled", record.fontScaleEnabled)
-                .putString("theme_custom_theme_id", record.customThemeId)
-                .putBoolean("theme_custom_mono", record.customMonochrome)
-                .putInt("nav_duration_ms", record.navDurationMs.coerceIn(0, 2000))
-                .putBoolean("haptic_feedback_enabled", record.hapticFeedbackEnabled)
-                .putString("theme_custom_themes_json", encodeCustomThemes(record.customThemes))
+                .putString(Keys.THEME_MODE, record.themeMode)
+                .putString(Keys.THEME_APPEARANCE, record.themeAppearance)
+                .putBoolean(Keys.THEME_PURE_BLACK, record.pureBlack)
+                .putFloat(Keys.THEME_FONT_SCALE, record.fontScale.coerceIn(0.85f, 1.3f))
+                .putBoolean(Keys.THEME_FONT_SCALE_ENABLED, record.fontScaleEnabled)
+                .putString(Keys.THEME_CUSTOM_THEME_ID, record.customThemeId)
+                .putBoolean(Keys.THEME_CUSTOM_MONO, record.customMonochrome)
+                .putInt(Keys.NAV_DURATION_MS, record.navDurationMs.coerceIn(0, 2000))
+                .putBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, record.hapticFeedbackEnabled)
+                .putString(Keys.THEME_CUSTOM_THEMES_JSON, encodeCustomThemes(record.customThemes))
                 .apply {
                     if (record.customSeedArgb != null) {
-                        putInt("theme_custom_seed", record.customSeedArgb)
+                        putInt(Keys.THEME_CUSTOM_SEED, record.customSeedArgb)
                     } else {
-                        remove("theme_custom_seed")
+                        remove(Keys.THEME_CUSTOM_SEED)
                     }
                 }
                 .apply()
@@ -112,26 +112,26 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     override fun loadPlayerSettings(): PlayerSettingsRecord {
         synchronized(lock) {
             return PlayerSettingsRecord(
-                seekGestureEnabled = prefs.getBoolean("player_seek_gesture_enabled", true),
-                brightnessGestureEnabled = prefs.getBoolean("player_brightness_gesture_enabled", true),
-                volumeGestureEnabled = prefs.getBoolean("player_volume_gesture_enabled", true),
-                zoomGestureEnabled = prefs.getBoolean("player_zoom_gesture_enabled", true),
-                panGestureEnabled = prefs.getBoolean("player_pan_gesture_enabled", true),
-                doubleTapGestureEnabled = prefs.getBoolean("player_double_tap_gesture_enabled", true),
-                doubleTapAction = prefs.getString("player_double_tap_action", "seek") ?: "seek",
-                longPressGestureEnabled = prefs.getBoolean("player_long_press_gesture_enabled", true),
-                seekIncrementSec = prefs.getInt("player_seek_increment_sec", 10).coerceIn(1, 60),
-                seekSensitivity = prefs.getFloat("player_seek_sensitivity", 1.0f).coerceIn(0.1f, 2.0f),
-                longPressSpeed = prefs.getFloat("player_long_press_speed", 2.0f).coerceIn(0.2f, 4.0f),
-                controllerTimeoutSec = prefs.getInt("player_controller_timeout_sec", 3).coerceIn(1, 60),
-                hideButtonsBackground = prefs.getBoolean("player_hide_buttons_background", false),
-                resumePlayback = prefs.getBoolean("player_resume_playback", true),
-                defaultPlaybackSpeed = prefs.getFloat("player_default_playback_speed", 1.0f).coerceIn(0.2f, 4.0f),
-                autoplay = prefs.getBoolean("player_autoplay", true),
-                autoPip = prefs.getBoolean("player_auto_pip", true),
-                autoBackgroundPlay = prefs.getBoolean("player_auto_background_play", false),
-                rememberBrightness = prefs.getBoolean("player_remember_brightness", false),
-                rememberSelections = prefs.getBoolean("player_remember_selections", true),
+                seekGestureEnabled = prefs.getBoolean(Keys.PLAYER_SEEK_GESTURE_ENABLED, true),
+                brightnessGestureEnabled = prefs.getBoolean(Keys.PLAYER_BRIGHTNESS_GESTURE_ENABLED, true),
+                volumeGestureEnabled = prefs.getBoolean(Keys.PLAYER_VOLUME_GESTURE_ENABLED, true),
+                zoomGestureEnabled = prefs.getBoolean(Keys.PLAYER_ZOOM_GESTURE_ENABLED, true),
+                panGestureEnabled = prefs.getBoolean(Keys.PLAYER_PAN_GESTURE_ENABLED, true),
+                doubleTapGestureEnabled = prefs.getBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, true),
+                doubleTapAction = prefs.getString(Keys.PLAYER_DOUBLE_TAP_ACTION, "seek") ?: "seek",
+                longPressGestureEnabled = prefs.getBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, true),
+                seekIncrementSec = prefs.getInt(Keys.PLAYER_SEEK_INCREMENT_SEC, 10).coerceIn(1, 60),
+                seekSensitivity = prefs.getFloat(Keys.PLAYER_SEEK_SENSITIVITY, 1.0f).coerceIn(0.1f, 2.0f),
+                longPressSpeed = prefs.getFloat(Keys.PLAYER_LONG_PRESS_SPEED, 2.0f).coerceIn(0.2f, 4.0f),
+                controllerTimeoutSec = prefs.getInt(Keys.PLAYER_CONTROLLER_TIMEOUT_SEC, 3).coerceIn(1, 60),
+                hideButtonsBackground = prefs.getBoolean(Keys.PLAYER_HIDE_BUTTONS_BACKGROUND, false),
+                resumePlayback = prefs.getBoolean(Keys.PLAYER_RESUME_PLAYBACK, true),
+                defaultPlaybackSpeed = prefs.getFloat(Keys.PLAYER_DEFAULT_PLAYBACK_SPEED, 1.0f).coerceIn(0.2f, 4.0f),
+                autoplay = prefs.getBoolean(Keys.PLAYER_AUTOPLAY, true),
+                autoPip = prefs.getBoolean(Keys.PLAYER_AUTO_PIP, true),
+                autoBackgroundPlay = prefs.getBoolean(Keys.PLAYER_AUTO_BACKGROUND_PLAY, false),
+                rememberBrightness = prefs.getBoolean(Keys.PLAYER_REMEMBER_BRIGHTNESS, false),
+                rememberSelections = prefs.getBoolean(Keys.PLAYER_REMEMBER_SELECTIONS, true),
             )
         }
     }
@@ -139,26 +139,26 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     override fun savePlayerSettings(record: PlayerSettingsRecord) {
         synchronized(lock) {
             prefs.edit()
-                .putBoolean("player_seek_gesture_enabled", record.seekGestureEnabled)
-                .putBoolean("player_brightness_gesture_enabled", record.brightnessGestureEnabled)
-                .putBoolean("player_volume_gesture_enabled", record.volumeGestureEnabled)
-                .putBoolean("player_zoom_gesture_enabled", record.zoomGestureEnabled)
-                .putBoolean("player_pan_gesture_enabled", record.panGestureEnabled)
-                .putBoolean("player_double_tap_gesture_enabled", record.doubleTapGestureEnabled)
-                .putString("player_double_tap_action", record.doubleTapAction)
-                .putBoolean("player_long_press_gesture_enabled", record.longPressGestureEnabled)
-                .putInt("player_seek_increment_sec", record.seekIncrementSec.coerceIn(1, 60))
-                .putFloat("player_seek_sensitivity", record.seekSensitivity.coerceIn(0.1f, 2.0f))
-                .putFloat("player_long_press_speed", record.longPressSpeed.coerceIn(0.2f, 4.0f))
-                .putInt("player_controller_timeout_sec", record.controllerTimeoutSec.coerceIn(1, 60))
-                .putBoolean("player_hide_buttons_background", record.hideButtonsBackground)
-                .putBoolean("player_resume_playback", record.resumePlayback)
-                .putFloat("player_default_playback_speed", record.defaultPlaybackSpeed.coerceIn(0.2f, 4.0f))
-                .putBoolean("player_autoplay", record.autoplay)
-                .putBoolean("player_auto_pip", record.autoPip)
-                .putBoolean("player_auto_background_play", record.autoBackgroundPlay)
-                .putBoolean("player_remember_brightness", record.rememberBrightness)
-                .putBoolean("player_remember_selections", record.rememberSelections)
+                .putBoolean(Keys.PLAYER_SEEK_GESTURE_ENABLED, record.seekGestureEnabled)
+                .putBoolean(Keys.PLAYER_BRIGHTNESS_GESTURE_ENABLED, record.brightnessGestureEnabled)
+                .putBoolean(Keys.PLAYER_VOLUME_GESTURE_ENABLED, record.volumeGestureEnabled)
+                .putBoolean(Keys.PLAYER_ZOOM_GESTURE_ENABLED, record.zoomGestureEnabled)
+                .putBoolean(Keys.PLAYER_PAN_GESTURE_ENABLED, record.panGestureEnabled)
+                .putBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, record.doubleTapGestureEnabled)
+                .putString(Keys.PLAYER_DOUBLE_TAP_ACTION, record.doubleTapAction)
+                .putBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, record.longPressGestureEnabled)
+                .putInt(Keys.PLAYER_SEEK_INCREMENT_SEC, record.seekIncrementSec.coerceIn(1, 60))
+                .putFloat(Keys.PLAYER_SEEK_SENSITIVITY, record.seekSensitivity.coerceIn(0.1f, 2.0f))
+                .putFloat(Keys.PLAYER_LONG_PRESS_SPEED, record.longPressSpeed.coerceIn(0.2f, 4.0f))
+                .putInt(Keys.PLAYER_CONTROLLER_TIMEOUT_SEC, record.controllerTimeoutSec.coerceIn(1, 60))
+                .putBoolean(Keys.PLAYER_HIDE_BUTTONS_BACKGROUND, record.hideButtonsBackground)
+                .putBoolean(Keys.PLAYER_RESUME_PLAYBACK, record.resumePlayback)
+                .putFloat(Keys.PLAYER_DEFAULT_PLAYBACK_SPEED, record.defaultPlaybackSpeed.coerceIn(0.2f, 4.0f))
+                .putBoolean(Keys.PLAYER_AUTOPLAY, record.autoplay)
+                .putBoolean(Keys.PLAYER_AUTO_PIP, record.autoPip)
+                .putBoolean(Keys.PLAYER_AUTO_BACKGROUND_PLAY, record.autoBackgroundPlay)
+                .putBoolean(Keys.PLAYER_REMEMBER_BRIGHTNESS, record.rememberBrightness)
+                .putBoolean(Keys.PLAYER_REMEMBER_SELECTIONS, record.rememberSelections)
                 .apply()
         }
     }
@@ -166,10 +166,10 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     override fun loadPlaybackBehavior(): PlaybackBehaviorRecord {
         synchronized(lock) {
             return PlaybackBehaviorRecord(
-                keepConnectionInBackground = prefs.getBoolean("keep_connection_in_background", true),
+                keepConnectionInBackground = prefs.getBoolean(Keys.KEEP_CONNECTION_IN_BACKGROUND, true),
                 rememberedBrightness = prefs
-                    .takeIf { it.contains("playback_remembered_brightness") }
-                    ?.getFloat("playback_remembered_brightness", 0f)
+                    .takeIf { it.contains(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS) }
+                    ?.getFloat(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS, 0f)
                     ?.coerceIn(0f, 1f),
             )
         }
@@ -178,15 +178,15 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     override fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
         synchronized(lock) {
             prefs.edit()
-                .putBoolean("keep_connection_in_background", record.keepConnectionInBackground)
+                .putBoolean(Keys.KEEP_CONNECTION_IN_BACKGROUND, record.keepConnectionInBackground)
                 .apply {
                     if (record.rememberedBrightness != null) {
                         putFloat(
-                            "playback_remembered_brightness",
+                            Keys.PLAYBACK_REMEMBERED_BRIGHTNESS,
                             record.rememberedBrightness.coerceIn(0f, 1f),
                         )
                     } else {
-                        remove("playback_remembered_brightness")
+                        remove(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS)
                     }
                 }
                 .apply()
@@ -194,7 +194,7 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     }
 
     private fun loadCustomThemes(): List<CustomThemeRecord> {
-        val raw = prefs.getString("theme_custom_themes_json", null) ?: return emptyList()
+        val raw = prefs.getString(Keys.THEME_CUSTOM_THEMES_JSON, null) ?: return emptyList()
         return runCatching {
             val array = org.json.JSONArray(raw)
             buildList {
@@ -237,6 +237,44 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
     }
 
     private companion object {
+        object Keys {
+            const val THEME_MODE = "theme_mode"
+            const val THEME_APPEARANCE = "theme_appearance"
+            const val THEME_CUSTOM_SEED = "theme_custom_seed"
+            const val THEME_CUSTOM_THEME_ID = "theme_custom_theme_id"
+            const val THEME_CUSTOM_MONO = "theme_custom_mono"
+            const val THEME_PURE_BLACK = "theme_pure_black"
+            const val THEME_FONT_SCALE = "theme_font_scale"
+            const val THEME_FONT_SCALE_ENABLED = "theme_font_scale_enabled"
+            const val THEME_CUSTOM_THEMES_JSON = "theme_custom_themes_json"
+            const val NAV_DURATION_MS = "nav_duration_ms"
+            const val HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
+
+            const val PLAYER_SEEK_GESTURE_ENABLED = "player_seek_gesture_enabled"
+            const val PLAYER_BRIGHTNESS_GESTURE_ENABLED = "player_brightness_gesture_enabled"
+            const val PLAYER_VOLUME_GESTURE_ENABLED = "player_volume_gesture_enabled"
+            const val PLAYER_ZOOM_GESTURE_ENABLED = "player_zoom_gesture_enabled"
+            const val PLAYER_PAN_GESTURE_ENABLED = "player_pan_gesture_enabled"
+            const val PLAYER_DOUBLE_TAP_GESTURE_ENABLED = "player_double_tap_gesture_enabled"
+            const val PLAYER_DOUBLE_TAP_ACTION = "player_double_tap_action"
+            const val PLAYER_LONG_PRESS_GESTURE_ENABLED = "player_long_press_gesture_enabled"
+            const val PLAYER_SEEK_INCREMENT_SEC = "player_seek_increment_sec"
+            const val PLAYER_SEEK_SENSITIVITY = "player_seek_sensitivity"
+            const val PLAYER_LONG_PRESS_SPEED = "player_long_press_speed"
+            const val PLAYER_CONTROLLER_TIMEOUT_SEC = "player_controller_timeout_sec"
+            const val PLAYER_HIDE_BUTTONS_BACKGROUND = "player_hide_buttons_background"
+            const val PLAYER_RESUME_PLAYBACK = "player_resume_playback"
+            const val PLAYER_DEFAULT_PLAYBACK_SPEED = "player_default_playback_speed"
+            const val PLAYER_AUTOPLAY = "player_autoplay"
+            const val PLAYER_AUTO_PIP = "player_auto_pip"
+            const val PLAYER_AUTO_BACKGROUND_PLAY = "player_auto_background_play"
+            const val PLAYER_REMEMBER_BRIGHTNESS = "player_remember_brightness"
+            const val PLAYER_REMEMBER_SELECTIONS = "player_remember_selections"
+
+            const val KEEP_CONNECTION_IN_BACKGROUND = "keep_connection_in_background"
+            const val PLAYBACK_REMEMBERED_BRIGHTNESS = "playback_remembered_brightness"
+        }
+
         // Increment when adding/removing fields in encodeCustomThemes so that old code
         // skips records it cannot safely read, rather than silently producing corrupt data.
         const val CUSTOM_THEME_JSON_VERSION = 1

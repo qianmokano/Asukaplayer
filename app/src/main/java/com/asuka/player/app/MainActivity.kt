@@ -16,9 +16,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity(
-    private val mainActivityDependencies: MainActivityDependencies = MainActivityDependencyRegistry.require(),
-) : ComponentActivity() {
+class MainActivity : ComponentActivity() {
+    private val mainActivityDependencies: MainActivityDependencies by lazy(LazyThreadSafetyMode.NONE) {
+        (application as? MainActivityDependenciesProvider)?.mainActivityDependencies
+            ?: error("Application does not provide MainActivityDependencies.")
+    }
+
     private var launchedForDirectPlayback = false
 
     override fun onCreate(savedInstanceState: Bundle?) {

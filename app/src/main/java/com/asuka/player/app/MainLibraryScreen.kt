@@ -34,9 +34,7 @@ internal fun MainLibraryScreen(
     val playerSettings by vm.playerSettings.collectAsState()
     val permissionGranted by vm.permissionGranted.collectAsState()
     val userSelectedPermissionGranted by vm.userSelectedPermissionGranted.collectAsState()
-    val loading by vm.loading.collectAsState()
-    val hasLoadedOnce by vm.hasLoadedOnce.collectAsState()
-    val items by vm.items.collectAsState()
+    val mediaLibraryState by vm.mediaLibraryState.collectAsState()
     val recentMediaIds by vm.recentMediaIds.collectAsState()
 
     LaunchedEffect(uiSettings.themeConfig.appearance) {
@@ -89,9 +87,7 @@ internal fun MainLibraryScreen(
         playerSettings,
         permissionGranted,
         userSelectedPermissionGranted,
-        loading,
-        hasLoadedOnce,
-        items,
+        mediaLibraryState,
         recentMediaIds,
     ) {
         MainLibraryUiState(
@@ -100,9 +96,7 @@ internal fun MainLibraryScreen(
             playerSettings = playerSettings,
             permissionGranted = permissionGranted,
             userSelectedPermissionGranted = userSelectedPermissionGranted,
-            loading = loading,
-            hasLoadedOnce = hasLoadedOnce,
-            items = items,
+            mediaLibraryState = mediaLibraryState,
             recentMediaIds = recentMediaIds,
         )
     }

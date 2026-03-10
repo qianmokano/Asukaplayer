@@ -37,7 +37,8 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":player-core"))
+    implementation(project(":player-contract"))
+    implementation(project(":player-engine"))
     implementation(project(":player-domain"))
 
     implementation(libs.compose.ui)

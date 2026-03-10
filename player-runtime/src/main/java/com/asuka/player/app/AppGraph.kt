@@ -1,6 +1,7 @@
 package com.asuka.player.app
 
 import android.app.Application
+import android.content.ComponentName
 import com.asuka.player.core.PlaybackDeviceControllerFactory
 import com.asuka.player.core.PlaybackSessionPlanner
 import com.asuka.player.core.PlaybackStateRepository
@@ -9,6 +10,8 @@ import com.asuka.player.core.PlaybackRuntimeSettingsSource
 import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.core.QueueHistoryRepository
 import com.asuka.player.core.QueueHistoryWriter
+import com.asuka.player.core.R as CoreR
+import com.asuka.player.core.service.PlaybackService
 import com.asuka.player.data.SharedPreferencesAppSettingsStore
 import com.asuka.player.data.SharedPreferencesPlaybackStore
 import com.asuka.player.data.SharedPreferencesQueueHistoryStore
@@ -51,6 +54,10 @@ class AsukaAppGraph(
         DefaultPlaybackDeviceControllerFactory
 
     val playbackLaunchCoordinator = PlaybackLaunchCoordinator(uriResolver)
+    val playbackPlatformBindings = PlaybackPlatformBindings(
+        playbackServiceComponent = ComponentName(application, PlaybackService::class.java),
+        notificationSmallIconResId = CoreR.drawable.ic_stat_playback,
+    )
 
     fun createPlaybackStateWriter(): PlaybackStateWriter {
         return PlaybackStateWriter(playbackStore)

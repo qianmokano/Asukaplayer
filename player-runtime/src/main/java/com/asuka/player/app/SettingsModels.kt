@@ -28,40 +28,6 @@ data class ThemeConfig(
     val fontScaleEnabled: Boolean = false,
 )
 
-enum class DoubleTapActionSetting(val value: String) {
-    Seek("seek"),
-    TogglePlayPause("toggle_play_pause"),
-    Both("both");
-
-    companion object {
-        fun fromValue(raw: String?): DoubleTapActionSetting =
-            entries.firstOrNull { it.value == raw } ?: Seek
-    }
-}
-
-data class PlayerSettingsConfig(
-    val seekGestureEnabled: Boolean = true,
-    val brightnessGestureEnabled: Boolean = true,
-    val volumeGestureEnabled: Boolean = true,
-    val zoomGestureEnabled: Boolean = true,
-    val panGestureEnabled: Boolean = true,
-    val doubleTapGestureEnabled: Boolean = true,
-    val doubleTapAction: DoubleTapActionSetting = DoubleTapActionSetting.Seek,
-    val longPressGestureEnabled: Boolean = true,
-    val seekIncrementSec: Int = 10,
-    val seekSensitivity: Float = 1.0f,
-    val longPressSpeed: Float = 2.0f,
-    val controllerTimeoutSec: Int = 3,
-    val hideButtonsBackground: Boolean = false,
-    val resumePlayback: Boolean = true,
-    val defaultPlaybackSpeed: Float = 1.0f,
-    val autoplay: Boolean = true,
-    val autoPip: Boolean = true,
-    val autoBackgroundPlay: Boolean = false,
-    val rememberBrightness: Boolean = false,
-    val rememberSelections: Boolean = true,
-)
-
 data class CustomThemeEntry(
     val id: String,
     val name: String,

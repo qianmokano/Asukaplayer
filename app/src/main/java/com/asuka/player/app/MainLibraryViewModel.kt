@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.asuka.player.core.PlayerSettings
 import com.asuka.player.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -39,17 +40,11 @@ internal class MainLibraryViewModel(
     val uiSettings = uiSettingsRepository.settings
     val playerSettings = playerSettingsRepository.settings
 
-    private val _items = MutableStateFlow(emptyList<LocalVideoItem>())
-    val items = _items.asStateFlow()
+    private val _mediaLibraryState = MutableStateFlow(MediaLibraryRefreshState())
+    val mediaLibraryState = _mediaLibraryState.asStateFlow()
 
     private val _recentMediaIds = MutableStateFlow(emptyList<String>())
     val recentMediaIds = _recentMediaIds.asStateFlow()
-
-    private val _loading = MutableStateFlow(false)
-    val loading = _loading.asStateFlow()
-
-    private val _hasLoadedOnce = MutableStateFlow(false)
-    val hasLoadedOnce = _hasLoadedOnce.asStateFlow()
 
     private val initialVideoAccessState = resolveVideoAccessUseCase()
 
@@ -83,17 +78,18 @@ internal class MainLibraryViewModel(
         uiSettingsRepository.hapticFeedbackEnabled = value
     }
 
-    fun setPlayerSettings(value: PlayerSettingsConfig) {
+    fun setPlayerSettings(value: PlayerSettings) {
         if (playerSettings.value == value) return
         playerSettingsRepository.playerSettings = value
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun onPermissionResult(result: Map<String, Boolean>) {
         syncVideoAccessState()
     }
 
     fun refresh() {
-        if (!_loading.value) {
+        if (!mediaLibraryState.value.isLoading) {
             scanVideos()
         }
     }
@@ -121,23 +117,47 @@ internal class MainLibraryViewModel(
     fun scanVideos() {
         if (!_permissionGranted.value && !_userSelectedPermissionGranted.value) return
         viewModelScope.launch {
-            _loading.value = true
-            val isUserRefresh = _hasLoadedOnce.value
-            val refreshResult = refreshMediaLibraryUseCase(hasLoadedOnce = isUserRefresh)
-            _items.value = refreshResult.items
-            if (refreshResult.warmupVideos.isNotEmpty()) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    refreshMediaLibraryUseCase.warmupInitialThumbnails(refreshResult.warmupVideos)
+            val currentState = mediaLibraryState.value
+            val isUserRefresh = currentState.hasLoadedOnce
+            _mediaLibraryState.value = currentState.copy(
+                status = MediaLibraryRefreshStatus.Loading,
+                errorMessage = null,
+            )
+
+            when (val refreshResult = refreshMediaLibraryUseCase(hasLoadedOnce = isUserRefresh)) {
+                is MediaLibraryRefreshOutcome.Success -> {
+                    _mediaLibraryState.value = reduceMediaLibraryRefreshState(
+                        currentState = mediaLibraryState.value,
+                        result = refreshResult,
+                    )
+                    if (refreshResult.warmupVideos.isNotEmpty()) {
+                        viewModelScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                refreshMediaLibraryUseCase.warmupInitialThumbnails(refreshResult.warmupVideos)
+                            }
+                        }
+                    }
+                    if (isUserRefresh) {
+                        _events.tryEmit(
+                            MainLibraryEvent.ShowToast(
+                                appContext.getString(R.string.refresh_done, refreshResult.items.size),
+                            ),
+                        )
+                    }
                 }
-            }
-            _loading.value = false
-            _hasLoadedOnce.value = true
-            if (isUserRefresh) {
-                _events.tryEmit(
-                    MainLibraryEvent.ShowToast(
-                        appContext.getString(R.string.refresh_done, refreshResult.items.size),
-                    ),
-                )
+                is MediaLibraryRefreshOutcome.Failure -> {
+                    if (refreshResult.reason == MediaLibraryRefreshFailure.PermissionDenied) {
+                        syncVideoAccessState()
+                        if (!_permissionGranted.value && !_userSelectedPermissionGranted.value) {
+                            return@launch
+                        }
+                    }
+                    _mediaLibraryState.value = reduceMediaLibraryRefreshState(
+                        currentState = mediaLibraryState.value,
+                        result = refreshResult,
+                        errorMessage = refreshResult.reason.toMessage(appContext),
+                    )
+                }
             }
         }
     }
@@ -146,6 +166,9 @@ internal class MainLibraryViewModel(
         val accessState = resolveVideoAccessUseCase()
         _permissionGranted.value = accessState.permissionGranted
         _userSelectedPermissionGranted.value = accessState.userSelectedPermissionGranted
+        if (!accessState.permissionGranted && !accessState.userSelectedPermissionGranted) {
+            _mediaLibraryState.value = MediaLibraryRefreshState()
+        }
     }
 
     internal class Factory(
@@ -158,5 +181,35 @@ internal class MainLibraryViewModel(
             @Suppress("UNCHECKED_CAST")
             return MainLibraryViewModel(dependencies) as T
         }
+    }
+}
+
+internal fun reduceMediaLibraryRefreshState(
+    currentState: MediaLibraryRefreshState,
+    result: MediaLibraryRefreshOutcome,
+    errorMessage: String? = null,
+): MediaLibraryRefreshState {
+    return when (result) {
+        is MediaLibraryRefreshOutcome.Success -> currentState.copy(
+            items = result.items,
+            status = MediaLibraryRefreshStatus.Idle,
+            hasLoadedOnce = true,
+            errorMessage = null,
+        )
+        is MediaLibraryRefreshOutcome.Failure -> currentState.copy(
+            status = MediaLibraryRefreshStatus.Idle,
+            errorMessage = errorMessage,
+        )
+    }
+}
+
+private fun MediaLibraryRefreshFailure.toMessage(context: Context): String {
+    return when (this) {
+        MediaLibraryRefreshFailure.PermissionDenied ->
+            context.getString(R.string.media_library_refresh_error_permission)
+        MediaLibraryRefreshFailure.ProviderUnavailable ->
+            context.getString(R.string.media_library_refresh_error_provider)
+        MediaLibraryRefreshFailure.Unknown ->
+            context.getString(R.string.media_library_refresh_error_unknown)
     }
 }

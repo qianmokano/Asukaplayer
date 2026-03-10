@@ -24,23 +24,24 @@
 ## 模块结构
 
 ```text
-app/            应用入口、component factory、媒体库 data source/repository/use case、设置页、主题/UI 组件
-player-runtime/ 设置仓库、运行时 graph、播放启动编排、设备/持久化适配
-player-ui/      播放页 UI、会话宿主、UI 侧状态与动作翻译
-player-core/    播放抽象、MediaSessionService、队列/恢复规划
-player-domain/  纯 JVM 算法与状态机
-player-data/    持久化接口与 SharedPreferences 实现
+app/              应用入口、媒体库 data source/repository/use case、设置页、主题/UI 组件
+player-contract/  稳定契约与模型、播放规划链、运行时依赖接口
+player-runtime/   设置仓库、运行时 graph、播放启动编排、设备/持久化适配
+player-ui/        播放页 UI、会话宿主、UI 侧状态与动作翻译
+player-engine/    Media3/Service、intent/seek fallback、运行实现
+player-domain/    纯 JVM 算法与状态机
+player-data/      持久化实现与 SharedPreferences/DataStore 适配
 ```
 
-依赖方向：`app` → `player-runtime`；`player-runtime` → `player-ui` / `player-core` / `player-data`；`player-ui` → `player-core` / `player-domain`
+依赖方向：`app` → `player-runtime` / `player-ui`；`player-runtime` → `player-contract` / `player-engine` / `player-data`；`player-data` → `player-contract`；`player-ui` → `player-contract` / `player-engine` / `player-domain`
 
 ## 关键架构
 
-1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，组装 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`，并注册到启动 registry。
-2. `AsukaAppComponentFactory` 负责实例化 `MainActivity` / `PlaybackActivity` / `PlaybackService`，系统入口不再通过 `Application` 反查 provider。
+1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，组装 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`，并持有应用级窄依赖 container。
+2. `AsuraPlayerApp` 持有窄依赖 container，`MainActivity` / `PlaybackActivity` / `PlaybackService` 在各自入口内从 `Application` 读取依赖，不再依赖静态 registry。
 3. `MainActivity` 和 `PlaybackLaunchCoordinator` 负责解析 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` 启动 URI、seek fallback 与显式队列转发。
 4. `MainLibraryViewModel` 通过 `MediaLibraryRepository` + use case 读取权限状态、本地媒体库、最近播放和缩略图预热，不再直接访问 MediaStore helper。
-5. `PlaybackSessionHost` 使用注入的播放依赖连接 `MediaController`，并把 Media3 状态翻译成 `PlaybackScreenModel` / `PlaybackScreenDependencies` 给 `PlayerScreen`。
+5. `PlaybackSessionHost` 使用注入的播放依赖连接 `MediaController`，`PlaybackLaunchOrchestrator` 负责启动意图、seek fallback 和 runtime policy 编排，再把 Media3 状态翻译成 `PlaybackScreenModel` / `PlaybackScreenDependencies` 给 `PlayerScreen`。
 6. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复；`PlaybackStateWriter` 作为 speed/track/position 的单一落盘入口。
 
 ## 当前代码组织

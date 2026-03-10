@@ -19,15 +19,6 @@ interface MainActivityDependencies {
     ): Intent
 }
 
-object MainActivityDependencyRegistry {
-    @Volatile
-    private var dependencies: MainActivityDependencies? = null
-
-    fun register(dependencies: MainActivityDependencies) {
-        this.dependencies = dependencies
-    }
-
-    fun require(): MainActivityDependencies {
-        return dependencies ?: error("MainActivityDependencies have not been registered.")
-    }
+interface MainActivityDependenciesProvider {
+    val mainActivityDependencies: MainActivityDependencies
 }

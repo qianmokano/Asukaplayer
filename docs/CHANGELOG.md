@@ -7,8 +7,11 @@
 - Queue planning + recent history persistence
 - Tests and checklists
 - Architecture hardening:
-  - `AsukaAppGraph` remains the single graph, while `AsukaAppComponentFactory` + narrow registries inject `MainActivity` / `PlaybackActivity` / `PlaybackService` without `Application` provider lookups
+  - `AsukaAppGraph` remains the single graph, while `AsuraPlayerApp` now owns the narrow dependency container and framework entry points resolve dependencies from `Application` instead of static registries
+  - new `player-contract` module now isolates stable playback contracts/models from Media3/service implementation
+  - runtime implementation module is now `player-engine`, making engine code explicit instead of continuing to hide it behind the old `player-core` name
   - `PlaybackLaunchCoordinator` and `PlaybackSessionCoordinator` split launch/session responsibilities
+  - `PlaybackLaunchOrchestrator`, `PlaybackWindowChromeController`, and `PlaybackPictureInPictureController` split startup orchestration and window side effects out of the oversized playback host/activity flow
   - `PlaybackSessionPlanner` and typed repositories centralize queue/resume policy
   - Queue history persists independently from implicit next/previous queue planning
   - `PlaybackSessionHost` and `MainLibraryScreen` extract orchestration out of oversized activity files

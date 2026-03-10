@@ -7,25 +7,24 @@ import kotlinx.parcelize.Parcelize
 import kotlinx.parcelize.TypeParceler
 
 /**
- * Serialises [DoubleTapAction] by enum name rather than ordinal, so reordering
- * or inserting enum entries never silently corrupts persisted / in-flight parcels.
+ * Canonical player settings model shared by app configuration and playback runtime policy.
  */
-private object DoubleTapActionParceler : Parceler<PlaybackRuntimeSettings.DoubleTapAction> {
-    override fun create(parcel: Parcel): PlaybackRuntimeSettings.DoubleTapAction {
+private object PlayerSettingsDoubleTapActionParceler : Parceler<PlayerSettings.DoubleTapAction> {
+    override fun create(parcel: Parcel): PlayerSettings.DoubleTapAction {
         val name = parcel.readString()
-        return PlaybackRuntimeSettings.DoubleTapAction.entries
+        return PlayerSettings.DoubleTapAction.entries
             .firstOrNull { it.name == name }
-            ?: PlaybackRuntimeSettings.DoubleTapAction.Seek
+            ?: PlayerSettings.DoubleTapAction.Seek
     }
 
-    override fun PlaybackRuntimeSettings.DoubleTapAction.write(parcel: Parcel, flags: Int) {
+    override fun PlayerSettings.DoubleTapAction.write(parcel: Parcel, flags: Int) {
         parcel.writeString(name)
     }
 }
 
 @Parcelize
-@TypeParceler<PlaybackRuntimeSettings.DoubleTapAction, DoubleTapActionParceler>
-data class PlaybackRuntimeSettings(
+@TypeParceler<PlayerSettings.DoubleTapAction, PlayerSettingsDoubleTapActionParceler>
+data class PlayerSettings(
     val seekGestureEnabled: Boolean = true,
     val brightnessGestureEnabled: Boolean = true,
     val volumeGestureEnabled: Boolean = true,
@@ -46,15 +45,10 @@ data class PlaybackRuntimeSettings(
     val autoBackgroundPlay: Boolean = false,
     val rememberBrightness: Boolean = false,
     val rememberSelections: Boolean = true,
-    val keepSessionConnectionInBackground: Boolean = true,
 ) : Parcelable {
     enum class DoubleTapAction {
         Seek,
         TogglePlayPause,
         Both,
-    }
-
-    companion object {
-        const val EXTRA_KEY = "player_runtime_settings"
     }
 }

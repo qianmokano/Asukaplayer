@@ -52,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.asuka.player.core.PlayerSettings
 import com.asuka.player.R
 import java.util.Locale
 
@@ -85,8 +86,8 @@ internal fun DoubleTapActionOptionRow(
 @Composable
 internal fun PlayerSettingsPlaceholderPageContent(
     modifier: Modifier = Modifier,
-    playerSettings: PlayerSettingsConfig,
-    onPlayerSettingsChange: (PlayerSettingsConfig) -> Unit,
+    playerSettings: PlayerSettings,
+    onPlayerSettingsChange: (PlayerSettings) -> Unit,
 ) {
     val gestureSeekEnabled = playerSettings.seekGestureEnabled
     val gestureBrightnessEnabled = playerSettings.brightnessGestureEnabled
@@ -96,9 +97,9 @@ internal fun PlayerSettingsPlaceholderPageContent(
     val gestureDoubleTapEnabled = playerSettings.doubleTapGestureEnabled
     val doubleTapAction = playerSettings.doubleTapAction
     val doubleTapActionLabel = when (doubleTapAction) {
-        DoubleTapActionSetting.TogglePlayPause -> stringResource(R.string.action_play_pause)
-        DoubleTapActionSetting.Both -> stringResource(R.string.action_seek_and_play_pause)
-        DoubleTapActionSetting.Seek -> stringResource(R.string.action_seek)
+        PlayerSettings.DoubleTapAction.TogglePlayPause -> stringResource(R.string.action_play_pause)
+        PlayerSettings.DoubleTapAction.Both -> stringResource(R.string.action_seek_and_play_pause)
+        PlayerSettings.DoubleTapAction.Seek -> stringResource(R.string.action_seek)
     }
     val gestureLongPressEnabled = playerSettings.longPressGestureEnabled
     val seekIncrementSec = playerSettings.seekIncrementSec.toFloat()
@@ -346,10 +347,13 @@ internal fun PlayerSettingsPlaceholderPageContent(
                         item {
                             DoubleTapActionOptionRow(
                                 text = stringResource(R.string.action_seek),
-                                selected = doubleTapAction == DoubleTapActionSetting.Seek,
+                                selected = doubleTapAction == PlayerSettings.DoubleTapAction.Seek,
                                 onClick = {
                                     onPlayerSettingsChange(
-                                        playerSettings.copy(doubleTapGestureEnabled = true, doubleTapAction = DoubleTapActionSetting.Seek),
+                                        playerSettings.copy(
+                                            doubleTapGestureEnabled = true,
+                                            doubleTapAction = PlayerSettings.DoubleTapAction.Seek,
+                                        ),
                                     )
                                     showDoubleTapActionDialog = false
                                 },
@@ -358,10 +362,13 @@ internal fun PlayerSettingsPlaceholderPageContent(
                         item {
                             DoubleTapActionOptionRow(
                                 text = stringResource(R.string.action_play_pause),
-                                selected = doubleTapAction == DoubleTapActionSetting.TogglePlayPause,
+                                selected = doubleTapAction == PlayerSettings.DoubleTapAction.TogglePlayPause,
                                 onClick = {
                                     onPlayerSettingsChange(
-                                        playerSettings.copy(doubleTapGestureEnabled = true, doubleTapAction = DoubleTapActionSetting.TogglePlayPause),
+                                        playerSettings.copy(
+                                            doubleTapGestureEnabled = true,
+                                            doubleTapAction = PlayerSettings.DoubleTapAction.TogglePlayPause,
+                                        ),
                                     )
                                     showDoubleTapActionDialog = false
                                 },
@@ -370,10 +377,13 @@ internal fun PlayerSettingsPlaceholderPageContent(
                         item {
                             DoubleTapActionOptionRow(
                                 text = stringResource(R.string.action_seek_and_play_pause),
-                                selected = doubleTapAction == DoubleTapActionSetting.Both,
+                                selected = doubleTapAction == PlayerSettings.DoubleTapAction.Both,
                                 onClick = {
                                     onPlayerSettingsChange(
-                                        playerSettings.copy(doubleTapGestureEnabled = true, doubleTapAction = DoubleTapActionSetting.Both),
+                                        playerSettings.copy(
+                                            doubleTapGestureEnabled = true,
+                                            doubleTapAction = PlayerSettings.DoubleTapAction.Both,
+                                        ),
                                     )
                                     showDoubleTapActionDialog = false
                                 },

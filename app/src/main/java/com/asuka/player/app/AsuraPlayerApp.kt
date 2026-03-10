@@ -6,7 +6,7 @@ import android.content.Intent
 import androidx.annotation.DrawableRes
 import androidx.lifecycle.ViewModelProvider
 import com.asuka.player.core.PlaybackActivityDependencies
-import com.asuka.player.core.PlaybackDependencyRegistry
+import com.asuka.player.core.PlaybackDependenciesProvider
 import com.asuka.player.core.PlaybackDeviceControllerFactory
 import com.asuka.player.core.PlaybackRuntimeSettingsSource
 import com.asuka.player.core.PlaybackSessionPlanner
@@ -14,21 +14,28 @@ import com.asuka.player.core.PlaybackServiceDependencies
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.core.QueueHistoryWriter
-import com.asuka.player.core.R as CoreR
-import com.asuka.player.core.service.PlaybackService
 import com.asuka.player.ui.activity.PlaybackActivity
 
-class AsuraPlayerApp : Application() {
+class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, PlaybackDependenciesProvider {
     private lateinit var graph: AsukaAppGraph
-    private lateinit var mainActivityEntryPoint: MainActivityDependencies
-    private lateinit var playbackActivityEntryPoint: PlaybackActivityDependencies
-    private lateinit var serviceDependencies: PlaybackServiceDependencies
+    private lateinit var mainActivityEntryPointInternal: MainActivityDependencies
+    private lateinit var playbackActivityEntryPointInternal: PlaybackActivityDependencies
+    private lateinit var serviceDependenciesInternal: PlaybackServiceDependencies
 
     /**
      * Override in tests to inject a fake/stub graph without subclassing the Application.
      * Must be set before [onCreate] is called (i.e. before Robolectric starts the app).
      */
     internal var graphFactory: (Application) -> AsukaAppGraph = ::AsukaAppGraph
+
+    override val mainActivityDependencies: MainActivityDependencies
+        get() = mainActivityEntryPointInternal
+
+    override val playbackActivityDependencies: PlaybackActivityDependencies
+        get() = playbackActivityEntryPointInternal
+
+    override val playbackServiceDependencies: PlaybackServiceDependencies
+        get() = serviceDependenciesInternal
 
     override fun onCreate() {
         super.onCreate()
@@ -54,24 +61,19 @@ class AsuraPlayerApp : Application() {
                 loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(mediaLibraryRepository),
             ),
         )
-        mainActivityEntryPoint = AppMainActivityDependencies(
+        mainActivityEntryPointInternal = AppMainActivityDependencies(
             playbackLaunchCoordinator = graph.playbackLaunchCoordinator,
             playbackActivityClass = PlaybackActivity::class.java,
             mainLibraryViewModelFactory = mainLibraryViewModelFactory,
         )
-        playbackActivityEntryPoint = AppPlaybackActivityDependencies(
+        playbackActivityEntryPointInternal = AppPlaybackActivityDependencies(
             graph = graph,
-            playbackServiceComponent = ComponentName(this, PlaybackService::class.java),
+            playbackServiceComponent = graph.playbackPlatformBindings.playbackServiceComponent,
         )
-        serviceDependencies = AppPlaybackServiceDependencies(
+        serviceDependenciesInternal = AppPlaybackServiceDependencies(
             graph = graph,
             sessionActivityClass = PlaybackActivity::class.java,
-            notificationSmallIconResId = CoreR.drawable.ic_stat_playback,
-        )
-        MainActivityDependencyRegistry.register(mainActivityEntryPoint)
-        PlaybackDependencyRegistry.register(
-            activityDependencies = playbackActivityEntryPoint,
-            serviceDependencies = serviceDependencies,
+            notificationSmallIconResId = graph.playbackPlatformBindings.notificationSmallIconResId,
         )
     }
 }

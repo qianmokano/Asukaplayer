@@ -23,17 +23,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.asuka.player.core.PlayerSettings
 import com.asuka.player.R
 
 internal data class MainLibraryUiState(
     val appVersion: String,
     val uiSettings: UiSettingsState,
-    val playerSettings: PlayerSettingsConfig,
+    val playerSettings: PlayerSettings,
     val permissionGranted: Boolean,
     val userSelectedPermissionGranted: Boolean,
-    val loading: Boolean,
-    val hasLoadedOnce: Boolean,
-    val items: List<LocalVideoItem>,
+    val mediaLibraryState: MediaLibraryRefreshState,
     val recentMediaIds: List<String>,
 )
 
@@ -48,7 +47,7 @@ internal fun MainLibraryNavHost(
     onRefreshRecent: () -> Unit,
     onPrefetchFolder: (LocalVideoFolder?) -> Unit,
     onHapticFeedbackEnabledChange: (Boolean) -> Unit,
-    onPlayerSettingsChange: (PlayerSettingsConfig) -> Unit,
+    onPlayerSettingsChange: (PlayerSettings) -> Unit,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     onCustomThemesChange: (List<CustomThemeEntry>) -> Unit,
     onNavDurationChange: (Int) -> Unit,
@@ -57,7 +56,7 @@ internal fun MainLibraryNavHost(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: ROUTE_HOME
     val currentFolderId = backStackEntry?.arguments?.getLong(ARG_FOLDER_ID)
-    val folders = remember(state.items) { buildFolderGroups(state.items) }
+    val folders = remember(state.mediaLibraryState.items) { buildFolderGroups(state.mediaLibraryState.items) }
     val speedDialActions = listOf(
         SpeedDialAction(
             icon = Icons.Rounded.PlayCircle,
@@ -120,8 +119,7 @@ internal fun MainLibraryNavHost(
                     modifier = Modifier.padding(innerPadding),
                     permissionGranted = state.permissionGranted,
                     hasLimitedMediaAccess = state.userSelectedPermissionGranted,
-                    initialLoading = state.loading && !state.hasLoadedOnce,
-                    isRefreshing = state.loading && state.hasLoadedOnce,
+                    mediaLibraryState = state.mediaLibraryState,
                     folders = folders,
                     onRequestPermission = onRequestPermission,
                     onRefresh = onRefresh,
@@ -151,9 +149,7 @@ internal fun MainLibraryNavHost(
             ) { innerPadding ->
                 VideosPageContent(
                     modifier = Modifier.padding(innerPadding),
-                    initialLoading = state.loading && !state.hasLoadedOnce,
-                    isRefreshing = state.loading && state.hasLoadedOnce,
-                    videos = state.items,
+                    mediaLibraryState = state.mediaLibraryState,
                     onPlay = onPlay,
                     onRefresh = onRefresh,
                 )
@@ -161,7 +157,9 @@ internal fun MainLibraryNavHost(
         }
 
         composable(route = ROUTE_RECENT) {
-            val knownByUri = remember(state.items) { state.items.associateBy { it.uri.toString() } }
+            val knownByUri = remember(state.mediaLibraryState.items) {
+                state.mediaLibraryState.items.associateBy { it.uri.toString() }
+            }
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -216,8 +214,7 @@ internal fun MainLibraryNavHost(
             ) { innerPadding ->
                 FolderPageContent(
                     modifier = Modifier.padding(innerPadding),
-                    initialLoading = state.loading && !state.hasLoadedOnce,
-                    isRefreshing = state.loading && state.hasLoadedOnce,
+                    mediaLibraryState = state.mediaLibraryState,
                     folder = folder,
                     onPlay = onPlay,
                     onRefresh = onRefresh,

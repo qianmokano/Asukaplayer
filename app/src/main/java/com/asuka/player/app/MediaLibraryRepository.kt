@@ -1,5 +1,6 @@
 package com.asuka.player.app
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 internal data class VideoAccessState(
@@ -45,30 +46,37 @@ internal class ResolveVideoAccessUseCase(
     operator fun invoke(): VideoAccessState = mediaLibraryRepository.readVideoAccessState()
 }
 
-internal data class MediaLibraryRefreshResult(
-    val items: List<LocalVideoItem>,
-    val warmupVideos: List<LocalVideoItem>,
-)
-
 internal class RefreshMediaLibraryUseCase(
     private val mediaLibraryRepository: MediaLibraryRepository,
     private val minRefreshAnimMs: Long = 500L,
     private val initialThumbWarmupLimit: Int = INITIAL_THUMB_WARMUP_LIMIT,
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) {
-    suspend operator fun invoke(hasLoadedOnce: Boolean): MediaLibraryRefreshResult {
+    suspend operator fun invoke(hasLoadedOnce: Boolean): MediaLibraryRefreshOutcome {
         val startedAtMs = nowMs()
-        val items = mediaLibraryRepository.scanLocalVideos()
-        if (hasLoadedOnce) {
-            val remaining = minRefreshAnimMs - (nowMs() - startedAtMs)
-            if (remaining > 0L) {
-                delay(remaining)
+        return try {
+            val items = mediaLibraryRepository.scanLocalVideos()
+            if (hasLoadedOnce) {
+                val remaining = minRefreshAnimMs - (nowMs() - startedAtMs)
+                if (remaining > 0L) {
+                    delay(remaining)
+                }
             }
+            MediaLibraryRefreshOutcome.Success(
+                items = items,
+                warmupVideos = if (hasLoadedOnce) emptyList() else items.take(initialThumbWarmupLimit),
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: SecurityException) {
+            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.PermissionDenied)
+        } catch (error: IllegalArgumentException) {
+            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.ProviderUnavailable)
+        } catch (error: IllegalStateException) {
+            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.ProviderUnavailable)
+        } catch (_: Exception) {
+            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.Unknown)
         }
-        return MediaLibraryRefreshResult(
-            items = items,
-            warmupVideos = if (hasLoadedOnce) emptyList() else items.take(initialThumbWarmupLimit),
-        )
     }
 
     suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>) {

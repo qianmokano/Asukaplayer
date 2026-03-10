@@ -17,9 +17,9 @@ class PlaybackStateWriter(
 ) : Player.Listener {
 
     companion object {
-        internal const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
+        const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
 
-        internal fun shouldSavePositionOnPause(isPlaying: Boolean, playbackState: Int): Boolean {
+        fun shouldSavePositionOnPause(isPlaying: Boolean, playbackState: Int): Boolean {
             if (isPlaying) return false
             return playbackState != Player.STATE_IDLE &&
                 playbackState != Player.STATE_ENDED &&

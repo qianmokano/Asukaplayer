@@ -1,5 +1,6 @@
 package com.asuka.player.app
 
+import com.asuka.player.core.PlayerSettings
 import android.content.Context
 import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.data.SharedPreferencesAppSettingsStore
@@ -75,8 +76,8 @@ class SettingsRepositoriesTest {
     @Test
     fun playbackRuntimeSettings_defaultsStayAlignedWithPlayerSettingsDefaults() {
         assertEquals(
-            PlayerSettingsConfig().hideButtonsBackground,
-            PlaybackRuntimeSettings().hideButtonsBackground,
+            PlayerSettings(),
+            PlaybackRuntimeSettings().playerSettings,
         )
     }
 

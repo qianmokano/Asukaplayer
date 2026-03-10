@@ -27,28 +27,7 @@ interface PlaybackServiceDependencies {
     val notificationSmallIconResId: Int
 }
 
-object PlaybackDependencyRegistry {
-    @Volatile
-    private var activityDependencies: PlaybackActivityDependencies? = null
-
-    @Volatile
-    private var serviceDependencies: PlaybackServiceDependencies? = null
-
-    fun register(
-        activityDependencies: PlaybackActivityDependencies,
-        serviceDependencies: PlaybackServiceDependencies,
-    ) {
-        this.activityDependencies = activityDependencies
-        this.serviceDependencies = serviceDependencies
-    }
-
-    fun requireActivityDependencies(): PlaybackActivityDependencies {
-        return activityDependencies
-            ?: error("PlaybackActivityDependencies have not been registered.")
-    }
-
-    fun requireServiceDependencies(): PlaybackServiceDependencies {
-        return serviceDependencies
-            ?: error("PlaybackServiceDependencies have not been registered.")
-    }
+interface PlaybackDependenciesProvider {
+    val playbackActivityDependencies: PlaybackActivityDependencies
+    val playbackServiceDependencies: PlaybackServiceDependencies
 }

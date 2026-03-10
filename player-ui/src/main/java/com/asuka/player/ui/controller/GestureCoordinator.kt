@@ -5,7 +5,7 @@ import androidx.annotation.MainThread
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.core.PlayerSettings
 import com.asuka.player.domain.GestureAlgorithms
 import com.asuka.player.domain.GestureStateMachine
 import com.asuka.player.ui.state.ControlsState
@@ -17,7 +17,7 @@ import kotlin.math.abs
 /**
  * Immutable gesture configuration for [GestureCoordinator].
  * Collecting all enable-flags and tuning constants here keeps the coordinator constructor
- * to a manageable size and makes it easy to derive a config from [PlaybackRuntimeSettings].
+ * to a manageable size and makes it easy to derive a config from the runtime settings policy.
  */
 data class GestureConfig(
     val enableSeekGesture: Boolean = true,
@@ -26,7 +26,7 @@ data class GestureConfig(
     val enableZoomGesture: Boolean = true,
     val enablePanGesture: Boolean = true,
     val enableDoubleTapGesture: Boolean = true,
-    val doubleTapAction: PlaybackRuntimeSettings.DoubleTapAction = PlaybackRuntimeSettings.DoubleTapAction.Seek,
+    val doubleTapAction: PlayerSettings.DoubleTapAction = PlayerSettings.DoubleTapAction.Seek,
     val enableLongPressGesture: Boolean = true,
     val doubleTapSeekDeltaMs: Long = 10_000L,
     val longPressSpeed: Float = 2.0f,
@@ -79,13 +79,13 @@ class GestureCoordinator(
     fun onDoubleTap(offset: Offset, size: IntSize) {
         if (machine.state == GestureStateMachine.State.DISABLED || controlsState.locked || !config.enableDoubleTapGesture) return
         machine.onEvent(GestureStateMachine.Event.DoubleTap)
-        if (config.doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.TogglePlayPause) {
+        if (config.doubleTapAction == PlayerSettings.DoubleTapAction.TogglePlayPause) {
             controller.togglePlayPause()
             return
         }
         val center = size.width / 2f
         val delta = config.doubleTapSeekDeltaMs
-        if (config.doubleTapAction == PlaybackRuntimeSettings.DoubleTapAction.Both) {
+        if (config.doubleTapAction == PlayerSettings.DoubleTapAction.Both) {
             val centerBandHalfWidth = size.width / 6f
             if (abs(offset.x - center) <= centerBandHalfWidth) {
                 controller.togglePlayPause()

@@ -12,7 +12,7 @@
 含义：
 
 - `./gradlew test`
-  - 覆盖 `:app`、`:player-runtime`、`:player-core`、`:player-domain`、`:player-ui`、`:player-data` 的 JVM / Robolectric 单元测试
+  - 覆盖 `:app`、`:player-runtime`、`:player-engine`、`:player-contract`、`:player-domain`、`:player-ui`、`:player-data` 的 JVM / Robolectric 单元测试
 - `:player-ui:compileDebugAndroidTestKotlin`
   - 保证 `player-ui/src/androidTest` 与当前播放页 API 保持同步
   - 不需要设备
@@ -42,7 +42,7 @@
 - 外部 `ACTION_SEND_MULTIPLE`
 - `ClipData` 多文件启动
 - seek fallback 后 URI / 队列一致性
-- `AsukaAppComponentFactory` + registry 启动链路
+- `AsuraPlayerApp` container 启动链路
 
 ### 恢复与持久化
 

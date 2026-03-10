@@ -19,7 +19,7 @@ Asuka Player is a clean-room Android local video player rewrite built with Jetpa
 ./gradlew :player-ui:compileDebugAndroidTestKotlin
 
 # Run a single test class
-./gradlew :player-core:testDebugUnitTest --tests "com.asuka.player.core.PlaybackSessionPlannerTest"
+./gradlew :player-engine:testDebugUnitTest --tests "com.asuka.player.core.PlaybackSessionPlannerTest"
 
 # Lint
 ./gradlew lintDebug
@@ -38,15 +38,16 @@ Asuka Player is a clean-room Android local video player rewrite built with Jetpa
 
 ```
 app/                  → Library browsing, settings, file picker; launches PlaybackActivity
-player-ui/            → Compose playback UI, gesture orchestration, session coordination
-player-core/          → Media3/ExoPlayer integration, MediaSessionService, queue/restore planning
+player-ui/            → Compose playback UI, gesture orchestration, session coordination, launch/window controllers
+player-contract/      → Stable playback contracts/models and planning chain
+player-engine/        → Media3/ExoPlayer integration, MediaSessionService, engine/runtime implementation
 player-domain/        → Pure JVM algorithms (no Android deps) — gesture math & state machines
 player-data/          → Persistence abstractions and SharedPreferences-backed stores
 ```
 
-Dependency direction: `app` → `player-ui` → `player-core` → `player-data`; `player-ui` → `player-domain`
+Dependency direction: `app` → `player-runtime` / `player-ui`; `player-runtime` → `player-contract` / `player-engine` / `player-data`; `player-ui` → `player-contract` / `player-engine` / `player-domain`
 
-`player-domain` is a pure JVM library. `player-data`, `app`, `player-core`, and `player-ui` all have JVM/Robolectric test coverage.
+`player-domain` is a pure JVM library. `player-contract`, `player-data`, `player-engine`, `app`, and `player-ui` all have JVM/Robolectric test coverage.
 
 ## Key Architecture Decisions
 
@@ -57,14 +58,15 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 
 **Application wiring:**
 1. `AsuraPlayerApp` builds `AsukaAppGraph`.
-2. `AsuraPlayerApp` exposes that graph via `PlaybackCoreGraphProvider`; there is no registry fallback anymore.
+2. `AsuraPlayerApp` owns the narrow dependency container; there is no registry fallback anymore.
 
 **Playback launch and control flow:**
 1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI and forward/remap explicit `ClipData` queues.
 2. `PlaybackActivity` connects to `PlaybackService` (a `MediaSessionService`) via `MediaController`.
-3. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
-4. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
-5. `PlaybackSessionHost` translates Media3 state into `PlaybackScreenModel` / `PlaybackScreenDependencies`; `PlayerScreen` consumes those UI-facing contracts rather than raw wiring helpers.
+3. `PlaybackLaunchOrchestrator` handles runtime policy, current launch intent, seek fallback, and artwork restore.
+4. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
+5. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
+6. `PlaybackSessionHost` translates Media3 state into `PlaybackScreenModel` / `PlaybackScreenDependencies`; `PlayerScreen` consumes those UI-facing contracts rather than raw wiring helpers.
 
 **State persistence:** `PlaybackStateWriter` writes position/speed/stable track IDs to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
 
@@ -89,11 +91,11 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 | `player-ui/…/controller/GestureCoordinator.kt` | Gesture orchestration |
 | `player-ui/…/controller/PlayerUiStateHolder.kt` | Playback title/progress/error/buffering state |
 | `player-ui/…/controller/PlaybackTrackUiStateHolder.kt` | Track/speed/media state translated for UI |
-| `player-core/…/PlaybackController.kt` | Abstract playback interface |
-| `player-core/…/PlaybackSessionPlanner.kt` | Queue + resume + track-restore planning |
-| `player-core/…/PlaybackCoreGraph.kt` | Runtime dependency contract exposed from the app graph |
-| `player-core/…/impl/Media3PlaybackController.kt` | ExoPlayer/Media3 implementation |
-| `player-core/…/service/PlaybackService.kt` | MediaSessionService |
+| `player-contract/…/PlaybackController.kt` | Abstract playback interface |
+| `player-contract/…/PlaybackSessionPlanner.kt` | Queue + resume + track-restore planning |
+| `player-contract/…/PlaybackCoreGraph.kt` | Runtime dependency contract exposed from the app graph |
+| `player-engine/…/impl/Media3PlaybackController.kt` | ExoPlayer/Media3 implementation |
+| `player-engine/…/service/PlaybackService.kt` | MediaSessionService |
 | `player-domain/…/GestureAlgorithms.kt` | Pure gesture math |
 | `player-domain/…/GestureStateMachine.kt` | Gesture state machine |
 | `player-data/…/PlaybackStore.kt` | Persistence interface and related stores |
@@ -112,7 +114,7 @@ Dependency direction: `app` → `player-ui` → `player-core` → `player-data`;
 - `./gradlew test` is the current baseline local verification command and covers all JVM unit test suites in the repo.
 - `./gradlew :player-ui:compileDebugAndroidTestKotlin` is the no-device AndroidTest API compatibility check for the playback UI.
 - `player-domain` tests are plain JVM tests; `player-data` uses Robolectric-backed unit tests for Android persistence code.
-- `app`, `player-core`, and `player-ui` use JUnit/Robolectric for launch/session/controller logic.
+- `app`, `player-engine`, and `player-ui` use JUnit/Robolectric for launch/session/controller logic.
 - Instrumented tests remain available through `:player-ui:connectedAndroidTest` and still require a device/emulator.
 - Test output (pass/fail/skip events) is configured in the root `build.gradle.kts`.
 - Current testing guidance is in `docs/TESTING.md`.

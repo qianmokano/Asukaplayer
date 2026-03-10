@@ -1,5 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
@@ -9,13 +8,11 @@
     <application
         android:name="com.asuka.player.app.AsuraPlayerApp"
         android:allowBackup="true"
-        android:appComponentFactory="com.asuka.player.app.AsukaAppComponentFactory"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Asuka"
-        tools:replace="android:appComponentFactory">
+        android:theme="@style/Theme.Asuka">
 
         <activity
             android:name="com.asuka.player.app.MainActivity"

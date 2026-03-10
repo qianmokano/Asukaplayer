@@ -31,11 +31,13 @@ kotlin {
 }
 
 dependencies {
-    api(project(":player-core"))
+    api(project(":player-contract"))
+    implementation(project(":player-engine"))
     implementation(project(":player-data"))
 
     implementation(libs.coroutines.core)
 
+    testImplementation(project(":player-engine"))
     testImplementation(project(":player-data"))
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)

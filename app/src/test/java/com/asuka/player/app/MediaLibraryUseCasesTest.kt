@@ -3,6 +3,7 @@ package com.asuka.player.app
 import android.net.Uri
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -27,12 +28,30 @@ class MediaLibraryUseCasesTest {
             initialThumbWarmupLimit = 2,
         )
 
-        val result = useCase(hasLoadedOnce = false)
+        val result = assertIs<MediaLibraryRefreshOutcome.Success>(useCase(hasLoadedOnce = false))
         useCase.warmupInitialThumbnails(result.warmupVideos)
 
         assertEquals(listOf(1L, 2L), result.warmupVideos.map(LocalVideoItem::id))
         assertEquals(1, repository.warmupCallCount)
         assertEquals(2, repository.lastWarmupLimit)
+    }
+
+    @Test
+    fun refreshMediaLibraryUseCase_mapsProviderFailureToOutcome() = runBlocking {
+        val repository = FakeMediaLibraryRepository(
+            scanFailure = IllegalStateException("provider unavailable"),
+        )
+        val useCase = RefreshMediaLibraryUseCase(
+            mediaLibraryRepository = repository,
+            minRefreshAnimMs = 0L,
+        )
+
+        val result = useCase(hasLoadedOnce = true)
+
+        assertEquals(
+            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.ProviderUnavailable),
+            result,
+        )
     }
 
     @Test
@@ -61,6 +80,7 @@ private class FakeMediaLibraryRepository(
     ),
     private val videos: List<LocalVideoItem> = emptyList(),
     private val recentMediaIds: List<String> = emptyList(),
+    private val scanFailure: Exception? = null,
 ) : MediaLibraryRepository {
     var warmupCallCount: Int = 0
         private set
@@ -69,7 +89,10 @@ private class FakeMediaLibraryRepository(
 
     override fun readVideoAccessState(): VideoAccessState = accessState
 
-    override suspend fun scanLocalVideos(): List<LocalVideoItem> = videos
+    override suspend fun scanLocalVideos(): List<LocalVideoItem> {
+        scanFailure?.let { throw it }
+        return videos
+    }
 
     override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) {
         warmupCallCount += 1

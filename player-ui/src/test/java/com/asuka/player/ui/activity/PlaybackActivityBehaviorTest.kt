@@ -1,5 +1,6 @@
 package com.asuka.player.ui.activity
 
+import com.asuka.player.core.PlayerSettings
 import com.asuka.player.core.PlaybackRuntimeSettings
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -11,8 +12,10 @@ class PlaybackActivityBehaviorTest {
     fun pictureInPictureTransition_updatesRetentionAndReceiverFlags() {
         val behavior = PlaybackActivityBehavior(
             initialSettings = PlaybackRuntimeSettings(
+                playerSettings = PlayerSettings(
+                    autoBackgroundPlay = false,
+                ),
                 keepSessionConnectionInBackground = false,
-                autoBackgroundPlay = false,
             ),
         )
 
@@ -33,8 +36,10 @@ class PlaybackActivityBehaviorTest {
     fun backgroundPlaybackRequest_isClearedOnStart() {
         val behavior = PlaybackActivityBehavior(
             initialSettings = PlaybackRuntimeSettings(
+                playerSettings = PlayerSettings(
+                    autoBackgroundPlay = false,
+                ),
                 keepSessionConnectionInBackground = false,
-                autoBackgroundPlay = false,
             ),
         )
 
@@ -49,10 +54,12 @@ class PlaybackActivityBehaviorTest {
     fun runtimeSettingsChanges_updateBehaviorFlags() {
         val behavior = PlaybackActivityBehavior(
             initialSettings = PlaybackRuntimeSettings(
-                autoPip = false,
-                rememberBrightness = false,
+                playerSettings = PlayerSettings(
+                    autoPip = false,
+                    rememberBrightness = false,
+                    autoBackgroundPlay = false,
+                ),
                 keepSessionConnectionInBackground = false,
-                autoBackgroundPlay = false,
             ),
         )
 
@@ -62,10 +69,12 @@ class PlaybackActivityBehaviorTest {
 
         behavior.onRuntimeSettingsChanged(
             PlaybackRuntimeSettings(
-                autoPip = true,
-                rememberBrightness = true,
+                playerSettings = PlayerSettings(
+                    autoPip = true,
+                    rememberBrightness = true,
+                    autoBackgroundPlay = false,
+                ),
                 keepSessionConnectionInBackground = true,
-                autoBackgroundPlay = false,
             ),
         )
 
