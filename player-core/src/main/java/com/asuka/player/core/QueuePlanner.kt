@@ -11,18 +11,25 @@ import android.net.Uri
  * as [neighbors].
  */
 object QueuePlanner {
-    fun plan(current: Uri, neighbors: List<Uri> = emptyList()): List<Uri> {
+    fun plan(
+        current: PlaybackQueueEntry,
+        neighbors: List<PlaybackQueueEntry> = emptyList(),
+    ): List<PlaybackQueueEntry> {
         if (neighbors.isNotEmpty()) {
-            // When the caller provides an explicit queue (e.g. ClipData order), preserve it
-            // verbatim if it already contains the current item. Otherwise prepend the current
-            // item and keep the remaining order as provided.
-            val explicitQueue = neighbors.distinct()
-            return if (current in explicitQueue) {
+            val explicitQueue = neighbors.distinctBy(PlaybackQueueEntry::mediaId)
+            return if (explicitQueue.any { it.mediaId == current.mediaId }) {
                 explicitQueue
             } else {
                 listOf(current) + explicitQueue
             }
         }
         return listOf(current)
+    }
+
+    fun plan(current: Uri, neighbors: List<Uri> = emptyList()): List<Uri> {
+        return plan(
+            current = PlaybackQueueEntry(mediaId = current.toString(), uri = current),
+            neighbors = neighbors.map { uri -> PlaybackQueueEntry(mediaId = uri.toString(), uri = uri) },
+        ).map(PlaybackQueueEntry::uri)
     }
 }

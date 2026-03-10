@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import com.asuka.player.ui.activity.PlaybackActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,7 +69,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startPlayback(launchRequest: PlaybackLaunchRequest) {
-        val playbackIntent = appGraph.playbackLaunchCoordinator.createPlaybackIntent(this, launchRequest)
+        val playbackIntent = appGraph.playbackLaunchCoordinator.createPlaybackIntent(
+            context = this,
+            activityClass = PlaybackActivity::class.java,
+            request = launchRequest,
+        )
         startActivity(playbackIntent)
         if (launchedForDirectPlayback) {
             finish()

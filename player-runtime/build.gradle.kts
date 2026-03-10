@@ -32,7 +32,6 @@ kotlin {
 
 dependencies {
     api(project(":player-core"))
-    api(project(":player-ui"))
     implementation(project(":player-data"))
 
     implementation(libs.compose.ui)

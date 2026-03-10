@@ -25,21 +25,21 @@ class PlaybackSessionPlanner(
     private val playbackStateRepository: PlaybackStateRepository,
 ) {
     fun plan(
-        targetUri: Uri,
-        launchNeighbors: List<Uri>,
+        target: PlaybackQueueEntry,
+        launchNeighbors: List<PlaybackQueueEntry>,
         resolvedTitles: Map<Uri, String?> = emptyMap(),
         policy: PlaybackStartupPolicy,
     ): PlaybackSessionPlan {
-        val queueUris = QueuePlanner.plan(
-            current = targetUri,
+        val queueEntries = QueuePlanner.plan(
+            current = target,
             neighbors = launchNeighbors,
         )
         val queue = QueueBuilder.build(
-            uris = queueUris,
-            startUri = targetUri,
-            titleResolver = { uri -> resolvedTitles[uri] },
+            entries = queueEntries,
+            startMediaId = target.mediaId,
+            titleResolver = { entryUri -> resolvedTitles[entryUri] },
         )
-        val mediaId = targetUri.toString()
+        val mediaId = target.mediaId
         val resumeState = playbackStateRepository.readResumeState(mediaId)
 
         val restoreRequest = if (policy.rememberTrackSelections) {
@@ -57,6 +57,22 @@ class PlaybackSessionPlanner(
             resumePositionMs = if (policy.resumePlayback) resumeState.positionMs else 0L,
             playbackSpeed = resumeState.speed ?: policy.defaultPlaybackSpeed,
             trackSelectionRestoreRequest = restoreRequest,
+        )
+    }
+
+    fun plan(
+        targetUri: Uri,
+        launchNeighbors: List<Uri>,
+        resolvedTitles: Map<Uri, String?> = emptyMap(),
+        policy: PlaybackStartupPolicy,
+    ): PlaybackSessionPlan {
+        return plan(
+            target = PlaybackQueueEntry(mediaId = targetUri.toString(), uri = targetUri),
+            launchNeighbors = launchNeighbors.map { uri ->
+                PlaybackQueueEntry(mediaId = uri.toString(), uri = uri)
+            },
+            resolvedTitles = resolvedTitles,
+            policy = policy,
         )
     }
 }

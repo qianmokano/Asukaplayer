@@ -48,6 +48,7 @@ android {
 
 dependencies {
     implementation(project(":player-runtime"))
+    implementation(project(":player-ui"))
 
     implementation(libs.activity.compose)
     implementation(libs.appcompat)

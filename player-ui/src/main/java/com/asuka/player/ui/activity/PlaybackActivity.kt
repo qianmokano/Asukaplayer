@@ -38,10 +38,11 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
+import com.asuka.player.core.PlaybackActivityDependencies
 import com.asuka.player.core.PlaybackDeviceController
 import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.PlaybackUiPersistence
-import com.asuka.player.core.requirePlaybackCoreGraph
+import com.asuka.player.core.requirePlaybackActivityDependencies
 import com.asuka.player.ui.PlaybackScreenDependencies
 import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
@@ -66,10 +67,12 @@ class PlaybackActivity : ComponentActivity() {
     private var composableIsPip by mutableStateOf(false)
     private var videoRect: android.graphics.Rect? = null
     private val activityBehavior = PlaybackActivityBehavior()
-    private val playbackGraph by lazy { applicationContext.requirePlaybackCoreGraph() }
-    private val playbackUiPersistence: PlaybackUiPersistence by lazy { playbackGraph.playbackUiPersistence }
+    private val playbackDependencies: PlaybackActivityDependencies by lazy {
+        applicationContext.requirePlaybackActivityDependencies()
+    }
+    private val playbackUiPersistence: PlaybackUiPersistence by lazy { playbackDependencies.playbackUiPersistence }
     private val playbackDeviceController: PlaybackDeviceController by lazy {
-        playbackGraph.playbackDeviceControllerFactory.create(
+        playbackDependencies.playbackDeviceControllerFactory.create(
             context = this,
             window = window,
         )
@@ -79,7 +82,7 @@ class PlaybackActivity : ComponentActivity() {
             contentResolver = contentResolver,
             cacheDir = cacheDir,
             scope = lifecycleScope,
-            graph = playbackGraph,
+            dependencies = playbackDependencies,
             controllerContext = this,
         )
     }
@@ -109,7 +112,7 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        runtimeSettings = playbackGraph.playbackRuntimeSettingsSource.current()
+        runtimeSettings = playbackDependencies.playbackRuntimeSettingsSource.current()
         activityBehavior.onRuntimeSettingsChanged(runtimeSettings)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
@@ -181,7 +184,7 @@ class PlaybackActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        runtimeSettings = playbackGraph.playbackRuntimeSettingsSource.current()
+        runtimeSettings = playbackDependencies.playbackRuntimeSettingsSource.current()
         activityBehavior.onRuntimeSettingsChanged(runtimeSettings)
         sessionHost.onNewIntent(intent)
     }
@@ -221,7 +224,7 @@ class PlaybackActivity : ComponentActivity() {
 
     private fun observeRuntimeSettings() {
         lifecycleScope.launch {
-            playbackGraph.playbackRuntimeSettingsSource.settings.collect { latest ->
+            playbackDependencies.playbackRuntimeSettingsSource.settings.collect { latest ->
                 runtimeSettings = latest
                 activityBehavior.onRuntimeSettingsChanged(latest)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -3,6 +3,7 @@ package com.asuka.player.app
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.ui.activity.PlaybackActivity
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
@@ -47,12 +48,21 @@ class PlaybackLaunchCoordinatorTest {
 
         val playbackIntent = coordinator.createPlaybackIntent(
             context = RuntimeEnvironment.getApplication(),
+            activityClass = PlaybackActivity::class.java,
             request = request,
         )
 
         assertEquals(resolved, playbackIntent.data)
         assertNotNull(playbackIntent.clipData)
         assertTrue((playbackIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+        assertEquals(current.toString(), playbackIntent.getStringExtra("com.asuka.player.extra.MEDIA_ID"))
+        val queueMediaIds = playbackIntent
+            .getStringArrayListExtra("com.asuka.player.extra.QUEUE_MEDIA_IDS")
+            ?.toList()
+        assertEquals(
+            listOf(current.toString(), next.toString()),
+            queueMediaIds,
+        )
     }
 
     @Test

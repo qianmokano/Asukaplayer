@@ -31,6 +31,7 @@ kotlin {
 }
 
 dependencies {
+    api(project(":player-core"))
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

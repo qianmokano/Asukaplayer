@@ -152,4 +152,44 @@ class PlaybackSessionPlannerTest {
             plan.queue.items.map { it.mediaMetadata.title?.toString() },
         )
     }
+
+    @Test
+    fun plan_usesStableMediaId_whenPlaybackUriIsFallbackCopy() {
+        val original = Uri.parse("content://videos/original.mp4")
+        val fallback = Uri.parse("file:///cache/fallback.mp4")
+        val store = InMemoryPlaybackStore().apply {
+            savePosition(original.toString(), 12_345L)
+            savePlaybackSpeed(original.toString(), 1.25f)
+            saveAudioTrackId(original.toString(), "audio-stable")
+        }
+        val planner = PlaybackSessionPlanner(
+            playbackStateRepository = PlaybackStateRepository(store),
+        )
+
+        val plan = planner.plan(
+            target = PlaybackQueueEntry(
+                mediaId = original.toString(),
+                uri = fallback,
+            ),
+            launchNeighbors = emptyList(),
+            policy = PlaybackStartupPolicy(
+                resumePlayback = true,
+                defaultPlaybackSpeed = 1.0f,
+                rememberTrackSelections = true,
+            ),
+        )
+
+        assertEquals(12_345L, plan.resumePositionMs)
+        assertEquals(1.25f, plan.playbackSpeed)
+        assertEquals(original.toString(), plan.queue.items.single().mediaId)
+        assertEquals(fallback, plan.queue.items.single().localConfiguration?.uri)
+        assertEquals(
+            TrackSelectionRestoreRequest(
+                mediaId = original.toString(),
+                audioTrackSelection = PersistedTrackSelection("audio-stable"),
+                subtitleTrackSelection = null,
+            ),
+            plan.trackSelectionRestoreRequest,
+        )
+    }
 }

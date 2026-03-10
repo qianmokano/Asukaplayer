@@ -7,8 +7,8 @@ import android.util.Log
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import com.asuka.player.core.PlaybackActivityDependencies
 import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackCoreGraph
 import com.asuka.player.core.PlaybackStartupPolicy
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.copyIntentWithRemappedUri
@@ -48,11 +48,11 @@ internal class PlaybackSessionHost(
     private val contentResolver: ContentResolver,
     cacheDir: File,
     private val scope: CoroutineScope,
-    private val graph: PlaybackCoreGraph,
+    private val dependencies: PlaybackActivityDependencies,
     controllerContext: android.content.Context,
     private val controllerProvider: PlaybackControllerConnector = ControllerProvider(
         context = controllerContext.applicationContext,
-        playbackServiceComponent = graph.playbackServiceComponent,
+        playbackServiceComponent = dependencies.playbackServiceComponent,
     ),
 ) {
     private val appContext = controllerContext.applicationContext
@@ -219,7 +219,7 @@ internal class PlaybackSessionHost(
             sessionCoordinator = PlaybackSessionCoordinator(
                 mediaController = mc,
                 trackSelectionController = currentTrackSelectionController,
-                sessionPlanner = graph.playbackSessionPlanner,
+                sessionPlanner = dependencies.playbackSessionPlanner,
                 titleResolver = mediaMetadataBridge::resolveTitle,
             ).also { it.attach() }
         }
@@ -260,7 +260,7 @@ internal class PlaybackSessionHost(
     private suspend fun startSingleMedia(uri: Uri?) {
         val controller = mediaController ?: return
         val target = uri ?: return
-        val runtimeSettings = graph.playbackRuntimeSettingsSource.current()
+        val runtimeSettings = dependencies.playbackRuntimeSettingsSource.current()
         val plan = sessionCoordinator?.start(
             targetUri = target,
             launchIntent = currentIntent,

@@ -7,7 +7,6 @@ import android.os.Looper
 import com.asuka.player.ui.activity.PlaybackActivity
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -40,7 +39,11 @@ class MainActivityDirectPlaybackTest {
         assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
         assertEquals(next, startedIntent.clipData?.getItemAt(1)?.uri)
         assertTrue((startedIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
-        assertNull(startedIntent.extras)
+        assertEquals(current.toString(), startedIntent.getStringExtra("com.asuka.player.extra.MEDIA_ID"))
+        assertEquals(
+            listOf(current.toString(), next.toString()),
+            startedIntent.getStringArrayListExtra("com.asuka.player.extra.QUEUE_MEDIA_IDS")?.toList(),
+        )
         assertTrue(activity.isFinishing)
     }
 

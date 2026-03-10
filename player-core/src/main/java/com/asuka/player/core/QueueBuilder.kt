@@ -14,17 +14,17 @@ object QueueBuilder {
     )
 
     fun build(
-        uris: List<Uri>,
-        startUri: Uri?,
+        entries: List<PlaybackQueueEntry>,
+        startMediaId: String?,
         titleResolver: ((Uri) -> String?)? = null,
     ): Queue {
-        val startIndex = uris.indexOfFirst { it == startUri }.takeIf { it >= 0 } ?: 0
-        val items = uris.map { uri ->
-            val title = titleResolver?.invoke(uri)?.takeIf { it.isNotBlank() }
-                ?: (uri.lastPathSegment?.takeIf { it.isNotBlank() } ?: uri.toString())
+        val startIndex = entries.indexOfFirst { it.mediaId == startMediaId }.takeIf { it >= 0 } ?: 0
+        val items = entries.map { entry ->
+            val title = titleResolver?.invoke(entry.uri)?.takeIf { it.isNotBlank() }
+                ?: (entry.uri.lastPathSegment?.takeIf { it.isNotBlank() } ?: entry.uri.toString())
             MediaItem.Builder()
-                .setUri(uri)
-                .setMediaId(uri.toString())
+                .setUri(entry.uri)
+                .setMediaId(entry.mediaId)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(title)
@@ -34,5 +34,17 @@ object QueueBuilder {
                 .build()
         }
         return Queue(items = items, startIndex = startIndex)
+    }
+
+    fun build(
+        uris: List<Uri>,
+        startUri: Uri?,
+        titleResolver: ((Uri) -> String?)? = null,
+    ): Queue {
+        return build(
+            entries = uris.map { uri -> PlaybackQueueEntry(mediaId = uri.toString(), uri = uri) },
+            startMediaId = startUri?.toString(),
+            titleResolver = titleResolver,
+        )
     }
 }

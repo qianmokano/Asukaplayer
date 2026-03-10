@@ -86,6 +86,8 @@ class PlayerUiStateHolder(
         if (!attached) return
         _state.update {
             it.copy(
+                title = player.mediaMetadata.title?.toString() ?: "",
+                isPlaying = player.isPlaying,
                 isBuffering = player.playbackState == Player.STATE_BUFFERING,
                 positionMs = player.currentPosition,
                 durationMs = if (player.duration > 0) player.duration else 0L,

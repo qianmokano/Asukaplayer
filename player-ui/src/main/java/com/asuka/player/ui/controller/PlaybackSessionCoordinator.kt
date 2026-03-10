@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.asuka.player.core.IntentQueueReader
+import com.asuka.player.core.PlaybackQueueEntry
 import com.asuka.player.core.PlaybackSessionPlan
 import com.asuka.player.core.PlaybackSessionPlanner
 import com.asuka.player.core.PlaybackStartupPolicy
@@ -50,14 +51,15 @@ class PlaybackSessionCoordinator(
         policy: PlaybackStartupPolicy,
     ): PlaybackSessionPlan? {
         val target = targetUri ?: return null
-        val launchNeighbors = launchIntent?.let { IntentQueueReader.read(it) }.orEmpty()
+        val targetMediaId = launchIntent?.let(IntentQueueReader::readTargetMediaId) ?: target.toString()
+        val launchNeighbors = launchIntent?.let(IntentQueueReader::readEntries).orEmpty()
         val resolvedTitles = withContext(Dispatchers.IO) {
-            (listOf(target) + launchNeighbors)
+            (listOf(target) + launchNeighbors.map(PlaybackQueueEntry::uri))
                 .distinct()
                 .associateWith { uri -> titleResolver(uri) }
         }
         val plan = sessionPlanner.plan(
-            targetUri = target,
+            target = PlaybackQueueEntry(mediaId = targetMediaId, uri = target),
             launchNeighbors = launchNeighbors,
             resolvedTitles = resolvedTitles,
             policy = policy,

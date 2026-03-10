@@ -15,6 +15,23 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
 class PlayerUiStateHolderTest {
+    @Test
+    fun attach_syncsImmediateTitleAndIsPlayingState() {
+        val probe = PlayerProbe()
+        probe.mediaMetadata = MediaMetadata.Builder()
+            .setTitle("Attached Title")
+            .build()
+        probe.setPlaybackState(Player.STATE_READY)
+        probe.setPlaying(true)
+
+        val holder = PlayerUiStateHolder(probe.player)
+
+        holder.attach()
+
+        assertEquals("Attached Title", holder.state.value.title)
+        assertTrue(holder.state.value.isPlaying)
+        holder.detach()
+    }
 
     @Test
     fun progressTicker_runsOnlyWhilePlayerIsPlaying() {
@@ -52,6 +69,7 @@ private class PlayerProbe {
     private val listeners = CopyOnWriteArrayList<Player.Listener>()
     private var isPlaying: Boolean = false
     private var playbackState: Int = Player.STATE_IDLE
+    var mediaMetadata: MediaMetadata = MediaMetadata.EMPTY
     val currentPositionReads = AtomicInteger(0)
 
     val player: Player = Proxy.newProxyInstance(
@@ -73,7 +91,7 @@ private class PlayerProbe {
                 "getPlaybackState" -> playbackState
                 "getCurrentPosition" -> currentPositionReads.incrementAndGet().toLong() * 1000L
                 "getDuration" -> 120_000L
-                "getMediaMetadata" -> MediaMetadata.EMPTY
+                "getMediaMetadata" -> mediaMetadata
                 "hashCode" -> System.identityHashCode(this)
                 "equals" -> args?.get(0) === this
                 "toString" -> "PlayerProbe"

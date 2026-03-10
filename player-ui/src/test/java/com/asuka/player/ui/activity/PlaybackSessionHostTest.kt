@@ -6,7 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.view.Window
 import androidx.media3.session.MediaController
-import com.asuka.player.core.PlaybackCoreGraph
+import com.asuka.player.core.PlaybackActivityDependencies
 import com.asuka.player.core.PlaybackDeviceController
 import com.asuka.player.core.PlaybackDeviceControllerFactory
 import com.asuka.player.core.PlaybackRuntimeSettings
@@ -46,7 +46,7 @@ class PlaybackSessionHostTest {
             contentResolver = context.contentResolver,
             cacheDir = context.cacheDir,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            graph = fakeGraph(context),
+            dependencies = fakeDependencies(context),
             controllerContext = context,
             controllerProvider = connector,
         )
@@ -68,12 +68,10 @@ class PlaybackSessionHostTest {
         assertTrue(connector.releaseCalled)
     }
 
-    private fun fakeGraph(context: Context): PlaybackCoreGraph {
+    private fun fakeDependencies(context: Context): PlaybackActivityDependencies {
         val playbackStore = InMemoryPlaybackStore()
-        return object : PlaybackCoreGraph {
-            override val playbackStore = playbackStore
-            override val queueHistoryStore = InMemoryQueueHistoryStore()
-            override val playbackStateRepository = PlaybackStateRepository(playbackStore)
+        return object : PlaybackActivityDependencies {
+            private val playbackStateRepository = PlaybackStateRepository(playbackStore)
             override val playbackSessionPlanner = PlaybackSessionPlanner(playbackStateRepository)
             override val playbackRuntimeSettingsSource = object : PlaybackRuntimeSettingsSource {
                 override val settings = MutableStateFlow(PlaybackRuntimeSettings())
@@ -97,8 +95,6 @@ class PlaybackSessionHostTest {
                 }
             }
             override val playbackServiceComponent = ComponentName(context, PlaybackSessionHostTest::class.java)
-            override val sessionActivityClass: Class<*>? = null
-            override val notificationSmallIconResId: Int = 0
         }
     }
 

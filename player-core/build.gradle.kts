@@ -33,13 +33,13 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":player-data"))
     implementation(libs.annotation)
     implementation(libs.coroutines.core)
-    implementation(libs.media3.common)
-    implementation(libs.media3.session)
+    api(libs.media3.common)
+    api(libs.media3.session)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    testImplementation(project(":player-data"))
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

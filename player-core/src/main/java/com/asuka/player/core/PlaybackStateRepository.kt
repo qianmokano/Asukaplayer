@@ -1,7 +1,5 @@
 package com.asuka.player.core
 
-import com.asuka.player.data.PlaybackStore
-
 data class ResumeState(
     val positionMs: Long,
     val speed: Float?,

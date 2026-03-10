@@ -9,6 +9,24 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class QueueBuilderTest {
     @Test
+    fun build_preservesStableMediaId_whenProvided() {
+        val original = Uri.parse("content://videos/original.mp4")
+        val fallback = Uri.parse("file:///cache/fallback.mp4")
+        val queue = QueueBuilder.build(
+            entries = listOf(
+                PlaybackQueueEntry(
+                    mediaId = original.toString(),
+                    uri = fallback,
+                ),
+            ),
+            startMediaId = original.toString(),
+        ) { "My Video" }
+
+        assertEquals(original.toString(), queue.items.single().mediaId)
+        assertEquals(fallback, queue.items.single().localConfiguration?.uri)
+    }
+
+    @Test
     fun build_usesTitleResolver_whenProvided() {
         val uri = Uri.parse("content://media/external/video/media/42")
         val queue = QueueBuilder.build(listOf(uri), startUri = uri) { "My Video" }

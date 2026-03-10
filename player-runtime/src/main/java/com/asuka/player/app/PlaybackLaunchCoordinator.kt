@@ -8,9 +8,9 @@ import android.provider.MediaStore
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
+import com.asuka.player.core.IntentQueueReader
 import com.asuka.player.core.SeekFallbackCopier
 import com.asuka.player.core.remapClipDataUri
-import com.asuka.player.ui.activity.PlaybackActivity
 import java.io.File
 
 interface PlaybackUriResolver {
@@ -20,6 +20,8 @@ interface PlaybackUriResolver {
 data class PlaybackLaunchRequest(
     val mediaUri: Uri,
     val clipData: ClipData?,
+    val mediaId: String,
+    val queueMediaIds: List<String>,
 )
 
 class PlaybackLaunchCoordinator(
@@ -43,13 +45,24 @@ class PlaybackLaunchCoordinator(
                 originalUri = sourceUri,
                 replacementUri = resolvedUri,
             ),
+            mediaId = mediaId,
+            queueMediaIds = queueMediaIds.ifEmpty { readQueueMediaIds(queueClipData) },
         )
     }
 
-    fun createPlaybackIntent(context: Context, request: PlaybackLaunchRequest): Intent {
-        return Intent(context, PlaybackActivity::class.java).apply {
+    fun createPlaybackIntent(
+        context: Context,
+        activityClass: Class<*>,
+        request: PlaybackLaunchRequest,
+    ): Intent {
+        return Intent(context, activityClass).apply {
             data = request.mediaUri
             clipData = request.clipData
+            IntentQueueReader.applyPlaybackIdentity(
+                intent = this,
+                mediaId = request.mediaId,
+                queueMediaIds = request.queueMediaIds,
+            )
             if (request.mediaUri.scheme == "content" || request.clipData != null) {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -73,6 +86,15 @@ class PlaybackLaunchCoordinator(
                 addItem(ClipData.Item(uri))
             }
         }
+    }
+
+    private fun readQueueMediaIds(clipData: ClipData?): List<String> {
+        if (clipData == null) return emptyList()
+        return buildList {
+            for (index in 0 until clipData.itemCount) {
+                clipData.getItemAt(index).uri?.toString()?.let(::add)
+            }
+        }.distinct()
     }
 }
 

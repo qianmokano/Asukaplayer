@@ -3,8 +3,6 @@ package com.asuka.player.core
 import android.content.ComponentName
 import android.content.Context
 import androidx.annotation.DrawableRes
-import com.asuka.player.data.PlaybackStore
-import com.asuka.player.data.QueueHistoryStore
 import kotlinx.coroutines.flow.StateFlow
 
 interface PlaybackRuntimeSettingsSource {
@@ -13,29 +11,43 @@ interface PlaybackRuntimeSettingsSource {
     fun current(): PlaybackRuntimeSettings = settings.value
 }
 
-interface PlaybackCoreGraphProvider {
-    val playbackCoreGraph: PlaybackCoreGraph
-}
-
-interface PlaybackCoreGraph {
-    val playbackStore: PlaybackStore
-    val queueHistoryStore: QueueHistoryStore
-    val playbackStateRepository: PlaybackStateRepository
+interface PlaybackActivityDependencies {
     val playbackSessionPlanner: PlaybackSessionPlanner
     val playbackRuntimeSettingsSource: PlaybackRuntimeSettingsSource
     val playbackUiPersistence: PlaybackUiPersistence
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
     val playbackServiceComponent: ComponentName
+}
+
+interface PlaybackActivityDependenciesProvider {
+    val playbackActivityDependencies: PlaybackActivityDependencies
+}
+
+interface PlaybackServiceDependencies {
+    fun createPlaybackStateWriter(): PlaybackStateWriter
+    fun createQueueHistoryWriter(): QueueHistoryWriter
     val sessionActivityClass: Class<*>?
 
     @get:DrawableRes
     val notificationSmallIconResId: Int
 }
 
-fun Context.requirePlaybackCoreGraph(): PlaybackCoreGraph {
+interface PlaybackServiceDependenciesProvider {
+    val playbackServiceDependencies: PlaybackServiceDependencies
+}
+
+fun Context.requirePlaybackActivityDependencies(): PlaybackActivityDependencies {
     val appContext = applicationContext
-    return (appContext as? PlaybackCoreGraphProvider)?.playbackCoreGraph
+    return (appContext as? PlaybackActivityDependenciesProvider)?.playbackActivityDependencies
         ?: error(
-            "Application must implement PlaybackCoreGraphProvider to expose the playback graph.",
+            "Application must implement PlaybackActivityDependenciesProvider to expose playback activity dependencies.",
+        )
+}
+
+fun Context.requirePlaybackServiceDependencies(): PlaybackServiceDependencies {
+    val appContext = applicationContext
+    return (appContext as? PlaybackServiceDependenciesProvider)?.playbackServiceDependencies
+        ?: error(
+            "Application must implement PlaybackServiceDependenciesProvider to expose playback service dependencies.",
         )
 }

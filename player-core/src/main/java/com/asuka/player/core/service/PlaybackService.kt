@@ -27,7 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.asuka.player.core.R
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.QueueHistoryWriter
-import com.asuka.player.core.requirePlaybackCoreGraph
+import com.asuka.player.core.requirePlaybackServiceDependencies
 import com.asuka.player.core.impl.Media3PlaybackController
 
 /**
@@ -51,7 +51,7 @@ class PlaybackService : MediaSessionService() {
     private val notificationManager: NotificationManager by lazy {
         getSystemService(NotificationManager::class.java)
     }
-    private val playbackGraph by lazy { requirePlaybackCoreGraph() }
+    private val playbackDependencies by lazy { requirePlaybackServiceDependencies() }
 
     private val sessionCallback = object : MediaSession.Callback {
         override fun onCustomCommand(
@@ -78,7 +78,7 @@ class PlaybackService : MediaSessionService() {
                 .setChannelName(R.string.playback_notification_channel_name)
                 .setNotificationId(NOTIFICATION_ID)
                 .build()
-                .apply { setSmallIcon(playbackGraph.notificationSmallIconResId) },
+                .apply { setSmallIcon(playbackDependencies.notificationSmallIconResId) },
         )
         // When playback pauses briefly (e.g. buffering transitions or rapid play/pause),
         // keep the service in the foreground for a short grace period to avoid churn.
@@ -87,9 +87,9 @@ class PlaybackService : MediaSessionService() {
         // showing a notification for a brand-new idle player that hasn't started playback yet.
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
 
-        val w = PlaybackStateWriter(playbackGraph.playbackStore)
+        val w = playbackDependencies.createPlaybackStateWriter()
         writer = w
-        val hw = QueueHistoryWriter(playbackGraph.queueHistoryStore)
+        val hw = playbackDependencies.createQueueHistoryWriter()
         historyWriter = hw
 
         val audioAttributes = AudioAttributes.Builder()
@@ -143,7 +143,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun buildSessionActivity(): PendingIntent? {
-        val cls = playbackGraph.sessionActivityClass
+        val cls = playbackDependencies.sessionActivityClass
         val intent = if (cls != null) {
             Intent(this, cls).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         } else {

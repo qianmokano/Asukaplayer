@@ -4,8 +4,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.asuka.player.data.PlaybackStore
-
 /**
  * Attaches to Player events and writes playback state into the store.
  * This is a lightweight, clean-room alternative and can be replaced by a use-case layer.

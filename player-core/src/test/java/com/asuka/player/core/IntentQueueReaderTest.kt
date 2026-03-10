@@ -42,4 +42,32 @@ class IntentQueueReaderTest {
 
         assertEquals(listOf(current, next), result)
     }
+
+    @Test
+    fun readEntries_prefersStoredStableMediaIds_overRuntimeUris() {
+        val original = Uri.parse("content://videos/current.mp4")
+        val fallback = Uri.parse("file:///cache/current.mp4")
+        val next = Uri.parse("content://videos/next.mp4")
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = fallback
+            clipData = ClipData.newRawUri("queue", fallback).apply {
+                addItem(ClipData.Item(next))
+            }
+            IntentQueueReader.applyPlaybackIdentity(
+                intent = this,
+                mediaId = original.toString(),
+                queueMediaIds = listOf(original.toString(), next.toString()),
+            )
+        }
+
+        val result = IntentQueueReader.readEntries(intent)
+
+        assertEquals(
+            listOf(
+                PlaybackQueueEntry(mediaId = original.toString(), uri = fallback),
+                PlaybackQueueEntry(mediaId = next.toString(), uri = next),
+            ),
+            result,
+        )
+    }
 }
