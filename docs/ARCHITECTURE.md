@@ -13,6 +13,7 @@
 - 应用入口与组合根
 - 媒体库、设置页、导航
 - 不直接装配 `player-core` / `player-data` 细节
+- UI 层按 feature slice 组织页面壳子与页面内容
 
 ### `player-runtime`
 - `AsukaAppGraph`
@@ -112,6 +113,21 @@
 
 Media3 到 UI 的翻译已经前置到 host 层完成。
 
+### 5. App UI 组织
+
+- `MainLibraryScreen` 只负责：
+  - 读取 `ViewModel` 状态
+  - 处理 document picker / permission launcher / toast / 对话框入口
+  - 把聚合后的状态传给 `MainLibraryNavHost`
+- `MainLibraryNavHost` 负责导航和页面装配
+- `LibraryChrome` / `LibraryPages` / `SettingsPageContent` / `PlayerSettingsPageContent` / `MotionSettingsPageContent` / `ThemeSettingsScreen` 负责页面级 UI
+
+这样做的目的：
+
+- 降低媒体库与设置页入口文件的冲突率
+- 让导航壳子与页面内容可独立修改
+- 避免在单个超大文件里同时处理 launcher、导航、页面布局和业务交互
+
 ## 运行时设置
 
 当前播放运行时设置的唯一真相源是 `AppPlaybackRuntimeSettingsSource`。
@@ -141,6 +157,13 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
   - 播放中低频 checkpoint
   - service 销毁前 flush
 
+### UI 进度刷新
+
+- `PlayerUiStateHolder` 的 position/duration 刷新采用“事件驱动 + 播放中短轮询”
+- attach 后不会无条件常驻 ticker
+- 只有在 `player.isPlaying` 时才启动短周期刷新，暂停后立即停止
+- 标题、错误、buffering、媒体切换等状态仍然主要依赖 `Player.Listener` 事件
+
 ### 最近历史
 
 - `QueueHistoryStore` 现在要求实现必须可跨线程安全调用
@@ -151,9 +174,11 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
 1. `README.md`
 2. `player-runtime/src/main/java/com/asuka/player/app/AppGraph.kt`
 3. `player-runtime/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
-4. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackActivity.kt`
-5. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackSessionHost.kt`
-6. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreenContract.kt`
-7. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreen.kt`
-8. `player-core/src/main/java/com/asuka/player/core/PlaybackSessionPlanner.kt`
-9. `player-core/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
+4. `app/src/main/java/com/asuka/player/app/MainLibraryScreen.kt`
+5. `app/src/main/java/com/asuka/player/app/MainLibraryNavHost.kt`
+6. `app/src/main/java/com/asuka/player/app/LibraryPages.kt`
+7. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackActivity.kt`
+8. `player-ui/src/main/java/com/asuka/player/ui/activity/PlaybackSessionHost.kt`
+9. `player-ui/src/main/java/com/asuka/player/ui/controller/PlayerUiStateHolder.kt`
+10. `player-core/src/main/java/com/asuka/player/core/PlaybackSessionPlanner.kt`
+11. `player-core/src/main/java/com/asuka/player/core/service/PlaybackService.kt`

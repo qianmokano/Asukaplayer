@@ -43,6 +43,14 @@ player-data/    持久化接口与 SharedPreferences 实现
 5. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复。
 6. `PlaybackService` + `PlaybackStateWriter` 负责播放状态写回，包含播放中 checkpoint 和销毁前 flush。
 
+## 当前代码组织
+
+- 媒体库与设置页已经拆成 feature-oriented 文件：
+  - `MainLibraryScreen` 负责状态汇总与 launcher
+  - `MainLibraryNavHost` 负责导航装配
+  - `LibraryPages` / `SettingsPageContent` / `PlayerSettingsPageContent` / `ThemeSettingsScreen` / `MotionSettingsPageContent` 负责具体页面内容
+- 播放进度刷新不再是 attach 后常驻轮询，而是只在 `player.isPlaying` 时启动短周期 ticker
+
 ## 本地验证
 
 ```bash

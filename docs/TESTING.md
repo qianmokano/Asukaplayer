@@ -12,7 +12,7 @@
 含义：
 
 - `./gradlew test`
-  - 覆盖 `:app`、`:player-core`、`:player-domain`、`:player-ui`、`:player-data` 的 JVM / Robolectric 单元测试
+  - 覆盖 `:app`、`:player-runtime`、`:player-core`、`:player-domain`、`:player-ui`、`:player-data` 的 JVM / Robolectric 单元测试
 - `:player-ui:compileDebugAndroidTestKotlin`
   - 保证 `player-ui/src/androidTest` 与当前播放页 API 保持同步
   - 不需要设备
@@ -38,6 +38,8 @@
 ### 启动与队列
 
 - 外部 `ACTION_VIEW`
+- 外部 `ACTION_SEND`
+- 外部 `ACTION_SEND_MULTIPLE`
 - `ClipData` 多文件启动
 - seek fallback 后 URI / 队列一致性
 
@@ -53,7 +55,9 @@
 - 控制栏显隐与锁定
 - overlay 开关
 - PiP / 后台保活策略
+- controller 建连失败后的错误态 / 重试
 - 错误态与重试
+- 进度 ticker 在播放/暂停切换时是否正确启停
 
 ## 手动测试清单
 
@@ -61,7 +65,8 @@
 
 1. 从媒体库打开一个本地视频。
 2. 从外部文件管理器以 `ACTION_VIEW` 打开单个视频。
-3. 从支持多选的来源触发 `ClipData` 多文件播放。
+3. 从分享入口以 `ACTION_SEND` 打开单个视频。
+4. 从分享入口以 `ACTION_SEND_MULTIPLE` 或支持多选的来源触发多文件播放。
 
 预期：
 
@@ -106,7 +111,8 @@
 ### 错误与恢复
 
 1. 用损坏媒体或不可读 URI 触发错误。
-2. 测试重试和下一项。
+2. 模拟 service / controller 建连失败，确认不会出现黑屏。
+3. 测试重试和下一项。
 
 预期：
 
