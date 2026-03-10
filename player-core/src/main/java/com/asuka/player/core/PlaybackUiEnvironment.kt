@@ -19,10 +19,6 @@ fun interface PlaybackDeviceControllerFactory {
 
 interface PlaybackUiPersistence {
     fun readZoom(mediaId: String): Float?
-    fun savePlaybackSpeed(mediaId: String, speed: Float)
-    fun saveAudioTrack(mediaId: String, trackId: String)
-    fun saveSubtitleTrack(mediaId: String, trackId: String)
-    fun disableSubtitles(mediaId: String)
     fun saveZoom(mediaId: String, zoom: Float)
     fun readRememberedBrightness(): Float?
     fun saveRememberedBrightness(brightness: Float)

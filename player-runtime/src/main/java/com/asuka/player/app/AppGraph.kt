@@ -60,11 +60,3 @@ class AsukaAppGraph(
         return QueueHistoryWriter(queueHistoryStore)
     }
 }
-
-interface AsukaAppGraphProvider {
-    val appGraph: AsukaAppGraph
-}
-
-val Application.appGraph: AsukaAppGraph
-    get() = (this as? AsukaAppGraphProvider)?.appGraph
-        ?: error("Application must expose AsukaAppGraph via AsukaAppGraphProvider.")

@@ -1,7 +1,5 @@
 package com.asuka.player.app
 
-import androidx.compose.ui.graphics.Color
-
 enum class ThemeMode {
     Dynamic,
     Custom,
@@ -21,7 +19,7 @@ enum class ThemeAppearanceMode {
 
 data class ThemeConfig(
     val mode: ThemeMode = ThemeMode.Monochrome,
-    val customSeed: Color? = null,
+    val customSeedArgb: Int? = null,
     val customThemeId: String? = null,
     val customMonochrome: Boolean = false,
     val appearance: ThemeAppearanceMode = ThemeAppearanceMode.System,
@@ -69,7 +67,4 @@ data class CustomThemeEntry(
     val name: String,
     val seedArgb: Int,
     val monochrome: Boolean,
-) {
-    val seed: Color
-        get() = Color(seedArgb)
-}
+)

@@ -50,28 +50,9 @@ internal object TestPlaybackController : PlaybackController {
 
 internal fun testPlaybackUiPersistence(): PlaybackUiPersistence {
     return object : PlaybackUiPersistence {
-        private val speeds = mutableMapOf<String, Float>()
-        private val audioTracks = mutableMapOf<String, String>()
-        private val subtitleTracks = mutableMapOf<String, String>()
         private val zooms = mutableMapOf<String, Float>()
 
         override fun readZoom(mediaId: String): Float? = zooms[mediaId]
-
-        override fun savePlaybackSpeed(mediaId: String, speed: Float) {
-            speeds[mediaId] = speed
-        }
-
-        override fun saveAudioTrack(mediaId: String, trackId: String) {
-            audioTracks[mediaId] = trackId
-        }
-
-        override fun saveSubtitleTrack(mediaId: String, trackId: String) {
-            subtitleTracks[mediaId] = trackId
-        }
-
-        override fun disableSubtitles(mediaId: String) {
-            subtitleTracks[mediaId] = "__disabled__"
-        }
 
         override fun saveZoom(mediaId: String, zoom: Float) {
             zooms[mediaId] = zoom

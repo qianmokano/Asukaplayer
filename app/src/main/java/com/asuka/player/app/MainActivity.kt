@@ -12,14 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import com.asuka.player.ui.activity.PlaybackActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MainActivity : ComponentActivity() {
+class MainActivity(
+    private val mainActivityDependencies: MainActivityDependencies = MainActivityDependencyRegistry.require(),
+) : ComponentActivity() {
     private var launchedForDirectPlayback = false
-    private val appGraph by lazy { application.appGraph }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +44,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MainLibraryScreen(
+                viewModelFactory = mainActivityDependencies.mainLibraryViewModelFactory,
                 onPlay = { mediaId, queueMediaIds ->
                     requestPlayback(mediaId, queueMediaIds = queueMediaIds)
                 },
@@ -58,7 +59,7 @@ class MainActivity : ComponentActivity() {
     ) {
         lifecycleScope.launch {
             val launchRequest = withContext(Dispatchers.IO) {
-                appGraph.playbackLaunchCoordinator.createLaunchRequest(
+                mainActivityDependencies.createPlaybackLaunchRequest(
                     mediaId = mediaId,
                     sourceIntent = sourceIntent,
                     queueMediaIds = queueMediaIds,
@@ -69,9 +70,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startPlayback(launchRequest: PlaybackLaunchRequest) {
-        val playbackIntent = appGraph.playbackLaunchCoordinator.createPlaybackIntent(
+        val playbackIntent = mainActivityDependencies.createPlaybackIntent(
             context = this,
-            activityClass = PlaybackActivity::class.java,
             request = launchRequest,
         )
         startActivity(playbackIntent)

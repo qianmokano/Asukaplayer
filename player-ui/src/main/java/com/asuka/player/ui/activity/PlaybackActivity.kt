@@ -38,11 +38,11 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
+import com.asuka.player.core.PlaybackDependencyRegistry
 import com.asuka.player.core.PlaybackActivityDependencies
 import com.asuka.player.core.PlaybackDeviceController
 import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.PlaybackUiPersistence
-import com.asuka.player.core.requirePlaybackActivityDependencies
 import com.asuka.player.ui.PlaybackScreenDependencies
 import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
@@ -53,7 +53,10 @@ import kotlinx.coroutines.launch
  * Minimal playback Activity for M0.
  * Starts MediaController, sets a single media item, and renders minimal UI.
  */
-class PlaybackActivity : ComponentActivity() {
+class PlaybackActivity(
+    private val playbackDependencies: PlaybackActivityDependencies =
+        PlaybackDependencyRegistry.requireActivityDependencies(),
+) : ComponentActivity() {
     companion object {
         private const val ACTION_PIP_CONTROL = "com.asuka.player.pip.CONTROL"
         private const val EXTRA_PIP_CONTROL = "pip_control"
@@ -67,9 +70,6 @@ class PlaybackActivity : ComponentActivity() {
     private var composableIsPip by mutableStateOf(false)
     private var videoRect: android.graphics.Rect? = null
     private val activityBehavior = PlaybackActivityBehavior()
-    private val playbackDependencies: PlaybackActivityDependencies by lazy {
-        applicationContext.requirePlaybackActivityDependencies()
-    }
     private val playbackUiPersistence: PlaybackUiPersistence by lazy { playbackDependencies.playbackUiPersistence }
     private val playbackDeviceController: PlaybackDeviceController by lazy {
         playbackDependencies.playbackDeviceControllerFactory.create(

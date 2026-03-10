@@ -15,14 +15,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun MainLibraryScreen(onPlay: (String, List<String>) -> Unit) {
+internal fun MainLibraryScreen(
+    viewModelFactory: ViewModelProvider.Factory,
+    onPlay: (String, List<String>) -> Unit,
+) {
     val context = LocalContext.current
-    val vm: MainLibraryViewModel = viewModel()
+    val vm: MainLibraryViewModel = viewModel(factory = viewModelFactory)
     val uiScope = rememberCoroutineScope()
     val appVersion = remember(context) { readAppVersion(context) }
 

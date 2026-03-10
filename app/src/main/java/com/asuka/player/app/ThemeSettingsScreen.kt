@@ -93,7 +93,9 @@ internal fun ThemeSettingsPageContent(
     }
     val monoPreviewScheme = monochromeColorScheme(previewDark)
 
-    var customHex by remember(themeConfig.customSeed) { mutableStateOf(themeConfig.customSeed?.toHex() ?: "#2E6CF6") }
+    var customHex by remember(themeConfig.customSeedArgb) {
+        mutableStateOf(themeConfig.customSeedColor?.toHex() ?: "#2E6CF6")
+    }
     var customName by remember { mutableStateOf("") }
     var showCustomDialog by remember { mutableStateOf(false) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
@@ -221,7 +223,7 @@ internal fun ThemeSettingsPageContent(
                                                 onThemeConfigChange(
                                                     themeConfig.copy(
                                                         mode = swatch.preset.mode,
-                                                        customSeed = swatch.preset.seed,
+                                                        customSeedArgb = swatch.preset.seed?.toArgb(),
                                                         customThemeId = null,
                                                         customMonochrome = false,
                                                     ),
@@ -251,7 +253,9 @@ internal fun ThemeSettingsPageContent(
                                     is ThemeSwatchItem.CustomTheme -> {
                                         ThemeSwatch(
                                             label = swatch.theme.name,
-                                            scheme = remember(swatch.theme.seed, previewDark) { colorSchemeFromSeed(swatch.theme.seed, previewDark) },
+                                            scheme = remember(swatch.theme.seedArgb, previewDark) {
+                                                colorSchemeFromSeed(swatch.theme.seedColor, previewDark)
+                                            },
                                             selected = themeConfig.mode == ThemeMode.Custom && themeConfig.customThemeId == swatch.theme.id,
                                             disabled = false,
                                             shape = shape,
@@ -267,7 +271,7 @@ internal fun ThemeSettingsPageContent(
                                                         themeConfig.copy(
                                                             mode = ThemeMode.Custom,
                                                             customThemeId = swatch.theme.id,
-                                                            customSeed = swatch.theme.seed,
+                                                            customSeedArgb = swatch.theme.seedArgb,
                                                             customMonochrome = swatch.theme.monochrome,
                                                         ),
                                                     )
@@ -353,7 +357,7 @@ internal fun ThemeSettingsPageContent(
                     themeConfig.copy(
                         mode = ThemeMode.Custom,
                         customThemeId = entry.id,
-                        customSeed = entry.seed,
+                        customSeedArgb = entry.seedArgb,
                         customMonochrome = false,
                     ),
                 )
@@ -377,14 +381,14 @@ internal fun ThemeSettingsPageContent(
                         val updated = customThemes.filterNot { it.id == id }
                         onCustomThemesChange(updated)
                         if (themeConfig.customThemeId == id) {
-                            onThemeConfigChange(
-                                themeConfig.copy(
-                                    mode = ThemeMode.Monochrome,
-                                    customThemeId = null,
-                                    customSeed = null,
-                                    customMonochrome = false,
-                                ),
-                            )
+                                onThemeConfigChange(
+                                    themeConfig.copy(
+                                        mode = ThemeMode.Monochrome,
+                                        customThemeId = null,
+                                        customSeedArgb = null,
+                                        customMonochrome = false,
+                                    ),
+                                )
                         }
                         confirmDeleteId = null
                         pendingDeleteId = null

@@ -1,29 +1,40 @@
 package com.asuka.player.app
 
-import android.app.Application
+import android.content.Context
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.asuka.player.R
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 internal sealed interface MainLibraryEvent {
     data class ShowToast(val message: String) : MainLibraryEvent
 }
 
-internal class MainLibraryViewModel(application: Application) : AndroidViewModel(application) {
-    private val appGraph = application.appGraph
-    private val uiSettingsRepository = appGraph.uiSettingsRepository
-    private val playerSettingsRepository = appGraph.playerSettingsRepository
-    private val playbackStateRepository = appGraph.playbackStateRepository
-    private val queueHistoryRepository = appGraph.queueHistoryRepository
+internal data class MainLibraryViewModelDependencies(
+    val appContext: Context,
+    val uiSettingsRepository: UiSettingsRepository,
+    val playerSettingsRepository: PlayerSettingsRepository,
+    val resolveVideoAccessUseCase: ResolveVideoAccessUseCase,
+    val refreshMediaLibraryUseCase: RefreshMediaLibraryUseCase,
+    val loadRecentMediaIdsUseCase: LoadRecentMediaIdsUseCase,
+)
+
+internal class MainLibraryViewModel(
+    private val dependencies: MainLibraryViewModelDependencies,
+) : ViewModel() {
+    private val appContext = dependencies.appContext.applicationContext
+    private val uiSettingsRepository = dependencies.uiSettingsRepository
+    private val playerSettingsRepository = dependencies.playerSettingsRepository
+    private val resolveVideoAccessUseCase = dependencies.resolveVideoAccessUseCase
+    private val refreshMediaLibraryUseCase = dependencies.refreshMediaLibraryUseCase
+    private val loadRecentMediaIdsUseCase = dependencies.loadRecentMediaIdsUseCase
 
     val uiSettings = uiSettingsRepository.settings
     val playerSettings = playerSettingsRepository.settings
@@ -40,10 +51,13 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     private val _hasLoadedOnce = MutableStateFlow(false)
     val hasLoadedOnce = _hasLoadedOnce.asStateFlow()
 
-    private val _permissionGranted = MutableStateFlow(hasVideoPermission(application))
+    private val initialVideoAccessState = resolveVideoAccessUseCase()
+
+    private val _permissionGranted = MutableStateFlow(initialVideoAccessState.permissionGranted)
     val permissionGranted = _permissionGranted.asStateFlow()
 
-    private val _userSelectedPermissionGranted = MutableStateFlow(hasUserSelectedVideoPermission(application))
+    private val _userSelectedPermissionGranted =
+        MutableStateFlow(initialVideoAccessState.userSelectedPermissionGranted)
     val userSelectedPermissionGranted = _userSelectedPermissionGranted.asStateFlow()
 
     private val _events = MutableSharedFlow<MainLibraryEvent>(extraBufferCapacity = 1)
@@ -75,9 +89,7 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     }
 
     fun onPermissionResult(result: Map<String, Boolean>) {
-        val app = getApplication<Application>()
-        _permissionGranted.value = hasVideoPermission(app)
-        _userSelectedPermissionGranted.value = hasUserSelectedVideoPermission(app) && !_permissionGranted.value
+        syncVideoAccessState()
     }
 
     fun refresh() {
@@ -88,10 +100,7 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
 
     fun refreshRecentMediaIds() {
         viewModelScope.launch(Dispatchers.IO) {
-            _recentMediaIds.value = resolveRecentMediaIds(
-                historyUris = queueHistoryRepository.items(),
-                fallbackMediaIds = playbackStateRepository.recentMediaIds(limit = 100),
-            )
+            _recentMediaIds.value = loadRecentMediaIdsUseCase(limit = 100)
         }
     }
 
@@ -101,7 +110,7 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
         if (trimmed.isBlank() || parsed?.scheme.isNullOrBlank()) {
             _events.tryEmit(
                 MainLibraryEvent.ShowToast(
-                    getApplication<Application>().getString(R.string.open_network_stream_invalid),
+                    appContext.getString(R.string.open_network_stream_invalid),
                 ),
             )
             return null
@@ -112,27 +121,13 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
     fun scanVideos() {
         if (!_permissionGranted.value && !_userSelectedPermissionGranted.value) return
         viewModelScope.launch {
-            val startedAtMs = System.currentTimeMillis()
-            val isUserRefresh = _hasLoadedOnce.value
             _loading.value = true
-            val latestItems = withContext(Dispatchers.IO) {
-                queryLocalVideos(getApplication())
-            }
-            if (isUserRefresh) {
-                val elapsed = System.currentTimeMillis() - startedAtMs
-                val minRefreshAnimMs = 500L
-                if (elapsed < minRefreshAnimMs) {
-                    delay(minRefreshAnimMs - elapsed)
-                }
-            }
-            _items.value = latestItems
-            if (!isUserRefresh) {
+            val isUserRefresh = _hasLoadedOnce.value
+            val refreshResult = refreshMediaLibraryUseCase(hasLoadedOnce = isUserRefresh)
+            _items.value = refreshResult.items
+            if (refreshResult.warmupVideos.isNotEmpty()) {
                 viewModelScope.launch(Dispatchers.IO) {
-                    warmupInitialThumbnails(
-                        context = getApplication(),
-                        videos = latestItems,
-                        limit = INITIAL_THUMB_WARMUP_LIMIT,
-                    )
+                    refreshMediaLibraryUseCase.warmupInitialThumbnails(refreshResult.warmupVideos)
                 }
             }
             _loading.value = false
@@ -140,21 +135,28 @@ internal class MainLibraryViewModel(application: Application) : AndroidViewModel
             if (isUserRefresh) {
                 _events.tryEmit(
                     MainLibraryEvent.ShowToast(
-                        getApplication<Application>().getString(R.string.refresh_done, latestItems.size),
+                        appContext.getString(R.string.refresh_done, refreshResult.items.size),
                     ),
                 )
             }
         }
     }
-}
 
-internal fun resolveRecentMediaIds(
-    historyUris: List<Uri>,
-    fallbackMediaIds: List<String>,
-): List<String> {
-    val historyIds = historyUris
-        .asReversed()
-        .map(Uri::toString)
-        .distinct()
-    return historyIds.ifEmpty { fallbackMediaIds }
+    private fun syncVideoAccessState() {
+        val accessState = resolveVideoAccessUseCase()
+        _permissionGranted.value = accessState.permissionGranted
+        _userSelectedPermissionGranted.value = accessState.userSelectedPermissionGranted
+    }
+
+    internal class Factory(
+        private val dependencies: MainLibraryViewModelDependencies,
+    ) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            require(modelClass.isAssignableFrom(MainLibraryViewModel::class.java)) {
+                "Unsupported ViewModel class: ${modelClass.name}"
+            }
+            @Suppress("UNCHECKED_CAST")
+            return MainLibraryViewModel(dependencies) as T
+        }
+    }
 }

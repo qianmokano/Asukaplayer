@@ -103,19 +103,15 @@ fun PlayerScreen(
     val durationMsState = rememberUpdatedState(uiState.durationMs)
     val mediaIdState = rememberUpdatedState(trackUiState.currentMediaId)
     val playbackSpeedState = rememberUpdatedState(trackUiState.currentSpeed)
-    val overlayActions = remember(controller, playbackPersistence) {
+    val overlayActions = remember(controller) {
         OverlayActions(
             controller = controller,
-            playbackPersistence = playbackPersistence,
-            mediaIdProvider = { mediaIdState.value },
         )
     }
-    val trackActions = remember(dependencies.trackSelectionController, playbackPersistence) {
+    val trackActions = remember(dependencies.trackSelectionController) {
         dependencies.trackSelectionController?.let {
             OverlayTrackActions(
                 trackSelectionController = it,
-                playbackPersistence = playbackPersistence,
-                mediaIdProvider = { mediaIdState.value },
             )
         }
     }

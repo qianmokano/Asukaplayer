@@ -2,14 +2,15 @@ package com.asuka.player.app
 
 import android.app.Application
 import android.content.ComponentName
+import android.content.Intent
 import androidx.annotation.DrawableRes
+import androidx.lifecycle.ViewModelProvider
 import com.asuka.player.core.PlaybackActivityDependencies
-import com.asuka.player.core.PlaybackActivityDependenciesProvider
+import com.asuka.player.core.PlaybackDependencyRegistry
 import com.asuka.player.core.PlaybackDeviceControllerFactory
 import com.asuka.player.core.PlaybackRuntimeSettingsSource
 import com.asuka.player.core.PlaybackSessionPlanner
 import com.asuka.player.core.PlaybackServiceDependencies
-import com.asuka.player.core.PlaybackServiceDependenciesProvider
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.PlaybackUiPersistence
 import com.asuka.player.core.QueueHistoryWriter
@@ -17,20 +18,11 @@ import com.asuka.player.core.R as CoreR
 import com.asuka.player.core.service.PlaybackService
 import com.asuka.player.ui.activity.PlaybackActivity
 
-class AsuraPlayerApp : Application(), AsukaAppGraphProvider, PlaybackActivityDependenciesProvider, PlaybackServiceDependenciesProvider {
-    internal lateinit var graph: AsukaAppGraph
-        private set
-    private lateinit var activityDependencies: PlaybackActivityDependencies
+class AsuraPlayerApp : Application() {
+    private lateinit var graph: AsukaAppGraph
+    private lateinit var mainActivityEntryPoint: MainActivityDependencies
+    private lateinit var playbackActivityEntryPoint: PlaybackActivityDependencies
     private lateinit var serviceDependencies: PlaybackServiceDependencies
-
-    override val appGraph: AsukaAppGraph
-        get() = graph
-
-    override val playbackActivityDependencies: PlaybackActivityDependencies
-        get() = activityDependencies
-
-    override val playbackServiceDependencies: PlaybackServiceDependencies
-        get() = serviceDependencies
 
     /**
      * Override in tests to inject a fake/stub graph without subclassing the Application.
@@ -41,7 +33,33 @@ class AsuraPlayerApp : Application(), AsukaAppGraphProvider, PlaybackActivityDep
     override fun onCreate() {
         super.onCreate()
         graph = graphFactory(this)
-        activityDependencies = AppPlaybackActivityDependencies(
+        val videoAccessDataSource = AndroidVideoAccessDataSource(this)
+        val localVideoCatalogDataSource = AndroidMediaStoreVideoCatalogDataSource(this)
+        val recentPlaybackDataSource = PlaybackRecentMediaDataSource(
+            playbackStateRepository = graph.playbackStateRepository,
+            queueHistoryRepository = graph.queueHistoryRepository,
+        )
+        val mediaLibraryRepository = AndroidMediaLibraryRepository(
+            videoAccessDataSource = videoAccessDataSource,
+            localVideoCatalogDataSource = localVideoCatalogDataSource,
+            recentPlaybackDataSource = recentPlaybackDataSource,
+        )
+        val mainLibraryViewModelFactory: ViewModelProvider.Factory = MainLibraryViewModel.Factory(
+            MainLibraryViewModelDependencies(
+                appContext = this,
+                uiSettingsRepository = graph.uiSettingsRepository,
+                playerSettingsRepository = graph.playerSettingsRepository,
+                resolveVideoAccessUseCase = ResolveVideoAccessUseCase(mediaLibraryRepository),
+                refreshMediaLibraryUseCase = RefreshMediaLibraryUseCase(mediaLibraryRepository),
+                loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(mediaLibraryRepository),
+            ),
+        )
+        mainActivityEntryPoint = AppMainActivityDependencies(
+            playbackLaunchCoordinator = graph.playbackLaunchCoordinator,
+            playbackActivityClass = PlaybackActivity::class.java,
+            mainLibraryViewModelFactory = mainLibraryViewModelFactory,
+        )
+        playbackActivityEntryPoint = AppPlaybackActivityDependencies(
             graph = graph,
             playbackServiceComponent = ComponentName(this, PlaybackService::class.java),
         )
@@ -49,6 +67,40 @@ class AsuraPlayerApp : Application(), AsukaAppGraphProvider, PlaybackActivityDep
             graph = graph,
             sessionActivityClass = PlaybackActivity::class.java,
             notificationSmallIconResId = CoreR.drawable.ic_stat_playback,
+        )
+        MainActivityDependencyRegistry.register(mainActivityEntryPoint)
+        PlaybackDependencyRegistry.register(
+            activityDependencies = playbackActivityEntryPoint,
+            serviceDependencies = serviceDependencies,
+        )
+    }
+}
+
+private class AppMainActivityDependencies(
+    private val playbackLaunchCoordinator: PlaybackLaunchCoordinator,
+    private val playbackActivityClass: Class<*>,
+    override val mainLibraryViewModelFactory: ViewModelProvider.Factory,
+) : MainActivityDependencies {
+    override fun createPlaybackLaunchRequest(
+        mediaId: String,
+        sourceIntent: Intent?,
+        queueMediaIds: List<String>,
+    ): PlaybackLaunchRequest {
+        return playbackLaunchCoordinator.createLaunchRequest(
+            mediaId = mediaId,
+            sourceIntent = sourceIntent,
+            queueMediaIds = queueMediaIds,
+        )
+    }
+
+    override fun createPlaybackIntent(
+        context: android.content.Context,
+        request: PlaybackLaunchRequest,
+    ): Intent {
+        return playbackLaunchCoordinator.createPlaybackIntent(
+            context = context,
+            activityClass = playbackActivityClass,
+            request = request,
         )
     }
 }

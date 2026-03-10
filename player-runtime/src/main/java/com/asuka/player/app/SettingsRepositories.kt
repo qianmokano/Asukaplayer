@@ -1,7 +1,4 @@
 package com.asuka.player.app
-
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import com.asuka.player.core.PlaybackRuntimeSettings
 import com.asuka.player.core.PlaybackRuntimeSettingsSource
 import com.asuka.player.data.AppSettingsStore
@@ -148,7 +145,7 @@ private fun UiSettingsState.toUiSettingsRecord(): UiSettingsRecord {
     return UiSettingsRecord(
         themeMode = themeConfig.mode.name,
         themeAppearance = themeConfig.appearance.name,
-        customSeedArgb = themeConfig.customSeed?.toArgb(),
+        customSeedArgb = themeConfig.customSeedArgb,
         customThemeId = themeConfig.customThemeId,
         customMonochrome = themeConfig.customMonochrome,
         pureBlack = themeConfig.pureBlack,
@@ -163,7 +160,7 @@ private fun UiSettingsState.toUiSettingsRecord(): UiSettingsRecord {
 private fun UiSettingsRecord.toThemeConfig(): ThemeConfig {
     return ThemeConfig(
         mode = runCatching { ThemeMode.valueOf(themeMode) }.getOrDefault(ThemeMode.Monochrome),
-        customSeed = customSeedArgb?.let(::Color),
+        customSeedArgb = customSeedArgb,
         customThemeId = customThemeId,
         customMonochrome = customMonochrome,
         appearance = runCatching { ThemeAppearanceMode.valueOf(themeAppearance) }

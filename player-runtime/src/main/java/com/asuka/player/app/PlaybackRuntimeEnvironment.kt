@@ -14,22 +14,6 @@ class PlaybackStateUiPersistence(
 ) : PlaybackUiPersistence {
     override fun readZoom(mediaId: String): Float? = playbackStateRepository.readResumeState(mediaId).zoom
 
-    override fun savePlaybackSpeed(mediaId: String, speed: Float) {
-        playbackStateRepository.savePlaybackSpeed(mediaId, speed)
-    }
-
-    override fun saveAudioTrack(mediaId: String, trackId: String) {
-        playbackStateRepository.saveAudioTrack(mediaId, trackId)
-    }
-
-    override fun saveSubtitleTrack(mediaId: String, trackId: String) {
-        playbackStateRepository.saveSubtitleTrack(mediaId, trackId)
-    }
-
-    override fun disableSubtitles(mediaId: String) {
-        playbackStateRepository.disableSubtitles(mediaId)
-    }
-
     override fun saveZoom(mediaId: String, zoom: Float) {
         playbackStateRepository.saveZoom(mediaId, zoom)
     }

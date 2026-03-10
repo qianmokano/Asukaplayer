@@ -26,6 +26,7 @@ class SettingsRepositoriesTest {
 
         repository.themeConfig = ThemeConfig(
             mode = ThemeMode.Custom,
+            customSeedArgb = 0xFF2E6CF6.toInt(),
             appearance = ThemeAppearanceMode.Dark,
             pureBlack = false,
             fontScale = 1.2f,
@@ -36,6 +37,7 @@ class SettingsRepositoriesTest {
 
         val state = repository.settings.value
         assertEquals(ThemeMode.Custom, state.themeConfig.mode)
+        assertEquals(0xFF2E6CF6.toInt(), state.themeConfig.customSeedArgb)
         assertEquals(ThemeAppearanceMode.Dark, state.themeConfig.appearance)
         assertFalse(state.themeConfig.pureBlack)
         assertEquals(1.2f, state.themeConfig.fontScale)

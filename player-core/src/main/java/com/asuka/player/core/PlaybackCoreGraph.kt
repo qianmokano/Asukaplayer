@@ -1,7 +1,6 @@
 package com.asuka.player.core
 
 import android.content.ComponentName
-import android.content.Context
 import androidx.annotation.DrawableRes
 import kotlinx.coroutines.flow.StateFlow
 
@@ -19,10 +18,6 @@ interface PlaybackActivityDependencies {
     val playbackServiceComponent: ComponentName
 }
 
-interface PlaybackActivityDependenciesProvider {
-    val playbackActivityDependencies: PlaybackActivityDependencies
-}
-
 interface PlaybackServiceDependencies {
     fun createPlaybackStateWriter(): PlaybackStateWriter
     fun createQueueHistoryWriter(): QueueHistoryWriter
@@ -32,22 +27,28 @@ interface PlaybackServiceDependencies {
     val notificationSmallIconResId: Int
 }
 
-interface PlaybackServiceDependenciesProvider {
-    val playbackServiceDependencies: PlaybackServiceDependencies
-}
+object PlaybackDependencyRegistry {
+    @Volatile
+    private var activityDependencies: PlaybackActivityDependencies? = null
 
-fun Context.requirePlaybackActivityDependencies(): PlaybackActivityDependencies {
-    val appContext = applicationContext
-    return (appContext as? PlaybackActivityDependenciesProvider)?.playbackActivityDependencies
-        ?: error(
-            "Application must implement PlaybackActivityDependenciesProvider to expose playback activity dependencies.",
-        )
-}
+    @Volatile
+    private var serviceDependencies: PlaybackServiceDependencies? = null
 
-fun Context.requirePlaybackServiceDependencies(): PlaybackServiceDependencies {
-    val appContext = applicationContext
-    return (appContext as? PlaybackServiceDependenciesProvider)?.playbackServiceDependencies
-        ?: error(
-            "Application must implement PlaybackServiceDependenciesProvider to expose playback service dependencies.",
-        )
+    fun register(
+        activityDependencies: PlaybackActivityDependencies,
+        serviceDependencies: PlaybackServiceDependencies,
+    ) {
+        this.activityDependencies = activityDependencies
+        this.serviceDependencies = serviceDependencies
+    }
+
+    fun requireActivityDependencies(): PlaybackActivityDependencies {
+        return activityDependencies
+            ?: error("PlaybackActivityDependencies have not been registered.")
+    }
+
+    fun requireServiceDependencies(): PlaybackServiceDependencies {
+        return serviceDependencies
+            ?: error("PlaybackServiceDependencies have not been registered.")
+    }
 }

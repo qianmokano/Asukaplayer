@@ -42,6 +42,7 @@
 - 外部 `ACTION_SEND_MULTIPLE`
 - `ClipData` 多文件启动
 - seek fallback 后 URI / 队列一致性
+- `AsukaAppComponentFactory` + registry 启动链路
 
 ### 恢复与持久化
 
@@ -49,6 +50,7 @@
 - 倍速恢复
 - 轨道恢复
 - 最近历史
+- UI overlay 不直接写 speed/track store
 
 ### 播放页行为
 
@@ -107,6 +109,18 @@
 
 - 会话和界面状态一致
 - 返回前台后不丢播放上下文
+
+### 媒体库分层
+
+1. 首次进入媒体库页面，确认权限状态、列表刷新、最近播放加载正常。
+2. 触发刷新，确认最小刷新动画时长与缩略图预热不影响主列表展示。
+3. 在有限媒体权限和完整权限之间切换，确认状态更新正常。
+
+预期：
+
+- `MainLibraryViewModel` 只做状态编排
+- `MediaLibraryRepository` / use case 负责媒体库规则
+- MediaStore 查询与最近播放读取由 data source 承担
 
 ### 错误与恢复
 

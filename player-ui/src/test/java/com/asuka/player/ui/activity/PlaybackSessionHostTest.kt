@@ -78,10 +78,6 @@ class PlaybackSessionHostTest {
             }
             override val playbackUiPersistence = object : PlaybackUiPersistence {
                 override fun readZoom(mediaId: String): Float? = null
-                override fun savePlaybackSpeed(mediaId: String, speed: Float) {}
-                override fun saveAudioTrack(mediaId: String, trackId: String) {}
-                override fun saveSubtitleTrack(mediaId: String, trackId: String) {}
-                override fun disableSubtitles(mediaId: String) {}
                 override fun saveZoom(mediaId: String, zoom: Float) {}
                 override fun readRememberedBrightness(): Float? = null
                 override fun saveRememberedBrightness(brightness: Float) {}

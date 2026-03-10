@@ -34,7 +34,6 @@ dependencies {
     api(project(":player-core"))
     implementation(project(":player-data"))
 
-    implementation(libs.compose.ui)
     implementation(libs.coroutines.core)
 
     testImplementation(project(":player-data"))

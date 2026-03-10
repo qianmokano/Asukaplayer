@@ -24,17 +24,20 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.asuka.player.core.PlaybackDependencyRegistry
 import com.asuka.player.core.R
 import com.asuka.player.core.PlaybackStateWriter
 import com.asuka.player.core.QueueHistoryWriter
-import com.asuka.player.core.requirePlaybackServiceDependencies
 import com.asuka.player.core.impl.Media3PlaybackController
 
 /**
  * Clean-room playback service. Owns ExoPlayer + MediaSession.
  */
 @OptIn(UnstableApi::class)
-class PlaybackService : MediaSessionService() {
+class PlaybackService(
+    private val playbackDependencies: com.asuka.player.core.PlaybackServiceDependencies =
+        PlaybackDependencyRegistry.requireServiceDependencies(),
+) : MediaSessionService() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var player: ExoPlayer? = null
@@ -51,8 +54,6 @@ class PlaybackService : MediaSessionService() {
     private val notificationManager: NotificationManager by lazy {
         getSystemService(NotificationManager::class.java)
     }
-    private val playbackDependencies by lazy { requirePlaybackServiceDependencies() }
-
     private val sessionCallback = object : MediaSession.Callback {
         override fun onCustomCommand(
             session: MediaSession,

@@ -24,7 +24,7 @@
 ## 模块结构
 
 ```text
-app/            应用入口、媒体库、设置页、组合根
+app/            应用入口、component factory、媒体库 data source/repository/use case、设置页、主题/UI 组件
 player-runtime/ 设置仓库、运行时 graph、播放启动编排、设备/持久化适配
 player-ui/      播放页 UI、会话宿主、UI 侧状态与动作翻译
 player-core/    播放抽象、MediaSessionService、队列/恢复规划
@@ -36,19 +36,23 @@ player-data/    持久化接口与 SharedPreferences 实现
 
 ## 关键架构
 
-1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，并通过 `PlaybackCoreGraphProvider` 暴露唯一运行时依赖图。
-2. `MainActivity` 和 `PlaybackLaunchCoordinator` 负责解析 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` 启动 URI、seek fallback 与显式队列转发。
-3. `PlaybackActivity` 只从 graph 提供的 `PlaybackRuntimeSettingsSource` / `PlaybackUiPersistence` / `PlaybackDeviceControllerFactory` 读取运行时依赖。
-4. `PlaybackSessionHost` 使用 graph 提供的播放 service component 连接 `MediaController`，并把 Media3 状态翻译成 `PlaybackScreenModel` / `PlaybackScreenDependencies` 给 `PlayerScreen`。
-5. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复。
-6. `PlaybackService` + `PlaybackStateWriter` 负责播放状态写回，包含播放中 checkpoint 和销毁前 flush。
+1. `AsuraPlayerApp` 构建 `AsukaAppGraph`，组装 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`，并注册到启动 registry。
+2. `AsukaAppComponentFactory` 负责实例化 `MainActivity` / `PlaybackActivity` / `PlaybackService`，系统入口不再通过 `Application` 反查 provider。
+3. `MainActivity` 和 `PlaybackLaunchCoordinator` 负责解析 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` 启动 URI、seek fallback 与显式队列转发。
+4. `MainLibraryViewModel` 通过 `MediaLibraryRepository` + use case 读取权限状态、本地媒体库、最近播放和缩略图预热，不再直接访问 MediaStore helper。
+5. `PlaybackSessionHost` 使用注入的播放依赖连接 `MediaController`，并把 Media3 状态翻译成 `PlaybackScreenModel` / `PlaybackScreenDependencies` 给 `PlayerScreen`。
+6. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复；`PlaybackStateWriter` 作为 speed/track/position 的单一落盘入口。
 
 ## 当前代码组织
 
 - 媒体库与设置页已经拆成 feature-oriented 文件：
   - `MainLibraryScreen` 负责状态汇总与 launcher
   - `MainLibraryNavHost` 负责导航装配
+  - `MediaLibraryDataSources` / `MediaLibraryRepository` / `MainLibraryViewModel` 形成 data source -> repository -> use case -> view model 的媒体库链路
   - `LibraryPages` / `SettingsPageContent` / `PlayerSettingsPageContent` / `ThemeSettingsScreen` / `MotionSettingsPageContent` 负责具体页面内容
+- 主题与共享 UI 已按职责拆分：
+  - `AsukaTheme` / `ThemeColorUtils` / `ThemeSwatchComponents` / `CustomThemeEditorSheet`
+  - `UiComponentTokens` / `GroupedSurfaceComponents` / `SettingsNavigationRows` / `SettingsControlRows`
 - 播放进度刷新不再是 attach 后常驻轮询，而是只在 `player.isPlaying` 时启动短周期 ticker
 
 ## 本地验证
