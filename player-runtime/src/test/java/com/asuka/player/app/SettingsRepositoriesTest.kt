@@ -87,6 +87,7 @@ class SettingsRepositoriesTest {
             PlayerSettings(),
             PlaybackRuntimeSettings().playerSettings,
         )
+        assertEquals(PlayerSettings.DoubleTapAction.TogglePlayPause, PlayerSettings().doubleTapAction)
     }
 
     @Test

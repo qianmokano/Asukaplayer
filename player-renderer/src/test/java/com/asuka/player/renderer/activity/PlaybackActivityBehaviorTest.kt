@@ -72,7 +72,7 @@ class PlaybackActivityBehaviorTest {
                 playerSettings = PlayerSettings(
                     autoPip = true,
                     rememberBrightness = true,
-                    autoBackgroundPlay = false,
+                    autoBackgroundPlay = true,
                 ),
                 keepSessionConnectionInBackground = true,
             ),
@@ -81,5 +81,19 @@ class PlaybackActivityBehaviorTest {
         assertTrue(behavior.shouldAutoEnterPictureInPictureOnUserLeave())
         assertTrue(behavior.shouldRememberBrightness())
         assertTrue(behavior.shouldRetainSessionOnStop())
+    }
+
+    @Test
+    fun backgroundPlaybackToggle_controlsRetentionEvenWhenConnectionRetentionDefaultsOn() {
+        val behavior = PlaybackActivityBehavior(
+            initialSettings = PlaybackRuntimeSettings(
+                playerSettings = PlayerSettings(
+                    autoBackgroundPlay = false,
+                ),
+                keepSessionConnectionInBackground = true,
+            ),
+        )
+
+        assertFalse(behavior.shouldRetainSessionOnStop())
     }
 }

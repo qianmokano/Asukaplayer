@@ -64,6 +64,27 @@ class PlaybackStateWriterTest {
     }
 
     @Test
+    fun onPositionDiscontinuity_whenWithinTenSecondsOfEnd_resetsResumePosition() = runBlocking {
+        val store = InMemoryPlaybackStore()
+        val mediaItem = mediaItem("media://seek-near-end")
+        val playerState = fakePlayer(
+            currentMediaItem = mediaItem,
+            duration = 120_000L,
+        )
+        val writer = PlaybackStateWriter(store)
+
+        writer.attach(playerState.asPlayer())
+        writer.onPositionDiscontinuity(
+            oldPosition = positionInfo(mediaItem = mediaItem, positionMs = 1_000L),
+            newPosition = positionInfo(mediaItem = mediaItem, positionMs = 110_001L),
+            reason = Player.DISCONTINUITY_REASON_SEEK,
+        )
+        writer.awaitIdle()
+
+        assertEquals(0L, store.loadPosition(mediaItem.mediaId))
+    }
+
+    @Test
     fun onPlaybackParametersChanged_afterMediaItemTransition_targetsNewItem() = runBlocking {
         val store = InMemoryPlaybackStore()
         val first = mediaItem("media://first")
@@ -159,6 +180,24 @@ class PlaybackStateWriterTest {
     }
 
     @Test
+    fun flushCurrentPosition_whenExactlyTenSecondsRemain_keepsResumePosition() = runBlocking {
+        val store = InMemoryPlaybackStore()
+        val mediaItem = mediaItem("media://threshold-flush")
+        val playerState = fakePlayer(
+            currentMediaItem = mediaItem,
+            currentPosition = 110_000L,
+            duration = 120_000L,
+            playbackState = Player.STATE_READY,
+        )
+        val writer = PlaybackStateWriter(store)
+
+        writer.attach(playerState.asPlayer())
+
+        assertTrue(writer.flushCurrentPositionAndAwait())
+        assertEquals(110_000L, store.loadPosition(mediaItem.mediaId))
+    }
+
+    @Test
     fun onTracksChanged_savesSelectionsForActualCurrentItem() = runBlocking {
         val store = InMemoryPlaybackStore()
         val first = mediaItem("media://first")
@@ -245,6 +284,7 @@ class PlaybackStateWriterTest {
     private class FakePlayerState(
         var currentMediaItem: MediaItem? = null,
         var currentPosition: Long = 0L,
+        var duration: Long = C.TIME_UNSET,
         var playbackState: Int = Player.STATE_IDLE,
         var currentTracks: Tracks = Tracks.EMPTY,
         var trackSelectionParameters: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
@@ -259,6 +299,7 @@ class PlaybackStateWriterTest {
                     "addListener", "removeListener" -> null
                     "getCurrentMediaItem" -> currentMediaItem
                     "getCurrentPosition" -> currentPosition
+                    "getDuration" -> duration
                     "getPlaybackState" -> playbackState
                     "getCurrentTracks" -> currentTracks
                     "getTrackSelectionParameters" -> trackSelectionParameters
@@ -277,6 +318,7 @@ class PlaybackStateWriterTest {
     private fun fakePlayer(
         currentMediaItem: MediaItem? = null,
         currentPosition: Long = 0L,
+        duration: Long = C.TIME_UNSET,
         playbackState: Int = Player.STATE_IDLE,
         currentTracks: Tracks = Tracks.EMPTY,
         trackSelectionParameters: TrackSelectionParameters = TrackSelectionParameters.DEFAULT,
@@ -285,6 +327,7 @@ class PlaybackStateWriterTest {
         return FakePlayerState(
             currentMediaItem = currentMediaItem,
             currentPosition = currentPosition,
+            duration = duration,
             playbackState = playbackState,
             currentTracks = currentTracks,
             trackSelectionParameters = trackSelectionParameters,

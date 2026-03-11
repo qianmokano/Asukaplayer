@@ -8,8 +8,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -32,6 +35,7 @@ import com.asuka.player.ui.components.BottomBar
 import com.asuka.player.ui.components.DoubleTapIndicator
 import com.asuka.player.ui.components.ErrorOverlay
 import com.asuka.player.ui.components.GestureLayer
+import com.asuka.player.ui.components.LockToggleAnchor
 import com.asuka.player.ui.components.LockedControlsOverlay
 import com.asuka.player.ui.components.LongPressSpeedIndicator
 import com.asuka.player.ui.components.MiddleControls
@@ -180,6 +184,7 @@ fun PlayerScreen(
             controlsState.show()
         }
     }
+    LaunchedEffect(seekState.seeking) { controlsState.setInteractionVisibilityHold(seekState.seeking) }
     LaunchedEffect(overlayType) {
         if (overlayType == null && !controlsState.locked) {
             controlsState.show()
@@ -205,6 +210,7 @@ fun PlayerScreen(
             lockedOverlayVisible = false
         }
     }
+    val displayedPositionMs = if (seekState.seeking) seekState.previewPositionMs else uiState.positionMs
     val controlsVisible = controlsState.visible && !controlsState.locked
     val visibleError = uiState.errorMessage?.takeIf { it != dismissedErrorMessage }
     val videoBoundsModifier = remember(onVideoBoundsChanged) {
@@ -244,8 +250,7 @@ fun PlayerScreen(
         if (!controlsState.locked && overlayType == null && visibleError == null && !isInPip) {
             GestureLayer(coordinator = gestureCoordinator, pointerDetector = pointerDetector)
         }
-        if (!isInPip) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        if (!isInPip) { Column(modifier = Modifier.fillMaxSize()) {
             AnimatedVisibility(
                 visible = controlsVisible,
                 enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
@@ -260,26 +265,7 @@ fun PlayerScreen(
                     onSpeed = { openOverlay(OverlayType.SPEED) },
                 )
             }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                AnimatedVisibility(
-                    visible = controlsVisible,
-                    enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
-                    exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
-                ) {
-                    MiddleControls(
-                        controller = controller,
-                        isPlaying = uiState.isPlaying,
-                        onNext = { queueActions.next() },
-                        onPrevious = { queueActions.previous() },
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.weight(1f))
             AnimatedVisibility(
                 visible = controlsVisible,
                 enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
@@ -288,9 +274,9 @@ fun PlayerScreen(
                 BottomBar(
                     showBackground = !settings.hideButtonsBackground,
                     controller = controller,
-                    positionMs = uiState.positionMs,
+                    positionMs = displayedPositionMs,
                     durationMs = uiState.durationMs,
-                    onLockToggle = { if (controlsState.locked) controlsState.unlock() else controlsState.lock() },
+                    onSeekBarDragChange = controlsState::setInteractionVisibilityHold,
                     onScale = { openOverlay(OverlayType.SCALE) },
                     onRotate = onRotate,
                     onPip = onPip,
@@ -299,8 +285,28 @@ fun PlayerScreen(
                     onShuffle = { uiActions.onShuffle() },
                 )
             }
-        } // end Column
-        } // end if (!isInPip)
+        } }
+        AnimatedVisibility(
+            visible = controlsVisible && !isInPip,
+            enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
+            exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            MiddleControls(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                controller = controller,
+                isPlaying = uiState.isPlaying,
+                onNext = { queueActions.next() },
+                onPrevious = { queueActions.previous() },
+            )
+        }
+        LockToggleAnchor(
+            visible = controlsVisible && !isInPip && !controlsState.locked,
+            labelResId = R.string.lock,
+            icon = Icons.Outlined.LockOpen,
+            onClick = controlsState::lock,
+            tag = "btn_lock",
+        )
         LockedControlsOverlay(
             visible = controlsState.locked,
             unlockHintVisible = lockedOverlayVisible,
@@ -310,9 +316,7 @@ fun PlayerScreen(
                 lockedOverlayVisible = false
             },
         )
-        if (uiState.isBuffering) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-        }
+        if (uiState.isBuffering) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         SeekIndicator(modifier = Modifier.align(Alignment.Center), seekState = seekState)
         DoubleTapIndicator(modifier = Modifier.align(Alignment.Center), state = tapFeedbackState)
         VerticalAdjustIndicator(modifier = Modifier.align(Alignment.Center), state = volumeBrightnessState)

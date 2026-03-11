@@ -7,7 +7,7 @@ data class PlayerSettings(
     val zoomGestureEnabled: Boolean = true,
     val panGestureEnabled: Boolean = true,
     val doubleTapGestureEnabled: Boolean = true,
-    val doubleTapAction: DoubleTapAction = DoubleTapAction.Seek,
+    val doubleTapAction: DoubleTapAction = DoubleTapAction.TogglePlayPause,
     val longPressGestureEnabled: Boolean = true,
     val seekIncrementSec: Int = 10,
     val seekSensitivity: Float = 1.0f,

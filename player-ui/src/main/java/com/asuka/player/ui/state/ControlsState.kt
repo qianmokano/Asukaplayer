@@ -26,6 +26,7 @@ class ControlsState(
     private val autoHideDelay: Duration,
 ) {
     private var generation = 0
+    private var interactionHoldCount = 0
 
     var visible: Boolean by mutableStateOf(true)
         private set
@@ -35,7 +36,11 @@ class ControlsState(
 
     fun show() {
         visible = true
-        armAutoDismiss()
+        if (interactionHoldCount == 0) {
+            armAutoDismiss()
+        } else {
+            generation++
+        }
     }
 
     fun hide() {
@@ -48,6 +53,7 @@ class ControlsState(
     }
 
     fun lock() {
+        interactionHoldCount = 0
         locked = true
         hide()
     }
@@ -55,6 +61,24 @@ class ControlsState(
     fun unlock() {
         locked = false
         show()
+    }
+
+    fun beginInteractionVisibilityHold() {
+        interactionHoldCount++
+        generation++
+        visible = true
+    }
+
+    fun setInteractionVisibilityHold(active: Boolean) {
+        if (active) beginInteractionVisibilityHold() else endInteractionVisibilityHold()
+    }
+
+    fun endInteractionVisibilityHold() {
+        if (interactionHoldCount == 0) return
+        interactionHoldCount--
+        if (interactionHoldCount == 0 && visible && !locked) {
+            armAutoDismiss()
+        }
     }
 
     private fun armAutoDismiss() {
@@ -65,7 +89,7 @@ class ControlsState(
         // to hide. This is intentional behaviour, not a silent failure.
         scope.launch {
             delay(autoHideDelay)
-            if (generation == snapshot && !locked) {
+            if (generation == snapshot && !locked && interactionHoldCount == 0) {
                 visible = false
             }
         }

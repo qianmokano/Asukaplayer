@@ -18,6 +18,7 @@ class PlaybackStateWriter(
 ) : Player.Listener {
     companion object {
         const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
+        const val RESUME_RESTART_THRESHOLD_MS = 10_000L
         private const val TAG = "PlaybackStateWriter"
 
         fun shouldSavePositionOnPause(isPlaying: Boolean, playbackState: Int): Boolean {
@@ -113,8 +114,17 @@ class PlaybackStateWriter(
     ) {
         if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
         val mediaId = newPosition.mediaItem?.mediaId ?: oldPosition.mediaItem?.mediaId ?: return
+        val duration = attachedPlayer?.duration ?: C.TIME_UNSET
+        val playbackState = attachedPlayer?.playbackState ?: Player.STATE_READY
         dispatchWrite {
-            store.savePosition(mediaId, newPosition.positionMs)
+            store.savePosition(
+                mediaId,
+                normalizePersistedPosition(
+                    playbackState = playbackState,
+                    positionMs = newPosition.positionMs,
+                    durationMs = duration,
+                ),
+            )
         }
     }
 
@@ -205,13 +215,28 @@ class PlaybackStateWriter(
     }
 
     private fun resolveCurrentPosition(player: Player): Long {
-        val playbackState = player.playbackState
+        return normalizePersistedPosition(
+            playbackState = player.playbackState,
+            positionMs = player.currentPosition,
+            durationMs = player.duration,
+        )
+    }
+
+    private fun normalizePersistedPosition(
+        playbackState: Int,
+        positionMs: Long,
+        durationMs: Long,
+    ): Long {
         val position = if (playbackState == Player.STATE_ENDED) {
             0L
         } else {
-            player.currentPosition.coerceAtLeast(0L)
+            positionMs.coerceAtLeast(0L)
         }
-        return position
+        if (durationMs == C.TIME_UNSET || durationMs <= 0L) return position
+
+        // Treat near-finished media as fully watched so the next launch starts over.
+        val remainingMs = (durationMs - position).coerceAtLeast(0L)
+        return if (remainingMs < RESUME_RESTART_THRESHOLD_MS) 0L else position
     }
 
     private fun dispatchWrite(block: suspend () -> Unit) {

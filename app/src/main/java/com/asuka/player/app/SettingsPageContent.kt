@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.AutoAwesomeMotion
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayCircle
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -94,14 +93,6 @@ internal fun SettingsPageContent(
                         icon = Icons.Rounded.Info,
                         title = stringResource(id = R.string.settings_about_title),
                         description = stringResource(id = R.string.settings_about_desc, appVersion),
-                        onClick = {},
-                    )
-                }
-                item {
-                    SettingsNavigationItem(
-                        icon = Icons.Rounded.Refresh,
-                        title = stringResource(id = R.string.settings_refresh_title),
-                        description = stringResource(id = R.string.settings_refresh_desc),
                         onClick = {},
                     )
                 }

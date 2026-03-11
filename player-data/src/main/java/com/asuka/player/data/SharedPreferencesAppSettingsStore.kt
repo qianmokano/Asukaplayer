@@ -38,7 +38,7 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     zoomGestureEnabled = prefs.getBoolean(Keys.PLAYER_ZOOM_GESTURE_ENABLED, true),
                     panGestureEnabled = prefs.getBoolean(Keys.PLAYER_PAN_GESTURE_ENABLED, true),
                     doubleTapGestureEnabled = prefs.getBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, true),
-                    doubleTapAction = prefs.getString(Keys.PLAYER_DOUBLE_TAP_ACTION, "seek") ?: "seek",
+                    doubleTapAction = prefs.getString(Keys.PLAYER_DOUBLE_TAP_ACTION, "toggle_play_pause") ?: "toggle_play_pause",
                     longPressGestureEnabled = prefs.getBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, true),
                     seekIncrementSec = prefs.getInt(Keys.PLAYER_SEEK_INCREMENT_SEC, 10),
                     seekSensitivity = prefs.getFloat(Keys.PLAYER_SEEK_SENSITIVITY, 1.0f),

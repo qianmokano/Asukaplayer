@@ -262,7 +262,7 @@ private fun String?.toDoubleTapAction(): PlayerSettings.DoubleTapAction {
     return when (this) {
         "toggle_play_pause" -> PlayerSettings.DoubleTapAction.TogglePlayPause
         "both" -> PlayerSettings.DoubleTapAction.Both
-        else -> PlayerSettings.DoubleTapAction.Seek
+        else -> PlayerSettings.DoubleTapAction.TogglePlayPause
     }
 }
 

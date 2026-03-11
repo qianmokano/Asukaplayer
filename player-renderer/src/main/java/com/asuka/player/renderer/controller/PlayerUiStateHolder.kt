@@ -23,7 +23,7 @@ class PlayerUiStateHolder(
     val state: StateFlow<PlayerUiState> = _state
     private var tickerJob: Job? = null
     private var tickerScope: CoroutineScope? = null
-    private var tickerIntervalMs: Long = 160L
+    private var tickerIntervalMs: Long = 50L
     private var attached = false
 
     fun attach() {
@@ -39,7 +39,7 @@ class PlayerUiStateHolder(
         stopProgressTicker()
     }
 
-    fun startProgressTicker(scope: CoroutineScope, intervalMs: Long = 160L) {
+    fun startProgressTicker(scope: CoroutineScope, intervalMs: Long = 50L) {
         tickerScope = scope
         tickerIntervalMs = intervalMs
         syncProgressTicker()

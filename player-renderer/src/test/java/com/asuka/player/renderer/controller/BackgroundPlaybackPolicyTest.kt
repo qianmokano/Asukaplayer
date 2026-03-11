@@ -7,13 +7,13 @@ import kotlin.test.assertTrue
 class BackgroundPlaybackPolicyTest {
 
     @Test
-    fun shouldRetainSession_whenConnectionRetentionEnabled() {
+    fun shouldNotRetainSession_fromConnectionRetentionAlone() {
         val policy = BackgroundPlaybackPolicy(
             retainControllerConnection = true,
             autoBackgroundPlaybackEnabled = false,
         )
 
-        assertTrue(policy.shouldRetainSession())
+        assertFalse(policy.shouldRetainSession())
     }
 
     @Test
@@ -46,10 +46,20 @@ class BackgroundPlaybackPolicyTest {
     @Test
     fun shouldRetainSession_whenAutoBackgroundPlaybackEnabled() {
         val policy = BackgroundPlaybackPolicy(
-            retainControllerConnection = false,
+            retainControllerConnection = true,
             autoBackgroundPlaybackEnabled = true,
         )
 
         assertTrue(policy.shouldRetainSession())
+    }
+
+    @Test
+    fun shouldNotRetainSession_whenAutoBackgroundPlaybackEnabledWithoutConnectionRetention() {
+        val policy = BackgroundPlaybackPolicy(
+            retainControllerConnection = false,
+            autoBackgroundPlaybackEnabled = true,
+        )
+
+        assertFalse(policy.shouldRetainSession())
     }
 }

@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Launch
 import androidx.compose.material.icons.outlined.AspectRatio
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.ScreenRotation
@@ -49,7 +48,7 @@ fun BottomBar(
     controller: PlaybackController,
     positionMs: Long,
     durationMs: Long,
-    onLockToggle: () -> Unit,
+    onSeekBarDragChange: (Boolean) -> Unit = {},
     onScale: () -> Unit,
     onRotate: () -> Unit,
     onPip: () -> Unit,
@@ -60,6 +59,7 @@ fun BottomBar(
     var showRemainingTime by remember { mutableStateOf(false) }
     var sliderDragging by remember { mutableStateOf(false) }
     var sliderValue by remember { mutableFloatStateOf(0f) }
+    val displayPositionMs = if (sliderDragging) sliderValue.toLong() else positionMs.coerceAtLeast(0L)
     LaunchedEffect(positionMs) {
         if (!sliderDragging) sliderValue = positionMs.toFloat()
     }
@@ -86,9 +86,9 @@ fun BottomBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val currentText = if (showRemainingTime && durationMs > 0L) {
-                "-${formatTimeMs((durationMs - positionMs).coerceAtLeast(0L))}"
+                "-${formatTimeMs((durationMs - displayPositionMs).coerceAtLeast(0L))}"
             } else {
-                formatTimeMs(positionMs)
+                formatTimeMs(displayPositionMs)
             }
             Text(
                 text = "$currentText / ${formatTimeMs(durationMs)}",
@@ -110,15 +110,21 @@ fun BottomBar(
 
         // ── Seek bar ───────────────────────────────────────────────────────────
         Slider(
-            value = if (sliderDragging) sliderValue else if (durationMs > 0L) positionMs.toFloat() else 0f,
+            value = if (durationMs > 0L) displayPositionMs.toFloat() else 0f,
             valueRange = 0f..(durationMs.takeIf { it > 0 } ?: 1L).toFloat(),
             onValueChange = {
-                sliderDragging = true
+                if (!sliderDragging) {
+                    sliderDragging = true
+                    onSeekBarDragChange(true)
+                }
                 sliderValue = it
             },
             onValueChangeFinished = {
                 controller.seekTo(sliderValue.toLong())
-                sliderDragging = false
+                if (sliderDragging) {
+                    sliderDragging = false
+                    onSeekBarDragChange(false)
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -135,12 +141,6 @@ fun BottomBar(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
-            SimpleButton(
-                label = stringResource(id = R.string.lock),
-                icon = Icons.Outlined.Lock,
-                onClick = onLockToggle,
-                tag = "btn_lock",
-            )
             SimpleButton(
                 label = stringResource(id = R.string.scale),
                 icon = Icons.Outlined.AspectRatio,

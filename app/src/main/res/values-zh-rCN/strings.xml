@@ -43,8 +43,6 @@
     <string name="settings_general_title">通用</string>
     <string name="settings_about_title">关于 Asuka Player</string>
     <string name="settings_about_desc">版本 %1$s</string>
-    <string name="settings_refresh_title">下拉刷新</string>
-    <string name="settings_refresh_desc">在任意媒体列表页面下拉即可重新扫描媒体库。</string>
     <string name="refresh_done">刷新完成：%1$d 个视频</string>
     <string name="media_library_refresh_error_title">媒体库刷新失败</string>
     <string name="media_library_refresh_error_permission">视频访问权限已不可用。请重新授权后再试。</string>

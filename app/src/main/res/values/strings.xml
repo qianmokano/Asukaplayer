@@ -43,8 +43,6 @@
     <string name="settings_general_title">General</string>
     <string name="settings_about_title">About Asuka Player</string>
     <string name="settings_about_desc">Version %1$s</string>
-    <string name="settings_refresh_title">Pull to Refresh</string>
-    <string name="settings_refresh_desc">Pull down in any library page to refresh media scan.</string>
     <string name="refresh_done">刷新完成：%1$d 个视频</string>
     <string name="media_library_refresh_error_title">Library refresh failed</string>
     <string name="media_library_refresh_error_permission">Video access is no longer available. Grant permission and try again.</string>

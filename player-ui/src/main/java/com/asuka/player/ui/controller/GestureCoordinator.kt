@@ -26,7 +26,7 @@ data class GestureConfig(
     val enableZoomGesture: Boolean = true,
     val enablePanGesture: Boolean = true,
     val enableDoubleTapGesture: Boolean = true,
-    val doubleTapAction: PlayerSettings.DoubleTapAction = PlayerSettings.DoubleTapAction.Seek,
+    val doubleTapAction: PlayerSettings.DoubleTapAction = PlayerSettings.DoubleTapAction.TogglePlayPause,
     val enableLongPressGesture: Boolean = true,
     val doubleTapSeekDeltaMs: Long = 10_000L,
     val longPressSpeed: Float = 2.0f,
@@ -128,7 +128,7 @@ class GestureCoordinator(
         lastSeekDeltaMs = 0L
         pendingSeekPositionMs = null
         lastSeekIpcMs = 0L
-        seekState.start()
+        seekState.start(positionMs)
     }
 
     fun onHorizontalDrag(currentX: Float, durationMs: Long, sensitivity: Float) {
@@ -136,7 +136,7 @@ class GestureCoordinator(
         if (durationMs <= 0L) {
             lastSeekDeltaMs = 0L
             pendingSeekPositionMs = null
-            seekState.update(0L)
+            seekState.update(0L, seekStartPositionMs)
             return
         }
         val result = GestureAlgorithms.calculateSeek(
@@ -150,7 +150,7 @@ class GestureCoordinator(
         )
         lastSeekDeltaMs = result.deltaMs
         pendingSeekPositionMs = result.newPositionMs
-        seekState.update(result.deltaMs)
+        seekState.update(result.deltaMs, result.newPositionMs)
         val nowMs = SystemClock.elapsedRealtime()
         if (abs(result.deltaMs) >= config.minSeekDeltaMs && (nowMs - lastSeekIpcMs) >= SEEK_THROTTLE_MS) {
             controller.seekTo(result.newPositionMs)
@@ -291,6 +291,6 @@ class GestureCoordinator(
     }
 
     private companion object {
-        const val SEEK_THROTTLE_MS = 100L  // ≤10 IPC calls/sec
+        const val SEEK_THROTTLE_MS = 33L
     }
 }
