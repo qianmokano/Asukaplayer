@@ -74,6 +74,8 @@ data class AppSettingsSnapshot(
 interface AppSettingsStore {
     val snapshots: StateFlow<AppSettingsSnapshot>
 
+    suspend fun awaitLoaded() = Unit
+
     fun loadSnapshot(): AppSettingsSnapshot = snapshots.value
     suspend fun saveSnapshot(snapshot: AppSettingsSnapshot)
 

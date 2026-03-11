@@ -73,31 +73,39 @@ internal class PlaybackSessionHost(
     private var trackUiStateHolder: PlaybackTrackUiStateHolder? = null
     private var trackSelectionController: PlaybackTrackSelectionController? = null
     private var initJob: Job? = null
+    private var playbackStartJob: Job? = null
     private var uiStateFeedJob: Job? = null
     private var trackUiStateFeedJob: Job? = null
     private var sessionCoordinator: PlaybackSessionCoordinator? = null
+    private var appliedRequestId: Long = 0L
 
     private val seekFallbackListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState != Player.STATE_READY) return
+            if (!shouldHandlePlaybackEvent()) return
             val mc = mediaController ?: return
             val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: return
+            val requestId = launchOrchestrator.currentRequestId()
             launchOrchestrator.handlePlaybackReady(
+                requestId = requestId,
                 currentUri = currentUri,
                 isSeekable = mc.isCurrentMediaItemSeekable,
             ) { copiedUri ->
-                startSingleMedia(copiedUri)
+                requestStartSingleMedia(requestId, copiedUri)
             }
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            if (!shouldHandlePlaybackEvent()) return
             val mc = mediaController ?: return
             val currentUri = mc.currentMediaItem?.localConfiguration?.uri ?: launchOrchestrator.currentIntentData()
+            val requestId = launchOrchestrator.currentRequestId()
             launchOrchestrator.handlePlaybackError(
+                requestId = requestId,
                 currentUri = currentUri,
                 error = error,
             ) { copiedUri ->
-                startSingleMedia(copiedUri)
+                requestStartSingleMedia(requestId, copiedUri)
             }
         }
     }
@@ -105,23 +113,33 @@ internal class PlaybackSessionHost(
     fun ensureControllerReady(
         launchIntent: Intent?,
     ) {
-        launchOrchestrator.updateIntent(launchIntent)
+        launchOrchestrator.updateIntent(
+            intent = launchIntent,
+            supersedeRequest = mediaController == null && launchIntent != null,
+            clearSeekFallbackAttempts = mediaController == null && launchIntent != null,
+        )
         mediaController?.let { attachToResolvedController(it) } ?: connectController()
     }
 
     fun onNewIntent(
         launchIntent: Intent,
     ) {
-        launchOrchestrator.updateIntent(launchIntent, clearSeekFallbackAttempts = true)
+        val requestId = launchOrchestrator.updateIntent(
+            intent = launchIntent,
+            supersedeRequest = true,
+            clearSeekFallbackAttempts = true,
+        )
+        cancelPlaybackStart()
         if (mediaController == null) {
-            ensureControllerReady(launchIntent)
+            connectController()
         } else {
-            scope.launch { startSingleMedia(launchIntent.data) }
+            requestStartSingleMedia(requestId, launchIntent.data)
         }
     }
 
     fun onStop(retainSession: Boolean) {
         launchOrchestrator.cancelPending()
+        cancelPlaybackStart()
         uiStateFeedJob?.cancel()
         uiStateFeedJob = null
         trackUiStateFeedJob?.cancel()
@@ -145,12 +163,14 @@ internal class PlaybackSessionHost(
             mediaController = null
             playbackController = null
             trackSelectionController = null
+            appliedRequestId = 0L
             _state.value = PlaybackHostState(uiState = _state.value.uiState)
         }
     }
 
     fun releaseAll() {
         launchOrchestrator.cancelPending()
+        cancelPlaybackStart()
         uiStateFeedJob?.cancel()
         uiStateFeedJob = null
         trackUiStateFeedJob?.cancel()
@@ -168,6 +188,7 @@ internal class PlaybackSessionHost(
         mediaController = null
         playbackController = null
         trackSelectionController = null
+        appliedRequestId = 0L
         _state.value = PlaybackHostState(uiState = _state.value.uiState)
     }
 
@@ -184,7 +205,10 @@ internal class PlaybackSessionHost(
                 val mc = controllerProvider.buildAsync().await()
                 mediaController = mc
                 attachToResolvedController(mc)
-                startSingleMedia(launchOrchestrator.currentIntentData())
+                requestStartSingleMedia(
+                    requestId = launchOrchestrator.currentRequestId(),
+                    uri = launchOrchestrator.currentIntentData(),
+                )
             } catch (_: CancellationException) {
                 // Lifecycle moved on; connection will be retried on next start.
                 _state.update { current ->
@@ -258,21 +282,53 @@ internal class PlaybackSessionHost(
         }
     }
 
-    private suspend fun startSingleMedia(uri: Uri?) {
+    private fun requestStartSingleMedia(
+        requestId: Long,
+        uri: Uri?,
+    ) {
+        if (requestId == 0L) return
+        cancelPlaybackStart()
+        val job = scope.launch {
+            startSingleMedia(requestId = requestId, uri = uri)
+        }
+        playbackStartJob = job
+        job.invokeOnCompletion {
+            if (playbackStartJob === job) {
+                playbackStartJob = null
+            }
+        }
+    }
+
+    private suspend fun startSingleMedia(
+        requestId: Long,
+        uri: Uri?,
+    ) {
         val controller = mediaController ?: return
         launchOrchestrator.startPlayback(
+            requestId = requestId,
             targetUri = uri,
-            sessionStarter = { targetUri, launchIntent, autoplay, policy ->
-                sessionCoordinator?.start(
+            prepareLaunch = { targetUri, launchIntent, policy ->
+                sessionCoordinator?.prepareStart(
                     targetUri = targetUri,
                     launchIntent = launchIntent,
-                    autoplay = autoplay,
                     policy = policy,
                 )?.let { startResult ->
                     PlaybackLaunchResult(
                         targetEntry = startResult.targetEntry,
                         plan = startResult.plan,
                     )
+                }
+            },
+            applyLaunch = { result, autoplay ->
+                sessionCoordinator?.let { coordinator ->
+                    coordinator.applyStart(
+                        result = PlaybackSessionCoordinator.StartResult(
+                            targetEntry = result.targetEntry,
+                            plan = result.plan,
+                        ),
+                        autoplay = autoplay,
+                    )
+                    appliedRequestId = requestId
                 }
             },
             applyArtwork = { targetEntry, startIndex, targetUri ->
@@ -284,6 +340,16 @@ internal class PlaybackSessionHost(
                 )
             },
         )
+    }
+
+    private fun cancelPlaybackStart() {
+        playbackStartJob?.cancel()
+        playbackStartJob = null
+    }
+
+    private fun shouldHandlePlaybackEvent(): Boolean {
+        val currentRequestId = launchOrchestrator.currentRequestId()
+        return appliedRequestId != 0L && appliedRequestId == currentRequestId
     }
 
     private companion object {

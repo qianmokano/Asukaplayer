@@ -170,6 +170,109 @@ class MediaLibraryIndexingCoordinatorTest {
         }
     }
 
+    @Test
+    @Config(sdk = [29])
+    fun syncNow_withObservedAddedItem_upsertsMetadataWithoutDateModifiedAdvance() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var metadataQueryCount = 0
+        var targetedMetadataQueryCount = 0
+        registerMediaStoreProvider { _, projection, selection, selectionArgs, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") == true -> {
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(43L))
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true && selection?.contains("IN") == true -> {
+                    targetedMetadataQueryCount += 1
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                        ),
+                    ).apply {
+                        addRow(
+                            arrayOf<Any?>(
+                                43L,
+                                "observed.mp4",
+                                2_000L,
+                                3_000L,
+                                null,
+                                "Movies",
+                                8L,
+                                11L,
+                                50L,
+                            ),
+                        )
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    metadataQueryCount += 1
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                        ),
+                    ).apply {
+                        if (metadataQueryCount == 1) {
+                            addRow(
+                                arrayOf<Any?>(
+                                    42L,
+                                    "video.mp4",
+                                    1_000L,
+                                    2_000L,
+                                    null,
+                                    "Movies",
+                                    7L,
+                                    10L,
+                                    100L,
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+        )
+
+        try {
+            coordinator.syncNow(forceFullRescan = false)
+            coordinator.recordObservedChangeForTest(
+                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 43L),
+            )
+            coordinator.syncNow(forceFullRescan = false)
+
+            val rows = database.indexedVideoDao().findByIds(listOf(42L, 43L))
+            assertEquals(setOf(42L, 43L), rows.map { it.mediaStoreId }.toSet())
+            assertEquals(1, targetedMetadataQueryCount, "expected one targeted metadata refresh for observed addition")
+        } finally {
+            coordinator.close()
+        }
+    }
+
     private fun registerMediaStoreProvider(
         queryHandler: (Uri, Array<out String>?, String?, Array<out String>?, String?) -> Cursor?,
     ) {

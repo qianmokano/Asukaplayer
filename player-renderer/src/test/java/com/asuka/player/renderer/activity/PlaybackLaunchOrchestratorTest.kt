@@ -51,18 +51,22 @@ class PlaybackLaunchOrchestratorTest {
             runtimeSettingsSource = runtimeSettingsSource,
             copyForSeekFallback = { null },
         )
-        orchestrator.updateIntent(launchIntent)
+        val requestId = orchestrator.updateIntent(
+            intent = launchIntent,
+            supersedeRequest = true,
+            clearSeekFallbackAttempts = true,
+        )
 
-        var capturedAutoplay: Boolean? = null
         var capturedIntent: Intent? = null
         var capturedPolicy: PlaybackStartupPolicy? = null
         var artworkMediaId: String? = null
+        var applyAutoplay: Boolean? = null
 
         orchestrator.startPlayback(
+            requestId = requestId,
             targetUri = launchIntent.data,
-            sessionStarter = { _, forwardedIntent, autoplay, policy ->
+            prepareLaunch = { _, forwardedIntent, policy ->
                 capturedIntent = forwardedIntent
-                capturedAutoplay = autoplay
                 capturedPolicy = policy
                 PlaybackLaunchResult(
                     targetEntry = PlaybackQueueEntry(
@@ -77,10 +81,11 @@ class PlaybackLaunchOrchestratorTest {
                     ),
                 )
             },
+            applyLaunch = { _, autoplay -> applyAutoplay = autoplay },
             applyArtwork = { targetEntry, _, _ -> artworkMediaId = targetEntry.mediaId },
         )
 
-        assertFalse(capturedAutoplay!!)
+        assertFalse(applyAutoplay!!)
         assertEquals(launchIntent, capturedIntent)
         assertEquals(
             PlaybackStartupPolicy(
@@ -105,20 +110,78 @@ class PlaybackLaunchOrchestratorTest {
             runtimeSettingsSource = fakeRuntimeSettingsSource(PlaybackRuntimeSettings()),
             copyForSeekFallback = { replacement },
         )
-        orchestrator.updateIntent(
+        val requestId = orchestrator.updateIntent(
             Intent(Intent.ACTION_VIEW).apply {
                 data = original
             },
+            supersedeRequest = true,
+            clearSeekFallbackAttempts = true,
         )
 
         var callbackCount = 0
         val error = PlaybackException("boom", Throwable("boom"), PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
 
-        orchestrator.handlePlaybackError(original, error) { callbackCount += 1 }
-        orchestrator.handlePlaybackError(original, error) { callbackCount += 1 }
+        orchestrator.handlePlaybackError(requestId, original, error) { callbackCount += 1 }
+        orchestrator.handlePlaybackError(requestId, original, error) { callbackCount += 1 }
 
         assertEquals(1, callbackCount)
         assertEquals(replacement, orchestrator.currentIntentData())
+    }
+
+    @Test
+    fun startPlayback_doesNotApplyPreparedLaunchAfterRequestIsSuperseded() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        val firstIntent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("content://videos/first.mp4")
+        }
+        val secondIntent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("content://videos/second.mp4")
+        }
+        val orchestrator = PlaybackLaunchOrchestrator(
+            contentResolver = context.contentResolver,
+            cacheDir = context.cacheDir,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+            runtimeSettingsSource = fakeRuntimeSettingsSource(PlaybackRuntimeSettings()),
+            copyForSeekFallback = { null },
+        )
+        val firstRequestId = orchestrator.updateIntent(
+            intent = firstIntent,
+            supersedeRequest = true,
+            clearSeekFallbackAttempts = true,
+        )
+
+        var applyCount = 0
+        var artworkCount = 0
+        val result = orchestrator.startPlayback(
+            requestId = firstRequestId,
+            targetUri = firstIntent.data,
+            prepareLaunch = { _, _, _ ->
+                orchestrator.updateIntent(
+                    intent = secondIntent,
+                    supersedeRequest = true,
+                    clearSeekFallbackAttempts = true,
+                )
+                PlaybackLaunchResult(
+                    targetEntry = PlaybackQueueEntry(
+                        mediaId = "media-store:1",
+                        uri = firstIntent.data.toString(),
+                    ),
+                    plan = PlaybackSessionPlan(
+                        queue = PlaybackQueue(items = emptyList(), startIndex = 0),
+                        resumePositionMs = 0L,
+                        playbackSpeed = 1f,
+                        trackSelectionRestoreRequest = null,
+                    ),
+                )
+            },
+            applyLaunch = { _, _ -> applyCount += 1 },
+            applyArtwork = { _, _, _ -> artworkCount += 1 },
+        )
+
+        assertEquals(null, result)
+        assertEquals(0, applyCount)
+        assertEquals(0, artworkCount)
+        assertEquals(secondIntent.data, orchestrator.currentIntentData())
     }
 
     private fun fakeRuntimeSettingsSource(

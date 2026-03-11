@@ -54,7 +54,7 @@ class DataStoreAppSettingsStore(
         }
     }
 
-    internal suspend fun awaitLoaded() {
+    override suspend fun awaitLoaded() {
         initialLoad.await()
     }
 

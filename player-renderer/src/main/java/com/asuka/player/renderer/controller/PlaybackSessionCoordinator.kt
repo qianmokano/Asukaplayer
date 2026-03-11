@@ -12,7 +12,9 @@ import com.asuka.player.platform.PlaybackIntentPayloadCodec
 import com.asuka.player.platform.toMediaItems
 import com.asuka.player.platform.TrackInfoReader
 import com.asuka.player.ui.controller.PlaybackTrackSelectionController
+import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 class PlaybackSessionCoordinator(
@@ -51,10 +53,9 @@ class PlaybackSessionCoordinator(
         val plan: PlaybackSessionPlan,
     )
 
-    suspend fun start(
+    suspend fun prepareStart(
         targetUri: Uri?,
         launchIntent: Intent?,
-        autoplay: Boolean,
         policy: PlaybackStartupPolicy,
     ): StartResult? {
         val target = targetUri ?: return null
@@ -77,11 +78,18 @@ class PlaybackSessionCoordinator(
                     )
                 }
         }
-        applyPlan(plan, autoplay)
+        coroutineContext.ensureActive()
         return StartResult(
             targetEntry = targetEntry,
             plan = plan,
         )
+    }
+
+    fun applyStart(
+        result: StartResult,
+        autoplay: Boolean,
+    ) {
+        applyPlan(result.plan, autoplay)
     }
 
     override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {

@@ -29,12 +29,17 @@ internal fun SettingsNavigationItem(
     durationLabel: String? = null,
     title: String,
     description: String,
+    enabled: Boolean = true,
     onClick: () -> Unit,
     selected: Boolean = false,
 ) {
     val haptic = LocalHapticFeedback.current
     val hapticsEnabled = LocalHapticsEnabled.current
-    val alpha = if (selected) 1f else 0.92f
+    val alpha = when {
+        !enabled -> 0.56f
+        selected -> 1f
+        else -> 0.92f
+    }
     val useVideoSubtitleStyle = thumbnailUri != null || thumbnailId != null
     val isVideoRow = thumbnailUri != null || thumbnailId != null
     val rowHorizontalPadding =
@@ -44,8 +49,8 @@ internal fun SettingsNavigationItem(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = if (isVideoRow) VIDEO_ITEM_ROW_HEIGHT else DEFAULT_ITEM_ROW_HEIGHT)
-            .clickable {
-                if (hapticsEnabled) {
+            .clickable(enabled = enabled) {
+                if (enabled && hapticsEnabled) {
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                 }
                 onClick()
@@ -85,7 +90,7 @@ internal fun SettingsNavigationItem(
             )
         }
 
-        if (!isVideoRow) {
+        if (!isVideoRow && enabled) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,

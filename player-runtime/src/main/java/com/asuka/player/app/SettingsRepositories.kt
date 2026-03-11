@@ -1,8 +1,10 @@
 package com.asuka.player.runtime
+
 import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.data.AppSettingsStore
+import com.asuka.player.data.AppSettingsSnapshot
 import com.asuka.player.data.CustomThemeRecord
 import com.asuka.player.data.PlaybackBehaviorRecord
 import com.asuka.player.data.PlayerSettingsRecord
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.runBlocking
 
 data class UiSettingsState(
     val themeConfig: ThemeConfig,
@@ -30,7 +33,7 @@ class UiSettingsRepository(
         .stateIn(
             scope = scope,
             started = SharingStarted.Eagerly,
-            initialValue = store.loadUiSettings().toUiSettingsState(),
+            initialValue = store.loadedSnapshot().uiSettings.toUiSettingsState(),
         )
 
     suspend fun setThemeConfig(value: ThemeConfig) {
@@ -63,7 +66,7 @@ class PlayerSettingsRepository(
         .stateIn(
             scope = scope,
             started = SharingStarted.Eagerly,
-            initialValue = store.loadPlayerSettings().toPlayerSettings(),
+            initialValue = store.loadedSnapshot().playerSettings.toPlayerSettings(),
         )
 
     suspend fun setPlayerSettings(value: PlayerSettings) {
@@ -81,7 +84,7 @@ class PlaybackBehaviorRepository(
         .stateIn(
             scope = scope,
             started = SharingStarted.Eagerly,
-            initialValue = store.loadPlaybackBehavior(),
+            initialValue = store.loadedSnapshot().playbackBehavior,
         )
 
     val keepConnectionInBackground: Boolean
@@ -126,6 +129,13 @@ class AppPlaybackRuntimeSettingsSource(
             started = SharingStarted.Eagerly,
             initialValue = current(),
         )
+}
+
+private fun AppSettingsStore.loadedSnapshot(): AppSettingsSnapshot {
+    return runBlocking {
+        awaitLoaded()
+        loadSnapshot()
+    }
 }
 
 private fun UiSettingsRecord.toUiSettingsState(): UiSettingsState {

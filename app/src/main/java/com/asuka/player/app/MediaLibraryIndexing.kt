@@ -124,19 +124,29 @@ internal class MediaLibraryIndexingCoordinator(
             val shouldForce = forceFullRescan || existingIds.isEmpty()
             val (observedIds, requiresFullReconcile) = consumeObservedChanges()
             val currentGeneration = currentGeneration()
+            val supportsGenerationTracking = currentGeneration != null
             val baselineGeneration = if (shouldForce) null else dao.maxGenerationModified()?.takeIf { it > 0L }
             val baselineModified = if (baselineGeneration == null && !shouldForce) dao.maxDateModifiedSec() else null
             val changedVideos = queryIndexedVideos(
                 generationAfterExclusive = baselineGeneration,
                 modifiedSinceInclusive = baselineModified,
             )
+            var hadUpserts = false
             if (changedVideos.isNotEmpty()) {
                 dao.upsertAll(changedVideos)
+                hadUpserts = true
             }
             val removedIds = mutableSetOf<Long>()
             if (observedIds.isNotEmpty()) {
                 val existingObservedIds = queryExistingIds(observedIds)
                 removedIds += observedIds.filterNot(existingObservedIds::contains)
+                if (!supportsGenerationTracking && existingObservedIds.isNotEmpty()) {
+                    val observedVideos = queryIndexedVideosByIds(existingObservedIds)
+                    if (observedVideos.isNotEmpty()) {
+                        dao.upsertAll(observedVideos)
+                        hadUpserts = true
+                    }
+                }
             }
 
             val shouldReconcileAllIds = shouldForce ||
@@ -144,7 +154,15 @@ internal class MediaLibraryIndexingCoordinator(
                 (currentGeneration != null && baselineGeneration != null && currentGeneration > baselineGeneration && changedVideos.isEmpty())
             if (shouldReconcileAllIds) {
                 val currentIds = queryAllCurrentIds()
+                val addedIds = currentIds.filterNot(existingIds::contains).toSet()
                 removedIds += existingIds.filterNot(currentIds::contains)
+                if (!supportsGenerationTracking && !shouldForce && addedIds.isNotEmpty()) {
+                    val addedVideos = queryIndexedVideosByIds(addedIds)
+                    if (addedVideos.isNotEmpty()) {
+                        dao.upsertAll(addedVideos)
+                        hadUpserts = true
+                    }
+                }
             }
 
             removedIds.chunked(DELETE_CHUNK_SIZE).forEach { chunk ->
@@ -152,7 +170,7 @@ internal class MediaLibraryIndexingCoordinator(
                     dao.deleteByIds(chunk)
                 }
             }
-            changedVideos.isNotEmpty() || removedIds.isNotEmpty()
+            hadUpserts || removedIds.isNotEmpty()
         }
     }
 
@@ -232,6 +250,29 @@ internal class MediaLibraryIndexingCoordinator(
                     add(cursor.getLong(idIdx))
                 }
             }
+        }
+    }
+
+    private fun queryIndexedVideosByIds(ids: Set<Long>): List<IndexedVideoEntity> {
+        if (ids.isEmpty()) return emptyList()
+        return ids.chunked(DELETE_CHUNK_SIZE).flatMap { chunk ->
+            val placeholders = chunk.joinToString(",") { "?" }
+            val selection = buildString {
+                val base = baseSelection()
+                if (!base.isNullOrBlank()) {
+                    append(base)
+                    append(" AND ")
+                }
+                append("${MediaStore.Video.Media._ID} IN ($placeholders)")
+            }
+            val cursor = contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                mediaStoreProjection(),
+                selection,
+                chunk.map(Long::toString).toTypedArray(),
+                "${MediaStore.Video.Media._ID} ASC",
+            ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
+            cursor.use(::readIndexedVideos)
         }
     }
 

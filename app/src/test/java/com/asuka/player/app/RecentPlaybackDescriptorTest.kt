@@ -58,6 +58,7 @@ class RecentPlaybackDescriptorTest {
         assertEquals(Uri.parse(mediaId), descriptor.thumbnailUri)
         assertNull(descriptor.thumbnailId)
         assertTrue(descriptor.shouldResolveDisplayName)
+        assertTrue(descriptor.isPlayable)
         assertEquals(mediaId, descriptor.description)
         assertEquals(
             PlaybackQueueEntry(mediaId = mediaId, uri = mediaId),
@@ -78,6 +79,7 @@ class RecentPlaybackDescriptorTest {
         assertEquals(mediaId, descriptor.description)
         assertNull(descriptor.thumbnailUri)
         assertFalse(descriptor.shouldResolveDisplayName)
+        assertTrue(descriptor.isPlayable)
     }
 
     @Test
@@ -93,5 +95,6 @@ class RecentPlaybackDescriptorTest {
         assertNull(descriptor.uri)
         assertNull(descriptor.thumbnailUri)
         assertFalse(descriptor.shouldResolveDisplayName)
+        assertFalse(descriptor.isPlayable)
     }
 }

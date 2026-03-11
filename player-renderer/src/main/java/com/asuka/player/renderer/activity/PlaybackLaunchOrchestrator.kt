@@ -27,18 +27,29 @@ internal class PlaybackLaunchOrchestrator(
     private var currentIntent: Intent? = null
     private var seekFallbackJob: Job? = null
     private val seekFallbackAttemptedUris = mutableSetOf<String>()
+    private var currentRequestId: Long = 0L
 
     fun updateIntent(
         intent: Intent?,
+        supersedeRequest: Boolean = false,
         clearSeekFallbackAttempts: Boolean = false,
-    ) {
+    ): Long {
         currentIntent = intent
+        if (supersedeRequest || (currentRequestId == 0L && intent != null)) {
+            currentRequestId += 1L
+            if (supersedeRequest) {
+                cancelPending()
+            }
+        }
         if (clearSeekFallbackAttempts) {
             seekFallbackAttemptedUris.clear()
         }
+        return currentRequestId
     }
 
     fun currentIntentData(): Uri? = currentIntent?.data
+
+    fun currentRequestId(): Long = currentRequestId
 
     fun cancelPending() {
         seekFallbackJob?.cancel()
@@ -46,60 +57,69 @@ internal class PlaybackLaunchOrchestrator(
     }
 
     suspend fun startPlayback(
+        requestId: Long,
         targetUri: Uri?,
-        sessionStarter: suspend (
+        prepareLaunch: suspend (
             targetUri: Uri?,
             launchIntent: Intent?,
-            autoplay: Boolean,
             policy: PlaybackStartupPolicy,
         ) -> PlaybackLaunchResult?,
+        applyLaunch: (PlaybackLaunchResult, Boolean) -> Unit,
         applyArtwork: (targetEntry: PlaybackQueueEntry, startIndex: Int, uri: Uri) -> Unit = { _, _, _ -> },
     ): PlaybackLaunchResult? {
+        if (requestId != currentRequestId) return null
         val runtimeSettings = runtimeSettingsSource.current()
-        val result = sessionStarter(
+        val result = prepareLaunch(
             targetUri,
             currentIntent,
-            runtimeSettings.autoplay,
             PlaybackStartupPolicy(
                 resumePlayback = runtimeSettings.resumePlayback,
                 defaultPlaybackSpeed = runtimeSettings.defaultPlaybackSpeed,
                 rememberTrackSelections = runtimeSettings.rememberSelections,
             ),
         ) ?: return null
+        if (requestId != currentRequestId) return null
+        applyLaunch(result, runtimeSettings.autoplay)
+        if (requestId != currentRequestId) return null
         val uri = targetUri ?: return result
         applyArtwork(result.targetEntry, result.plan.queue.startIndex, uri)
         return result
     }
 
     fun handlePlaybackReady(
+        requestId: Long,
         currentUri: Uri?,
         isSeekable: Boolean,
         onFallbackResolved: suspend (Uri) -> Unit,
     ) {
         if (currentUri == null || isSeekable) return
-        trySeekFallback(currentUri, "not_seekable_ready", onFallbackResolved)
+        trySeekFallback(requestId, currentUri, "not_seekable_ready", onFallbackResolved)
     }
 
     fun handlePlaybackError(
+        requestId: Long,
         currentUri: Uri?,
         error: PlaybackException,
         onFallbackResolved: suspend (Uri) -> Unit,
     ) {
         if (currentUri == null) return
-        trySeekFallback(currentUri, "player_error_${error.errorCode}", onFallbackResolved)
+        trySeekFallback(requestId, currentUri, "player_error_${error.errorCode}", onFallbackResolved)
     }
 
     private fun trySeekFallback(
+        requestId: Long,
         currentUri: Uri,
         reason: String,
         onFallbackResolved: suspend (Uri) -> Unit,
     ) {
+        if (requestId != currentRequestId) return
         if (currentUri.scheme != "content") return
         val key = currentUri.toString()
         if (!seekFallbackAttemptedUris.add(key)) return
         if (seekFallbackJob?.isActive == true) return
-        seekFallbackJob = scope.launch {
+        val job = scope.launch {
             val copiedUri = copyForSeekFallback(currentUri) ?: return@launch
+            if (requestId != currentRequestId) return@launch
             Log.i(TAG, "fallback[$reason] src=${currentUri.authority} dst=${copiedUri.lastPathSegment}")
             currentIntent = copyIntentWithRemappedUri(
                 intent = currentIntent,
@@ -107,6 +127,12 @@ internal class PlaybackLaunchOrchestrator(
                 replacementUri = copiedUri,
             )
             onFallbackResolved(copiedUri)
+        }
+        seekFallbackJob = job
+        job.invokeOnCompletion {
+            if (seekFallbackJob === job) {
+                seekFallbackJob = null
+            }
         }
     }
 

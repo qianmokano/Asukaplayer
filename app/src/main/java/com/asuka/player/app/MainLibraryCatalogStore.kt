@@ -3,6 +3,7 @@ package com.asuka.player.app
 import android.net.Uri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
@@ -45,6 +46,8 @@ internal class MainLibraryCatalogStore(
 
     private val _recentKnownVideos = MutableStateFlow<Map<String, LocalVideoItem>>(emptyMap())
     val recentKnownVideos = _recentKnownVideos.asStateFlow()
+    private var currentFolderLoadJob: Job? = null
+    private var currentFolderRequestToken: Long = 0L
 
     init {
         scope.launch {
@@ -95,6 +98,7 @@ internal class MainLibraryCatalogStore(
     fun ensureFolderLoaded(folderId: Long) {
         if (!canReadLibrary()) return
         if (_currentFolderId.value != folderId) {
+            cancelCurrentFolderLoad()
             _currentFolderId.value = folderId
             _currentFolderVideosState.value = MediaCatalogState()
         }
@@ -106,7 +110,9 @@ internal class MainLibraryCatalogStore(
     fun refreshFolder(folderId: Long) {
         if (!canReadLibrary()) return
         if (_currentFolderId.value != folderId) {
+            cancelCurrentFolderLoad()
             _currentFolderId.value = folderId
+            _currentFolderVideosState.value = MediaCatalogState()
         }
         if (_currentFolderVideosState.value.isLoading) return
         loadFolderVideos(folderId = folderId, offset = 0, syncIndex = true, publishFeedback = true)
@@ -206,8 +212,11 @@ internal class MainLibraryCatalogStore(
         syncIndex: Boolean,
         publishFeedback: Boolean,
     ) {
-        scope.launch {
+        val requestToken = nextCurrentFolderRequestToken()
+        currentFolderLoadJob?.cancel()
+        val job = scope.launch {
             val previous = _currentFolderVideosState.value
+            if (!isCurrentFolderRequest(folderId, requestToken)) return@launch
             _currentFolderVideosState.value = previous.beginLoad(offset)
 
             when (
@@ -219,13 +228,21 @@ internal class MainLibraryCatalogStore(
                 )
             ) {
                 is MediaCatalogOutcome.Success -> {
+                    if (!isCurrentFolderRequest(folderId, requestToken)) return@launch
                     _currentFolderVideosState.value = previous.applyPage(page = outcome.page, append = offset > 0)
                     warmupThumbnails(outcome.warmupVideos)
                     publishRefreshMessage(previous.hasLoadedOnce, offset, outcome.page.items.size, publishFeedback)
                 }
                 is MediaCatalogOutcome.Failure -> {
+                    if (!isCurrentFolderRequest(folderId, requestToken)) return@launch
                     handleVideoFailure(outcome.reason, previous, offset) { _currentFolderVideosState.value = it }
                 }
+            }
+        }
+        currentFolderLoadJob = job
+        job.invokeOnCompletion {
+            if (currentFolderLoadJob === job) {
+                currentFolderLoadJob = null
             }
         }
     }
@@ -328,6 +345,20 @@ internal class MainLibraryCatalogStore(
 
     private fun canReadLibrary(): Boolean {
         return _permissionGranted.value || _userSelectedPermissionGranted.value
+    }
+
+    private fun cancelCurrentFolderLoad() {
+        currentFolderLoadJob?.cancel()
+        currentFolderLoadJob = null
+    }
+
+    private fun nextCurrentFolderRequestToken(): Long {
+        currentFolderRequestToken += 1L
+        return currentFolderRequestToken
+    }
+
+    private fun isCurrentFolderRequest(folderId: Long, requestToken: Long): Boolean {
+        return _currentFolderId.value == folderId && currentFolderRequestToken == requestToken
     }
 }
 

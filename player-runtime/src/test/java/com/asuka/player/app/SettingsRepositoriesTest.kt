@@ -4,7 +4,10 @@ import android.content.Context
 import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.data.AppSettingsStore
+import com.asuka.player.data.AppSettingsSnapshot
 import com.asuka.player.data.DataStoreAppSettingsStore
+import com.asuka.player.data.PlaybackBehaviorRecord
+import com.asuka.player.data.PlayerSettingsRecord
 import com.asuka.player.data.SharedPreferencesAppSettingsStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,6 +16,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -94,6 +98,34 @@ class SettingsRepositoriesTest {
         assertEquals(0.42f, repository.rememberedBrightness)
     }
 
+    @Test
+    fun repositories_waitForStoreInitializationBeforePublishingInitialValues() {
+        val store = AwaitableAppSettingsStore(
+            loadedSnapshot = AppSettingsSnapshot(
+                playerSettings = PlayerSettingsRecord(
+                    autoplay = false,
+                    defaultPlaybackSpeed = 1.5f,
+                ),
+                playbackBehavior = PlaybackBehaviorRecord(
+                    keepConnectionInBackground = false,
+                ),
+            ),
+        )
+
+        val playerSettingsRepository = PlayerSettingsRepository(store, testScope())
+        val playbackBehaviorRepository = PlaybackBehaviorRepository(store, testScope())
+        val source = AppPlaybackRuntimeSettingsSource(
+            playerSettingsRepository = playerSettingsRepository,
+            playbackBehaviorRepository = playbackBehaviorRepository,
+            scope = testScope(),
+        )
+
+        assertTrue(store.awaitLoadedCalled)
+        assertFalse(playerSettingsRepository.settings.value.autoplay)
+        assertEquals(1.5f, playerSettingsRepository.settings.value.defaultPlaybackSpeed)
+        assertFalse(source.current().keepSessionConnectionInBackground)
+    }
+
     private fun freshStore(): AppSettingsStore {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences(SharedPreferencesAppSettingsStore.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
@@ -102,5 +134,31 @@ class SettingsRepositoriesTest {
             context = context,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
         )
+    }
+}
+
+private class AwaitableAppSettingsStore(
+    private val loadedSnapshot: AppSettingsSnapshot,
+) : AppSettingsStore {
+    private var loaded = false
+    var awaitLoadedCalled: Boolean = false
+        private set
+
+    override val snapshots = MutableStateFlow(AppSettingsSnapshot())
+
+    override suspend fun awaitLoaded() {
+        awaitLoadedCalled = true
+        if (loaded) return
+        loaded = true
+        snapshots.value = loadedSnapshot
+    }
+
+    override fun loadSnapshot(): AppSettingsSnapshot {
+        return if (loaded) loadedSnapshot else AppSettingsSnapshot()
+    }
+
+    override suspend fun saveSnapshot(snapshot: AppSettingsSnapshot) {
+        loaded = true
+        snapshots.value = snapshot
     }
 }

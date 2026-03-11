@@ -100,6 +100,7 @@ internal fun RecentPageContent(
                             durationLabel = descriptor.durationLabel,
                             title = title,
                             description = descriptor.description,
+                            enabled = descriptor.isPlayable,
                             onClick = {
                                 onPlay(
                                     PlaybackSelection(
@@ -114,6 +115,7 @@ internal fun RecentPageContent(
                             icon = Icons.Outlined.VideoLibrary,
                             title = title,
                             description = descriptor.description,
+                            enabled = descriptor.isPlayable,
                             onClick = {
                                 onPlay(
                                     PlaybackSelection(
@@ -141,6 +143,7 @@ internal data class RecentPlaybackDescriptor(
     val thumbnailId: Long?,
     val durationLabel: String?,
     val shouldResolveDisplayName: Boolean,
+    val isPlayable: Boolean,
 ) {
     companion object {
         fun from(
@@ -158,10 +161,11 @@ internal data class RecentPlaybackDescriptor(
                     thumbnailId = knownVideo.id,
                     durationLabel = knownVideo.durationLabel,
                     shouldResolveDisplayName = false,
+                    isPlayable = true,
                 )
             }
 
-            val uri = runCatching { Uri.parse(mediaId) }.getOrNull()
+            val uri = mediaId.toPlayableUriOrNull()
             val fallbackTitle = uri?.lastPathSegment?.takeIf { it.isNotBlank() }
                 ?: mediaId.substringAfterLast('/').ifBlank { unavailableLabel }
             val scheme = uri?.scheme?.lowercase()
@@ -187,8 +191,17 @@ internal data class RecentPlaybackDescriptor(
                 thumbnailId = null,
                 durationLabel = null,
                 shouldResolveDisplayName = scheme == "content",
+                isPlayable = uri != null,
             )
         }
+    }
+}
+
+private fun String.toPlayableUriOrNull(): Uri? {
+    val parsed = runCatching { Uri.parse(this) }.getOrNull() ?: return null
+    return when (parsed.scheme?.lowercase()) {
+        "content", "file", "http", "https", "rtsp" -> parsed
+        else -> null
     }
 }
 
