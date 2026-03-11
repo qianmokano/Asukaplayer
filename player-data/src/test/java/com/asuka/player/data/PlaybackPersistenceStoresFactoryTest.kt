@@ -3,6 +3,8 @@ package com.asuka.player.data
 import android.content.Context
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -11,7 +13,7 @@ import org.robolectric.RuntimeEnvironment
 class PlaybackPersistenceStoresFactoryTest {
 
     @Test
-    fun create_importsLegacySharedPreferencesIntoRoomStores() {
+    fun create_importsLegacySharedPreferencesIntoRoomStores() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         clearPersistence(context)
 
@@ -27,7 +29,9 @@ class PlaybackPersistenceStoresFactoryTest {
             push("media://two")
         }
 
-        val stores = PlaybackPersistenceStoresFactory.create(context)
+        val stores = runBlocking(Dispatchers.IO) {
+            PlaybackPersistenceStoresFactory.create(context)
+        }
 
         assertEquals(123L, stores.playbackStore.loadPosition("media://one"))
         assertEquals(1.25f, stores.playbackStore.loadPlaybackSpeed("media://one"))

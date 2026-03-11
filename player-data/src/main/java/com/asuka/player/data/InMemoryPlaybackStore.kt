@@ -10,28 +10,28 @@ class InMemoryPlaybackStore : PlaybackStore {
     private val subtitleTrackIds = ConcurrentHashMap<String, String>()
     private val zooms = ConcurrentHashMap<String, Float>()
 
-    override fun loadPosition(mediaId: String): Long? = positions[mediaId]
-    override fun savePosition(mediaId: String, positionMs: Long) {
+    override suspend fun loadPosition(mediaId: String): Long? = positions[mediaId]
+    override suspend fun savePosition(mediaId: String, positionMs: Long) {
         positions[mediaId] = positionMs
     }
 
-    override fun loadPlaybackSpeed(mediaId: String): Float? = speeds[mediaId]
-    override fun savePlaybackSpeed(mediaId: String, speed: Float) {
+    override suspend fun loadPlaybackSpeed(mediaId: String): Float? = speeds[mediaId]
+    override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) {
         speeds[mediaId] = speed
     }
 
-    override fun loadAudioTrackId(mediaId: String): String? = audioTrackIds[mediaId]
-    override fun saveAudioTrackId(mediaId: String, trackId: String) {
+    override suspend fun loadAudioTrackId(mediaId: String): String? = audioTrackIds[mediaId]
+    override suspend fun saveAudioTrackId(mediaId: String, trackId: String) {
         audioTrackIds[mediaId] = trackId
     }
 
-    override fun loadSubtitleTrackId(mediaId: String): String? = subtitleTrackIds[mediaId]
-    override fun saveSubtitleTrackId(mediaId: String, trackId: String) {
+    override suspend fun loadSubtitleTrackId(mediaId: String): String? = subtitleTrackIds[mediaId]
+    override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) {
         subtitleTrackIds[mediaId] = trackId
     }
 
-    override fun loadZoom(mediaId: String): Float? = zooms[mediaId]
-    override fun saveZoom(mediaId: String, zoom: Float) {
+    override suspend fun loadZoom(mediaId: String): Float? = zooms[mediaId]
+    override suspend fun saveZoom(mediaId: String, zoom: Float) {
         zooms[mediaId] = zoom
     }
 }

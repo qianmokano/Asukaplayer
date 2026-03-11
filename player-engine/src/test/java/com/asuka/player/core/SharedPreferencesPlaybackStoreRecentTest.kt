@@ -3,6 +3,7 @@ package com.asuka.player.core
 import com.asuka.player.data.SharedPreferencesPlaybackStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -11,7 +12,7 @@ import org.robolectric.RuntimeEnvironment
 class SharedPreferencesPlaybackStoreRecentTest {
 
     @Test
-    fun recentMediaIds_returnsNewestFirst() {
+    fun recentMediaIds_returnsNewestFirst() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val store = SharedPreferencesPlaybackStore(context)
 
@@ -24,7 +25,7 @@ class SharedPreferencesPlaybackStoreRecentTest {
     }
 
     @Test
-    fun recentMediaIds_updatesOnOtherKeys() {
+    fun recentMediaIds_updatesOnOtherKeys() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val store = SharedPreferencesPlaybackStore(context)
 

@@ -51,9 +51,9 @@ internal fun testPlaybackUiPersistence(): PlaybackUiPersistence {
     return object : PlaybackUiPersistence {
         private val zooms = mutableMapOf<String, Float>()
 
-        override fun readZoom(mediaId: String): Float? = zooms[mediaId]
+        override suspend fun readZoom(mediaId: String): Float? = zooms[mediaId]
 
-        override fun saveZoom(mediaId: String, zoom: Float) {
+        override suspend fun saveZoom(mediaId: String, zoom: Float) {
             zooms[mediaId] = zoom
         }
 

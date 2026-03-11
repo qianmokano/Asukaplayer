@@ -3,6 +3,8 @@ package com.asuka.player.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.asuka.player.contract.PlaybackStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * SharedPreferences-backed PlaybackStore. Survives process restarts.
@@ -104,92 +106,114 @@ class SharedPreferencesPlaybackStore(context: Context) : PlaybackStore {
         editor.putString(KEY_MEDIA_IDS, MediaIdListCodec.encode(ids))
     }
 
-    override fun recentMediaIds(limit: Int): List<String> {
-        synchronized(lock) {
-            val safeLimit = limit.coerceAtLeast(0)
-            if (safeLimit == 0) return emptyList()
-            val ids = getOrLoadIds()
-            return ids.takeLast(safeLimit).asReversed()
+    override suspend fun recentMediaIds(limit: Int): List<String> {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val safeLimit = limit.coerceAtLeast(0)
+                if (safeLimit == 0) return@synchronized emptyList()
+                val ids = getOrLoadIds()
+                ids.takeLast(safeLimit).asReversed()
+            }
         }
     }
 
-    override fun loadPosition(mediaId: String): Long? {
-        synchronized(lock) {
-            val key = "pos:$mediaId"
-            return if (prefs.contains(key)) prefs.getLong(key, 0L) else null
+    override suspend fun loadPosition(mediaId: String): Long? {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val key = "pos:$mediaId"
+                if (prefs.contains(key)) prefs.getLong(key, 0L) else null
+            }
         }
     }
 
-    override fun savePosition(mediaId: String, positionMs: Long) {
-        synchronized(lock) {
-            prefs.edit()
-                .also { touchMediaId(mediaId, it) }
-                .putLong("pos:$mediaId", positionMs)
-                .apply()
+    override suspend fun savePosition(mediaId: String, positionMs: Long) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                prefs.edit()
+                    .also { touchMediaId(mediaId, it) }
+                    .putLong("pos:$mediaId", positionMs)
+                    .apply()
+            }
         }
     }
 
-    override fun loadPlaybackSpeed(mediaId: String): Float? {
-        synchronized(lock) {
-            val key = "spd:$mediaId"
-            return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+    override suspend fun loadPlaybackSpeed(mediaId: String): Float? {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val key = "spd:$mediaId"
+                if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+            }
         }
     }
 
-    override fun savePlaybackSpeed(mediaId: String, speed: Float) {
-        synchronized(lock) {
-            prefs.edit()
-                .also { touchMediaId(mediaId, it) }
-                .putFloat("spd:$mediaId", speed)
-                .apply()
+    override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                prefs.edit()
+                    .also { touchMediaId(mediaId, it) }
+                    .putFloat("spd:$mediaId", speed)
+                    .apply()
+            }
         }
     }
 
-    override fun loadAudioTrackId(mediaId: String): String? {
-        synchronized(lock) {
-            val key = "audid:$mediaId"
-            return if (prefs.contains(key)) prefs.getString(key, null) else null
+    override suspend fun loadAudioTrackId(mediaId: String): String? {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val key = "audid:$mediaId"
+                if (prefs.contains(key)) prefs.getString(key, null) else null
+            }
         }
     }
 
-    override fun saveAudioTrackId(mediaId: String, trackId: String) {
-        synchronized(lock) {
-            prefs.edit()
-                .also { touchMediaId(mediaId, it) }
-                .putString("audid:$mediaId", trackId)
-                .apply()
+    override suspend fun saveAudioTrackId(mediaId: String, trackId: String) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                prefs.edit()
+                    .also { touchMediaId(mediaId, it) }
+                    .putString("audid:$mediaId", trackId)
+                    .apply()
+            }
         }
     }
 
-    override fun loadSubtitleTrackId(mediaId: String): String? {
-        synchronized(lock) {
-            val key = "subid:$mediaId"
-            return if (prefs.contains(key)) prefs.getString(key, null) else null
+    override suspend fun loadSubtitleTrackId(mediaId: String): String? {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val key = "subid:$mediaId"
+                if (prefs.contains(key)) prefs.getString(key, null) else null
+            }
         }
     }
 
-    override fun saveSubtitleTrackId(mediaId: String, trackId: String) {
-        synchronized(lock) {
-            prefs.edit()
-                .also { touchMediaId(mediaId, it) }
-                .putString("subid:$mediaId", trackId)
-                .apply()
+    override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                prefs.edit()
+                    .also { touchMediaId(mediaId, it) }
+                    .putString("subid:$mediaId", trackId)
+                    .apply()
+            }
         }
     }
 
-    override fun loadZoom(mediaId: String): Float? {
-        synchronized(lock) {
-            val key = "zoom:$mediaId"
-            return if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+    override suspend fun loadZoom(mediaId: String): Float? {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val key = "zoom:$mediaId"
+                if (prefs.contains(key)) prefs.getFloat(key, 1f) else null
+            }
         }
     }
 
-    override fun saveZoom(mediaId: String, zoom: Float) {
-        synchronized(lock) {
-            prefs.edit()
-                .also { touchMediaId(mediaId, it) }
-                .putFloat("zoom:$mediaId", zoom)
-                .apply()
+    override suspend fun saveZoom(mediaId: String, zoom: Float) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                prefs.edit()
+                    .also { touchMediaId(mediaId, it) }
+                    .putFloat("zoom:$mediaId", zoom)
+                    .apply()
+            }
         }
     }
 }

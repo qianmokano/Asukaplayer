@@ -64,27 +64,37 @@ internal class MainLibraryViewModel(
 
     fun setThemeConfig(value: ThemeConfig) {
         if (uiSettings.value.themeConfig == value) return
-        uiSettingsRepository.themeConfig = value
+        viewModelScope.launch {
+            uiSettingsRepository.setThemeConfig(value)
+        }
     }
 
     fun setCustomThemes(value: List<CustomThemeEntry>) {
         if (uiSettings.value.customThemes == value) return
-        uiSettingsRepository.customThemes = value
+        viewModelScope.launch {
+            uiSettingsRepository.setCustomThemes(value)
+        }
     }
 
     fun setNavDurationMs(value: Int) {
         if (uiSettings.value.navDurationMs == value) return
-        uiSettingsRepository.navDurationMs = value
+        viewModelScope.launch {
+            uiSettingsRepository.setNavDurationMs(value)
+        }
     }
 
     fun setHapticFeedbackEnabled(value: Boolean) {
         if (uiSettings.value.hapticFeedbackEnabled == value) return
-        uiSettingsRepository.hapticFeedbackEnabled = value
+        viewModelScope.launch {
+            uiSettingsRepository.setHapticFeedbackEnabled(value)
+        }
     }
 
     fun setPlayerSettings(value: PlayerSettings) {
         if (playerSettings.value == value) return
-        playerSettingsRepository.playerSettings = value
+        viewModelScope.launch {
+            playerSettingsRepository.setPlayerSettings(value)
+        }
     }
 
     @Suppress("UNUSED_PARAMETER")

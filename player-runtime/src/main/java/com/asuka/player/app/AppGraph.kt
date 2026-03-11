@@ -18,14 +18,19 @@ class AsukaAppGraph(
     application: Application,
 ) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val settings = SettingsRuntimeInstaller.install(
-        application = application,
-        scope = appScope,
-    )
-    val playback = PlaybackRuntimeInstaller.install(
-        application = application,
-        playbackBehaviorRepository = settings.playbackBehaviorRepository,
-    )
+    val settings: SettingsRuntimeFeature by lazy(LazyThreadSafetyMode.NONE) {
+        SettingsRuntimeInstaller.install(
+            application = application,
+            scope = appScope,
+        )
+    }
+    val playback: PlaybackRuntimeFeature by lazy(LazyThreadSafetyMode.NONE) {
+        PlaybackRuntimeInstaller.install(
+            application = application,
+            playbackBehaviorRepository = settings.playbackBehaviorRepository,
+            scope = appScope,
+        )
+    }
 
     val uiSettingsRepository: UiSettingsRepository
         get() = settings.uiSettingsRepository

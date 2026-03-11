@@ -4,11 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
-import com.asuka.player.platform.IntentQueueReader
 import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.contract.PlaybackSessionPlan
 import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStartupPolicy
+import com.asuka.player.platform.PlaybackIntentPayloadCodec
 import com.asuka.player.platform.toMediaItems
 import com.asuka.player.platform.TrackInfoReader
 import kotlinx.coroutines.Dispatchers
@@ -52,19 +52,25 @@ class PlaybackSessionCoordinator(
         policy: PlaybackStartupPolicy,
     ): PlaybackSessionPlan? {
         val target = targetUri ?: return null
-        val targetMediaId = launchIntent?.let(IntentQueueReader::readTargetMediaId) ?: target.toString()
-        val launchNeighbors = launchIntent?.let(IntentQueueReader::readEntries).orEmpty()
-        val resolvedTitles = withContext(Dispatchers.IO) {
-            (listOf(target.toString()) + launchNeighbors.map(PlaybackQueueEntry::uri))
+        val payload = launchIntent?.let(PlaybackIntentPayloadCodec::readPlaybackIntent)
+        val targetEntry = payload?.targetEntry ?: PlaybackQueueEntry(
+            mediaId = target.toString(),
+            uri = target.toString(),
+        )
+        val launchNeighbors = payload?.queueEntries.orEmpty()
+        val plan = withContext(Dispatchers.IO) {
+            (listOf(targetEntry.uri) + launchNeighbors.map(PlaybackQueueEntry::uri))
                 .distinct()
                 .associateWith { uri -> titleResolver(Uri.parse(uri)) }
+                .let { resolvedTitles ->
+                    sessionPlanner.plan(
+                        target = targetEntry,
+                        launchNeighbors = launchNeighbors,
+                        resolvedTitles = resolvedTitles,
+                        policy = policy,
+                    )
+                }
         }
-        val plan = sessionPlanner.plan(
-            target = PlaybackQueueEntry(mediaId = targetMediaId, uri = target.toString()),
-            launchNeighbors = launchNeighbors,
-            resolvedTitles = resolvedTitles,
-            policy = policy,
-        )
         applyPlan(plan, autoplay)
         return plan
     }

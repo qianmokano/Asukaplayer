@@ -3,6 +3,7 @@ package com.asuka.player.data
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -11,7 +12,7 @@ import org.robolectric.RuntimeEnvironment
 class RoomPlaybackStoreTest {
 
     @Test
-    fun saveAndLoad_roundTrip() {
+    fun saveAndLoad_roundTrip() = runBlocking {
         val db = AsukaPlaybackRoomDatabase.inMemory(RuntimeEnvironment.getApplication())
         try {
             val store = RoomPlaybackStore(db.playbackStateDao(), nowMs = FixedTimeSource())
@@ -33,7 +34,7 @@ class RoomPlaybackStoreTest {
     }
 
     @Test
-    fun recentMediaIds_ordersByLastTouch_andPrunes() {
+    fun recentMediaIds_ordersByLastTouch_andPrunes() = runBlocking {
         val db = AsukaPlaybackRoomDatabase.inMemory(RuntimeEnvironment.getApplication())
         try {
             val store = RoomPlaybackStore(

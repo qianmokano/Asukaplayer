@@ -3,6 +3,7 @@ package com.asuka.player.app
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.platform.PlaybackIntentPayloadCodec
 import com.asuka.player.runtime.PlaybackLaunchCoordinator
 import com.asuka.player.runtime.PlaybackUriResolver
 import com.asuka.player.ui.activity.PlaybackActivity
@@ -40,13 +41,12 @@ class PlaybackLaunchCoordinatorTest {
         }
 
         val request = coordinator.createLaunchRequest(
-            mediaId = current.toString(),
-            sourceIntent = sourceIntent,
+            payload = PlaybackIntentPayloadCodec.fromExternalIntent(sourceIntent)!!,
         )
 
         assertEquals(resolved, request.mediaUri)
-        assertEquals(resolved, request.clipData?.getItemAt(0)?.uri)
-        assertEquals(next, request.clipData?.getItemAt(1)?.uri)
+        assertEquals(resolved, request.clipData.getItemAt(0).uri)
+        assertEquals(next, request.clipData.getItemAt(1)?.uri)
 
         val playbackIntent = coordinator.createPlaybackIntent(
             context = RuntimeEnvironment.getApplication(),
@@ -80,14 +80,16 @@ class PlaybackLaunchCoordinatorTest {
         )
 
         val request = coordinator.createLaunchRequest(
-            mediaId = current.toString(),
-            queueMediaIds = listOf(previous.toString(), current.toString(), next.toString()),
+            payload = PlaybackIntentPayloadCodec.fromSelection(
+                targetMediaId = current.toString(),
+                queueMediaIds = listOf(previous.toString(), current.toString(), next.toString()),
+            ),
         )
 
         assertEquals(resolved, request.mediaUri)
-        assertEquals(previous, request.clipData?.getItemAt(0)?.uri)
-        assertEquals(resolved, request.clipData?.getItemAt(1)?.uri)
-        assertEquals(next, request.clipData?.getItemAt(2)?.uri)
+        assertEquals(previous, request.clipData.getItemAt(0).uri)
+        assertEquals(resolved, request.clipData.getItemAt(1)?.uri)
+        assertEquals(next, request.clipData.getItemAt(2)?.uri)
     }
 
     @Test
@@ -102,11 +104,13 @@ class PlaybackLaunchCoordinatorTest {
         )
 
         val request = coordinator.createLaunchRequest(
-            mediaId = current.toString(),
-            queueMediaIds = listOf(next.toString()),
+            payload = PlaybackIntentPayloadCodec.fromSelection(
+                targetMediaId = current.toString(),
+                queueMediaIds = listOf(next.toString()),
+            ),
         )
 
-        assertEquals(resolved, request.clipData?.getItemAt(0)?.uri)
-        assertEquals(next, request.clipData?.getItemAt(1)?.uri)
+        assertEquals(resolved, request.clipData.getItemAt(0)?.uri)
+        assertEquals(next, request.clipData.getItemAt(1)?.uri)
     }
 }

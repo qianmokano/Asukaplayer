@@ -156,11 +156,13 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
 }
 
 internal class PlaybackRecentMediaDataSource(
-    private val playbackStateRepository: PlaybackStateRepository,
-    private val queueHistoryRepository: QueueHistoryRepository,
+    private val playbackStateRepositoryProvider: () -> PlaybackStateRepository,
+    private val queueHistoryRepositoryProvider: () -> QueueHistoryRepository,
 ) : RecentPlaybackDataSource {
     override suspend fun loadRecentMediaIds(limit: Int): List<String> {
         return withContext(Dispatchers.IO) {
+            val queueHistoryRepository = queueHistoryRepositoryProvider()
+            val playbackStateRepository = playbackStateRepositoryProvider()
             resolveRecentMediaIds(
                 historyMediaIds = queueHistoryRepository.items(),
                 fallbackMediaIds = playbackStateRepository.recentMediaIds(limit = limit),

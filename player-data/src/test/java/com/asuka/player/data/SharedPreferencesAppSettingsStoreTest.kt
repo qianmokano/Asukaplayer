@@ -6,12 +6,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 
 @RunWith(RobolectricTestRunner::class)
 class SharedPreferencesAppSettingsStoreTest {
 
     @Test
-    fun roundTrip_persistsUiPlayerAndBehaviorSettings() {
+    fun roundTrip_persistsUiPlayerAndBehaviorSettings() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("app_settings", Context.MODE_PRIVATE).edit().clear().commit()
         val store = SharedPreferencesAppSettingsStore(context)

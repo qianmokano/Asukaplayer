@@ -40,3 +40,9 @@
   - controller connection failures now surface as retryable UI state instead of a blank screen
   - `PlayerUiStateHolder` progress updates now run only while playback is active instead of keeping a permanent ticker alive
 - Regression coverage added for launch forwarding, session planning, track restore timing, subtitle-off UI state, background retention, and media library use cases
+- First-principles persistence / composition / launch cleanup:
+  - settings writes now use explicit completion semantics; `DataStoreAppSettingsStore` no longer publishes optimistic state before `updateData` completes
+  - settings/playback/history store contracts are now `suspend` I/O boundaries instead of synchronous APIs hidden behind dispatcher conventions
+  - playback persistence initialization now goes through deferred resolver + suspend factory, so first Room open/import does not leak through synchronous getters
+  - app composition root now exports narrow feature binding objects instead of passing `AsukaAppGraph` through installer / entry wrappers
+  - playback launch / queue / identity semantics are unified behind `PlaybackIntentPayloadCodec`; external intake, launch request construction, playback-page decoding, and URI remap now share one model

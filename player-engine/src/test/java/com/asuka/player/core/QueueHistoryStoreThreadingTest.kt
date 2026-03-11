@@ -5,6 +5,7 @@ import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.data.SharedPreferencesQueueHistoryStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -21,14 +22,18 @@ class QueueHistoryStoreThreadingTest {
         )
 
         val writer = Thread {
-            expected.forEach(store::push)
+            runBlocking {
+                expected.forEach { store.push(it) }
+            }
         }
         writer.start()
         writer.join()
 
         var loaded: List<String> = emptyList()
         val reader = Thread {
-            loaded = store.items()
+            runBlocking {
+                loaded = store.items()
+            }
         }
         reader.start()
         reader.join()
@@ -52,14 +57,18 @@ class QueueHistoryStoreThreadingTest {
         )
 
         val writer = Thread {
-            expected.forEach(store::push)
+            runBlocking {
+                expected.forEach { store.push(it) }
+            }
         }
         writer.start()
         writer.join()
 
         var loaded: List<String> = emptyList()
         val reader = Thread {
-            loaded = store.items()
+            runBlocking {
+                loaded = store.items()
+            }
         }
         reader.start()
         reader.join()

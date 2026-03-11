@@ -13,6 +13,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -21,22 +22,23 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 @RunWith(RobolectricTestRunner::class)
 class SettingsRepositoriesTest {
+    private fun testScope() = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
     @Test
-    fun uiSettingsRepository_exposesLatestSharedState() {
+    fun uiSettingsRepository_exposesLatestSharedState() = runBlocking {
         val store = freshStore()
-        val repository = UiSettingsRepository(store)
+        val repository = UiSettingsRepository(store, testScope())
 
-        repository.themeConfig = ThemeConfig(
+        repository.setThemeConfig(ThemeConfig(
             mode = ThemeMode.Custom,
             customSeedArgb = 0xFF2E6CF6.toInt(),
             appearance = ThemeAppearanceMode.Dark,
             pureBlack = false,
             fontScale = 1.2f,
             fontScaleEnabled = true,
-        )
-        repository.navDurationMs = 480
-        repository.hapticFeedbackEnabled = false
+        ))
+        repository.setNavDurationMs(480)
+        repository.setHapticFeedbackEnabled(false)
 
         val state = repository.settings.value
         assertEquals(ThemeMode.Custom, state.themeConfig.mode)
@@ -50,22 +52,22 @@ class SettingsRepositoriesTest {
     }
 
     @Test
-    fun playbackRuntimeSettingsSource_tracksRepositoryUpdates() {
+    fun playbackRuntimeSettingsSource_tracksRepositoryUpdates() = runBlocking {
         val store = freshStore()
-        val playerSettingsRepository = PlayerSettingsRepository(store)
-        val behaviorRepository = PlaybackBehaviorRepository(store)
+        val playerSettingsRepository = PlayerSettingsRepository(store, testScope())
+        val behaviorRepository = PlaybackBehaviorRepository(store, testScope())
         val source = AppPlaybackRuntimeSettingsSource(
             playerSettingsRepository = playerSettingsRepository,
             playbackBehaviorRepository = behaviorRepository,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
         )
 
-        playerSettingsRepository.playerSettings = playerSettingsRepository.playerSettings.copy(
+        playerSettingsRepository.setPlayerSettings(playerSettingsRepository.settings.value.copy(
             autoPip = false,
             seekIncrementSec = 15,
             controllerTimeoutSec = 7,
-        )
-        behaviorRepository.keepConnectionInBackground = false
+        ))
+        behaviorRepository.setKeepConnectionInBackground(false)
 
         val runtime = source.current()
         assertFalse(runtime.autoPip)
@@ -84,10 +86,10 @@ class SettingsRepositoriesTest {
     }
 
     @Test
-    fun playbackBehaviorRepository_persistsRememberedBrightness() {
-        val repository = PlaybackBehaviorRepository(freshStore())
+    fun playbackBehaviorRepository_persistsRememberedBrightness() = runBlocking {
+        val repository = PlaybackBehaviorRepository(freshStore(), testScope())
 
-        repository.rememberedBrightness = 0.42f
+        repository.setRememberedBrightness(0.42f)
 
         assertEquals(0.42f, repository.rememberedBrightness)
     }

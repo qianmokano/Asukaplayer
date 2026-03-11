@@ -8,10 +8,20 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import com.asuka.player.contract.PersistedTrackSelection
 import com.asuka.player.contract.PlaybackStore
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @OptIn(UnstableApi::class)
 class PlaybackStateWriter(
     private val store: PlaybackStore,
+    writeDispatcher: CoroutineDispatcher? = null,
 ) : Player.Listener {
     companion object {
         const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
@@ -28,6 +38,10 @@ class PlaybackStateWriter(
     private var attachedPlayer: Player? = null
     private var lastCheckpointMediaId: String? = null
     private var lastCheckpointRealtimeMs: Long = Long.MIN_VALUE
+    private val writeMutex = Mutex()
+    private val writeScope = writeDispatcher?.let {
+        CoroutineScope(SupervisorJob() + it)
+    }
 
     fun attach(player: Player) {
         attachedPlayer = player
@@ -41,6 +55,10 @@ class PlaybackStateWriter(
         currentMediaId = null
         lastCheckpointMediaId = null
         lastCheckpointRealtimeMs = Long.MIN_VALUE
+    }
+
+    fun close() {
+        writeScope?.cancel()
     }
 
     fun checkpoint(nowMs: Long, minIntervalMs: Long = POSITION_CHECKPOINT_INTERVAL_MS): Boolean {
@@ -79,7 +97,9 @@ class PlaybackStateWriter(
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         val mediaId = currentMediaId ?: return
-        store.savePlaybackSpeed(mediaId, playbackParameters.speed)
+        dispatchWrite {
+            store.savePlaybackSpeed(mediaId, playbackParameters.speed)
+        }
     }
 
     override fun onPositionDiscontinuity(
@@ -89,7 +109,9 @@ class PlaybackStateWriter(
     ) {
         if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
         val mediaId = newPosition.mediaItem?.mediaId ?: oldPosition.mediaItem?.mediaId ?: return
-        store.savePosition(mediaId, newPosition.positionMs)
+        dispatchWrite {
+            store.savePosition(mediaId, newPosition.positionMs)
+        }
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
@@ -122,13 +144,22 @@ class PlaybackStateWriter(
             }
         }
 
-        selectedAudioId?.let { store.saveAudioTrackId(mediaId, it) }
+        selectedAudioId?.let { audioId ->
+            dispatchWrite {
+                store.saveAudioTrackId(mediaId, audioId)
+            }
+        }
         if (selectedSubtitleId != null) {
-            store.saveSubtitleTrackId(mediaId, selectedSubtitleId)
+            val subtitleId = selectedSubtitleId
+            dispatchWrite {
+                store.saveSubtitleTrackId(mediaId, subtitleId)
+            }
         } else if (hasTextGroup &&
             attachedPlayer?.trackSelectionParameters?.disabledTrackTypes?.contains(C.TRACK_TYPE_TEXT) == true
         ) {
-            store.saveSubtitleTrackId(mediaId, PersistedTrackSelection.DISABLED_SUBTITLE_ID)
+            dispatchWrite {
+                store.saveSubtitleTrackId(mediaId, PersistedTrackSelection.DISABLED_SUBTITLE_ID)
+            }
         }
     }
 
@@ -150,7 +181,35 @@ class PlaybackStateWriter(
         } else {
             player.currentPosition.coerceAtLeast(0L)
         }
-        store.savePosition(mediaId, position)
+        dispatchWrite(sync = force) {
+            store.savePosition(mediaId, position)
+        }
         return true
+    }
+
+    private fun dispatchWrite(
+        sync: Boolean = false,
+        block: suspend () -> Unit,
+    ) {
+        val scope = writeScope
+        if (scope == null) {
+            runBlocking {
+                block()
+            }
+            return
+        }
+        if (sync) {
+            runBlocking(Dispatchers.IO) {
+                writeMutex.withLock {
+                    block()
+                }
+            }
+            return
+        }
+        scope.launch {
+            writeMutex.withLock {
+                block()
+            }
+        }
     }
 }

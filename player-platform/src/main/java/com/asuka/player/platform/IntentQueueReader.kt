@@ -1,88 +1,61 @@
 package com.asuka.player.platform
 
-import android.content.ClipData
 import android.content.Intent
-import android.net.Uri
 import com.asuka.player.contract.PlaybackQueueEntry
-import java.util.ArrayList
 
 object IntentQueueReader {
-    private const val EXTRA_MEDIA_ID = "com.asuka.player.extra.MEDIA_ID"
-    private const val EXTRA_QUEUE_MEDIA_IDS = "com.asuka.player.extra.QUEUE_MEDIA_IDS"
-
     fun applyPlaybackIdentity(
         intent: Intent,
         mediaId: String,
         queueMediaIds: List<String>,
     ) {
-        intent.putExtra(EXTRA_MEDIA_ID, mediaId)
-        intent.putStringArrayListExtra(
-            EXTRA_QUEUE_MEDIA_IDS,
-            ArrayList(normalizeQueueMediaIds(mediaId, queueMediaIds)),
+        val queueUris = PlaybackIntentPayloadCodec.readRuntimeQueueUris(intent)
+        if (queueUris.isNotEmpty()) {
+            val normalizedMediaIds = queueMediaIds
+                .filter { it.isNotBlank() }
+                .distinct()
+                .toMutableList()
+            if (mediaId.isNotBlank() && mediaId !in normalizedMediaIds) {
+                normalizedMediaIds.add(0, mediaId)
+            }
+            val queueEntries = queueUris.mapIndexed { index, uri ->
+                PlaybackQueueEntry(
+                    mediaId = normalizedMediaIds.getOrElse(index) { uri },
+                    uri = uri,
+                )
+            }
+            val startIndex = queueEntries.indexOfFirst { it.mediaId == mediaId }
+                .takeIf { it >= 0 }
+                ?: 0
+            PlaybackIntentPayloadCodec.applyPlaybackPayload(
+                intent = intent,
+                payload = PlaybackIntentPayload(
+                    queueEntries = queueEntries,
+                    startIndex = startIndex,
+                ),
+            )
+            return
+        }
+
+        PlaybackIntentPayloadCodec.applyPlaybackPayload(
+            intent = intent,
+            payload = PlaybackIntentPayloadCodec.fromSelection(
+                targetMediaId = mediaId,
+                queueMediaIds = queueMediaIds,
+            ),
         )
     }
 
     fun readTargetMediaId(intent: Intent): String? {
-        return intent.getStringExtra(EXTRA_MEDIA_ID)
-            ?.takeIf { it.isNotBlank() }
+        return PlaybackIntentPayloadCodec.readPlaybackIntent(intent)?.targetEntry?.mediaId
             ?: intent.data?.toString()
     }
 
     fun readEntries(intent: Intent): List<PlaybackQueueEntry> {
-        val queueUris = read(intent)
-        if (queueUris.isEmpty()) return emptyList()
-
-        val currentMediaId = readTargetMediaId(intent)
-        val storedQueueMediaIds = intent.getStringArrayListExtra(EXTRA_QUEUE_MEDIA_IDS).orEmpty()
-        val queueMediaIds = if (storedQueueMediaIds.isNotEmpty()) {
-            normalizeQueueMediaIds(currentMediaId, storedQueueMediaIds)
-        } else {
-            queueUris
-        }
-
-        return queueUris.mapIndexed { index, uri ->
-            PlaybackQueueEntry(
-                mediaId = queueMediaIds.getOrElse(index) { uri },
-                uri = uri,
-            )
-        }
+        return PlaybackIntentPayloadCodec.readPlaybackIntent(intent)?.queueEntries.orEmpty()
     }
 
     fun read(intent: Intent): List<String> {
-        val clip: ClipData? = intent.clipData
-        val clipUris = buildList {
-            if (clip != null) {
-                for (i in 0 until clip.itemCount) {
-                    clip.getItemAt(i).uri?.toString()?.let { add(it) }
-                }
-            }
-        }
-        if (clipUris.isNotEmpty()) {
-            val queue = clipUris.distinct().toMutableList()
-            val dataUri = intent.data?.toString()
-            if (dataUri != null && dataUri !in queue) {
-                queue.add(0, dataUri)
-            }
-            return queue
-        }
-        return listOfNotNull(intent.data?.toString())
-    }
-
-    private fun normalizeQueueMediaIds(
-        currentMediaId: String?,
-        queueMediaIds: List<String>,
-    ): List<String> {
-        val normalized = queueMediaIds
-            .filter { it.isNotBlank() }
-            .distinct()
-            .toMutableList()
-        val current = currentMediaId?.takeIf { it.isNotBlank() }
-        if (normalized.isEmpty()) {
-            return listOfNotNull(current)
-        }
-        if (current != null && current !in normalized) {
-            normalized.add(0, current)
-        }
-        return normalized
+        return readEntries(intent).map(PlaybackQueueEntry::uri)
     }
 }

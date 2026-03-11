@@ -20,9 +20,13 @@ data class PlaybackSessionPlan(
 )
 
 class PlaybackSessionPlanner(
-    private val playbackStateRepository: PlaybackStateRepository,
+    private val resumeStateReader: suspend (String) -> ResumeState,
 ) {
-    fun plan(
+    constructor(playbackStateRepository: PlaybackStateRepository) : this(
+        resumeStateReader = playbackStateRepository::readResumeState,
+    )
+
+    suspend fun plan(
         target: PlaybackQueueEntry,
         launchNeighbors: List<PlaybackQueueEntry>,
         resolvedTitles: Map<String, String?> = emptyMap(),
@@ -38,7 +42,7 @@ class PlaybackSessionPlanner(
             titleResolver = { entryUri -> resolvedTitles[entryUri] },
         )
         val mediaId = target.mediaId
-        val resumeState = playbackStateRepository.readResumeState(mediaId)
+        val resumeState = resumeStateReader(mediaId)
 
         val restoreRequest = if (policy.rememberTrackSelections) {
             TrackSelectionRestoreRequest(
@@ -58,7 +62,7 @@ class PlaybackSessionPlanner(
         )
     }
 
-    fun plan(
+    suspend fun plan(
         targetUri: String,
         launchNeighbors: List<String>,
         resolvedTitles: Map<String, String?> = emptyMap(),

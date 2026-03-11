@@ -8,11 +8,10 @@ import com.asuka.player.data.PlaybackBehaviorRecord
 import com.asuka.player.data.PlayerSettingsRecord
 import com.asuka.player.data.UiSettingsRecord
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 data class UiSettingsState(
@@ -24,86 +23,82 @@ data class UiSettingsState(
 
 class UiSettingsRepository(
     private val store: AppSettingsStore,
+    scope: CoroutineScope,
 ) {
-    private val _settings = MutableStateFlow(store.loadUiSettings().toUiSettingsState())
+    val settings: StateFlow<UiSettingsState> = store.snapshots
+        .map { it.uiSettings.toUiSettingsState() }
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = store.loadUiSettings().toUiSettingsState(),
+        )
 
-    val settings: StateFlow<UiSettingsState> = _settings.asStateFlow()
+    suspend fun setThemeConfig(value: ThemeConfig) {
+        if (settings.value.themeConfig == value) return
+        store.saveUiSettings(settings.value.copy(themeConfig = value).toUiSettingsRecord())
+    }
 
-    var themeConfig: ThemeConfig
-        get() = settings.value.themeConfig
-        set(value) {
-            if (settings.value.themeConfig == value) return
-            persist(settings.value.copy(themeConfig = value))
-        }
+    suspend fun setCustomThemes(value: List<CustomThemeEntry>) {
+        if (settings.value.customThemes == value) return
+        store.saveUiSettings(settings.value.copy(customThemes = value).toUiSettingsRecord())
+    }
 
-    var customThemes: List<CustomThemeEntry>
-        get() = settings.value.customThemes
-        set(value) {
-            if (settings.value.customThemes == value) return
-            persist(settings.value.copy(customThemes = value))
-        }
+    suspend fun setNavDurationMs(value: Int) {
+        if (settings.value.navDurationMs == value) return
+        store.saveUiSettings(settings.value.copy(navDurationMs = value).toUiSettingsRecord())
+    }
 
-    var navDurationMs: Int
-        get() = settings.value.navDurationMs
-        set(value) {
-            if (settings.value.navDurationMs == value) return
-            persist(settings.value.copy(navDurationMs = value))
-        }
-
-    var hapticFeedbackEnabled: Boolean
-        get() = settings.value.hapticFeedbackEnabled
-        set(value) {
-            if (settings.value.hapticFeedbackEnabled == value) return
-            persist(settings.value.copy(hapticFeedbackEnabled = value))
-        }
-
-    private fun persist(value: UiSettingsState) {
-        _settings.value = value
-        store.saveUiSettings(value.toUiSettingsRecord())
+    suspend fun setHapticFeedbackEnabled(value: Boolean) {
+        if (settings.value.hapticFeedbackEnabled == value) return
+        store.saveUiSettings(settings.value.copy(hapticFeedbackEnabled = value).toUiSettingsRecord())
     }
 }
 
 class PlayerSettingsRepository(
     private val store: AppSettingsStore,
+    scope: CoroutineScope,
 ) {
-    private val _settings = MutableStateFlow(store.loadPlayerSettings().toPlayerSettings())
+    val settings: StateFlow<PlayerSettings> = store.snapshots
+        .map { it.playerSettings.toPlayerSettings() }
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = store.loadPlayerSettings().toPlayerSettings(),
+        )
 
-    val settings: StateFlow<PlayerSettings> = _settings.asStateFlow()
-
-    var playerSettings: PlayerSettings
-        get() = settings.value
-        set(value) {
-            if (settings.value == value) return
-            _settings.value = value
-            store.savePlayerSettings(value.toPlayerSettingsRecord())
-        }
+    suspend fun setPlayerSettings(value: PlayerSettings) {
+        if (settings.value == value) return
+        store.savePlayerSettings(value.toPlayerSettingsRecord())
+    }
 }
 
 class PlaybackBehaviorRepository(
     private val store: AppSettingsStore,
+    scope: CoroutineScope,
 ) {
-    private val _settings = MutableStateFlow(store.loadPlaybackBehavior())
+    val settings: StateFlow<PlaybackBehaviorRecord> = store.snapshots
+        .map { it.playbackBehavior }
+        .stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = store.loadPlaybackBehavior(),
+        )
 
-    val settings: StateFlow<PlaybackBehaviorRecord> = _settings.asStateFlow()
-
-    var keepConnectionInBackground: Boolean
+    val keepConnectionInBackground: Boolean
         get() = settings.value.keepConnectionInBackground
-        set(value) {
-            if (settings.value.keepConnectionInBackground == value) return
-            persist(settings.value.copy(keepConnectionInBackground = value))
-        }
 
-    var rememberedBrightness: Float?
+    val rememberedBrightness: Float?
         get() = settings.value.rememberedBrightness
-        set(value) {
-            val clamped = value?.coerceIn(0f, 1f)
-            if (settings.value.rememberedBrightness == clamped) return
-            persist(settings.value.copy(rememberedBrightness = clamped))
-        }
 
-    private fun persist(value: PlaybackBehaviorRecord) {
-        _settings.value = value
-        store.savePlaybackBehavior(value)
+    suspend fun setKeepConnectionInBackground(value: Boolean) {
+        if (settings.value.keepConnectionInBackground == value) return
+        store.savePlaybackBehavior(settings.value.copy(keepConnectionInBackground = value))
+    }
+
+    suspend fun setRememberedBrightness(value: Float?) {
+        val clamped = value?.coerceIn(0f, 1f)
+        if (settings.value.rememberedBrightness == clamped) return
+        store.savePlaybackBehavior(settings.value.copy(rememberedBrightness = clamped))
     }
 }
 

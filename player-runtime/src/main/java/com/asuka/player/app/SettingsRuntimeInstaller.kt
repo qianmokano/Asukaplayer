@@ -21,9 +21,9 @@ object SettingsRuntimeInstaller {
             context = application,
             scope = scope,
         )
-        val uiSettingsRepository = UiSettingsRepository(settingsStore)
-        val playerSettingsRepository = PlayerSettingsRepository(settingsStore)
-        val playbackBehaviorRepository = PlaybackBehaviorRepository(settingsStore)
+        val uiSettingsRepository = UiSettingsRepository(settingsStore, scope)
+        val playerSettingsRepository = PlayerSettingsRepository(settingsStore, scope)
+        val playbackBehaviorRepository = PlaybackBehaviorRepository(settingsStore, scope)
         val playbackRuntimeSettingsSource = AppPlaybackRuntimeSettingsSource(
             playerSettingsRepository = playerSettingsRepository,
             playbackBehaviorRepository = playbackBehaviorRepository,

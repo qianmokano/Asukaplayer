@@ -13,6 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.runBlocking
 
 @RunWith(RobolectricTestRunner::class)
 class PlaybackSessionPlannerTest {
@@ -22,7 +23,7 @@ class PlaybackSessionPlannerTest {
     private val previous = Uri.parse("file:///video/previous.mp4")
 
     @Test
-    fun plan_buildsQueueAndRestoresPositionIndependentlyFromTrackSelections() {
+    fun plan_buildsQueueAndRestoresPositionIndependentlyFromTrackSelections() = runBlocking {
         val store = InMemoryPlaybackStore().apply {
             savePosition(target.toString(), 42_000L)
             savePlaybackSpeed(target.toString(), 1.75f)
@@ -52,7 +53,7 @@ class PlaybackSessionPlannerTest {
     }
 
     @Test
-    fun plan_includesTrackRestoreOnlyWhenEnabled() {
+    fun plan_includesTrackRestoreOnlyWhenEnabled() = runBlocking {
         val store = InMemoryPlaybackStore().apply {
             saveAudioTrackId(target.toString(), "audio-2")
             saveSubtitleTrackId(target.toString(), "subtitle-3")
@@ -84,7 +85,7 @@ class PlaybackSessionPlannerTest {
     }
 
     @Test
-    fun plan_withoutExplicitNeighborsKeepsQueueScopedToCurrentItem() {
+    fun plan_withoutExplicitNeighborsKeepsQueueScopedToCurrentItem() = runBlocking {
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
         )
@@ -104,7 +105,7 @@ class PlaybackSessionPlannerTest {
     }
 
     @Test
-    fun plan_usesResolvedTitlesForExplicitQueue() {
+    fun plan_usesResolvedTitlesForExplicitQueue() = runBlocking {
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
         )
@@ -131,7 +132,7 @@ class PlaybackSessionPlannerTest {
     }
 
     @Test
-    fun plan_preservesExplicitQueueOrderWhenTargetIsNotFirstItem() {
+    fun plan_preservesExplicitQueueOrderWhenTargetIsNotFirstItem() = runBlocking {
         val planner = PlaybackSessionPlanner(
             playbackStateRepository = PlaybackStateRepository(InMemoryPlaybackStore()),
         )
@@ -160,7 +161,7 @@ class PlaybackSessionPlannerTest {
     }
 
     @Test
-    fun plan_usesStableMediaId_whenPlaybackUriIsFallbackCopy() {
+    fun plan_usesStableMediaId_whenPlaybackUriIsFallbackCopy() = runBlocking {
         val original = Uri.parse("content://videos/original.mp4")
         val fallback = Uri.parse("file:///cache/fallback.mp4")
         val store = InMemoryPlaybackStore().apply {

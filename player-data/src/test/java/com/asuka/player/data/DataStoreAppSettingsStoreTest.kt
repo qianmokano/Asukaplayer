@@ -54,16 +54,17 @@ class DataStoreAppSettingsStoreTest {
         val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val store = dataStore(context, storeScope)
         store.saveSnapshot(expected)
-        store.awaitPersistence()
+        store.awaitLoaded()
         storeScope.cancel()
 
         val restored = dataStore(context)
+        restored.awaitLoaded()
 
         assertEquals(expected, restored.loadSnapshot())
     }
 
     @Test
-    fun migrate_legacySharedPreferences_onFirstRead() {
+    fun migrate_legacySharedPreferences_onFirstRead() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         clearPersistence(context)
 
@@ -85,7 +86,9 @@ class DataStoreAppSettingsStoreTest {
             ),
         )
 
-        val migrated = dataStore(context).loadSnapshot()
+        val store = dataStore(context)
+        store.awaitLoaded()
+        val migrated = store.loadSnapshot()
 
         assertEquals("Custom", migrated.uiSettings.themeMode)
         assertEquals("Dark", migrated.uiSettings.themeAppearance)

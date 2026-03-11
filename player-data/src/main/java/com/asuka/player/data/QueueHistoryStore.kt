@@ -2,6 +2,8 @@ package com.asuka.player.data
 
 import android.content.Context
 import com.asuka.player.contract.QueueHistoryStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * In-memory history implementation used by tests and lightweight callers.
@@ -10,7 +12,7 @@ class InMemoryQueueHistoryStore(private val maxSize: Int = 50) : QueueHistorySto
     private val lock = Any()
     private val deque = ArrayDeque<String>()
 
-    override fun push(mediaId: String) {
+    override suspend fun push(mediaId: String) {
         synchronized(lock) {
             if (deque.lastOrNull() == mediaId) return
             deque.addLast(mediaId)
@@ -20,7 +22,7 @@ class InMemoryQueueHistoryStore(private val maxSize: Int = 50) : QueueHistorySto
         }
     }
 
-    override fun items(): List<String> {
+    override suspend fun items(): List<String> {
         synchronized(lock) {
             return deque.toList()
         }
@@ -39,26 +41,30 @@ class SharedPreferencesQueueHistoryStore(
     private val lock = Any()
     private var cachedItems: MutableList<String>? = null
 
-    override fun push(mediaId: String) {
-        synchronized(lock) {
-            val items = getOrLoadItemsLocked()
-            if (items.lastOrNull() == mediaId) return
-            items.add(mediaId)
-            while (items.size > maxSize) {
-                items.removeAt(0)
+    override suspend fun push(mediaId: String) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val items = getOrLoadItemsLocked()
+                if (items.lastOrNull() == mediaId) return@synchronized
+                items.add(mediaId)
+                while (items.size > maxSize) {
+                    items.removeAt(0)
+                }
+                prefs.edit()
+                    .putString(
+                        KEY_HISTORY,
+                        SharedPreferencesPlaybackStore.MediaIdListCodec.encode(items),
+                    )
+                    .apply()
             }
-            prefs.edit()
-                .putString(
-                    KEY_HISTORY,
-                    SharedPreferencesPlaybackStore.MediaIdListCodec.encode(items),
-                )
-                .apply()
         }
     }
 
-    override fun items(): List<String> {
-        synchronized(lock) {
-            return getOrLoadItemsLocked().toList()
+    override suspend fun items(): List<String> {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                getOrLoadItemsLocked().toList()
+            }
         }
     }
 

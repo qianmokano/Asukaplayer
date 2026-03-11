@@ -11,6 +11,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import kotlinx.coroutines.runBlocking
 
 @Entity(tableName = "playback_state")
 data class PlaybackStateEntity(
@@ -110,8 +111,7 @@ abstract class AsukaPlaybackRoomDatabase : RoomDatabase() {
                 context,
                 AsukaPlaybackRoomDatabase::class.java,
                 DB_NAME,
-            ).allowMainThreadQueries()
-                .build()
+            ).build()
             database.importLegacyDataIfNeeded(
                 legacyPlaybackStore = legacyPlaybackStore,
                 legacyQueueHistoryStore = legacyQueueHistoryStore,
@@ -138,24 +138,28 @@ private fun AsukaPlaybackRoomDatabase.importLegacyDataIfNeeded(
         val historyDao = queueHistoryDao()
         if (playbackDao.count() == 0) {
             val baseTime = System.currentTimeMillis()
-            legacyPlaybackStore.recentMediaIds(limit = 10_000)
+            runBlocking {
+                legacyPlaybackStore.recentMediaIds(limit = 10_000)
+            }
                 .asReversed()
                 .forEachIndexed { index, mediaId ->
                     playbackDao.upsert(
                         PlaybackStateEntity(
                             mediaId = mediaId,
-                            positionMs = legacyPlaybackStore.loadPosition(mediaId),
-                            playbackSpeed = legacyPlaybackStore.loadPlaybackSpeed(mediaId),
-                            audioTrackId = legacyPlaybackStore.loadAudioTrackId(mediaId),
-                            subtitleTrackId = legacyPlaybackStore.loadSubtitleTrackId(mediaId),
-                            zoom = legacyPlaybackStore.loadZoom(mediaId),
+                            positionMs = runBlocking { legacyPlaybackStore.loadPosition(mediaId) },
+                            playbackSpeed = runBlocking { legacyPlaybackStore.loadPlaybackSpeed(mediaId) },
+                            audioTrackId = runBlocking { legacyPlaybackStore.loadAudioTrackId(mediaId) },
+                            subtitleTrackId = runBlocking { legacyPlaybackStore.loadSubtitleTrackId(mediaId) },
+                            zoom = runBlocking { legacyPlaybackStore.loadZoom(mediaId) },
                             lastTouchedAt = baseTime + index,
                         ),
                     )
                 }
         }
         if (historyDao.count() == 0) {
-            legacyQueueHistoryStore.items().forEach { mediaId ->
+            runBlocking {
+                legacyQueueHistoryStore.items()
+            }.forEach { mediaId ->
                 historyDao.insert(QueueHistoryEntity(mediaId = mediaId))
             }
         }

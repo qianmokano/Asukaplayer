@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import com.asuka.player.platform.PlaybackIntentPayload
+import com.asuka.player.platform.PlaybackIntentPayloadCodec
 import com.asuka.player.runtime.IncomingPlaybackIntentReader
 import com.asuka.player.runtime.PlaybackLaunchRequest
 import kotlinx.coroutines.Dispatchers
@@ -39,11 +41,7 @@ class MainActivity : ComponentActivity() {
             setContent {
                 Box(Modifier.fillMaxSize().background(Color.Black))
             }
-            requestPlayback(
-                mediaId = incomingPlayback.mediaId,
-                sourceIntent = incomingPlayback.sourceIntent,
-                queueMediaIds = incomingPlayback.queueMediaIds,
-            )
+            requestPlayback(incomingPlayback.payload)
             return
         }
 
@@ -51,24 +49,21 @@ class MainActivity : ComponentActivity() {
             MainLibraryScreen(
                 viewModelFactory = mainActivityDependencies.mainLibraryViewModelFactory,
                 onPlay = { mediaId, queueMediaIds ->
-                    requestPlayback(mediaId, queueMediaIds = queueMediaIds)
+                    requestPlayback(
+                        PlaybackIntentPayloadCodec.fromSelection(
+                            targetMediaId = mediaId,
+                            queueMediaIds = queueMediaIds,
+                        ),
+                    )
                 },
             )
         }
     }
 
-    private fun requestPlayback(
-        mediaId: String,
-        sourceIntent: Intent? = null,
-        queueMediaIds: List<String> = emptyList(),
-    ) {
+    private fun requestPlayback(payload: PlaybackIntentPayload) {
         lifecycleScope.launch {
             val launchRequest = withContext(Dispatchers.IO) {
-                mainActivityDependencies.createPlaybackLaunchRequest(
-                    mediaId = mediaId,
-                    sourceIntent = sourceIntent,
-                    queueMediaIds = queueMediaIds,
-                )
+                mainActivityDependencies.createPlaybackLaunchRequest(payload)
             }
             startPlayback(launchRequest)
         }

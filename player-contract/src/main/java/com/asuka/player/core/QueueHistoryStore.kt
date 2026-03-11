@@ -6,6 +6,6 @@ package com.asuka.player.contract
  * **Thread safety:** Implementations must be safe to call from any thread.
  */
 interface QueueHistoryStore {
-    fun push(mediaId: String)
-    fun items(): List<String>
+    suspend fun push(mediaId: String)
+    suspend fun items(): List<String>
 }

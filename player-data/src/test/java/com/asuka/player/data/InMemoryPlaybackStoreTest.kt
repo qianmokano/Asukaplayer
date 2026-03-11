@@ -3,6 +3,7 @@ package com.asuka.player.data
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.runBlocking
 
 class InMemoryPlaybackStoreTest {
 
@@ -11,19 +12,19 @@ class InMemoryPlaybackStoreTest {
     // --- Position ---
 
     @Test
-    fun loadPosition_returnsNullForUnknownMediaId() {
+    fun loadPosition_returnsNullForUnknownMediaId() = runBlocking {
         assertNull(store().loadPosition("unknown"))
     }
 
     @Test
-    fun saveAndLoadPosition_roundTrip() {
+    fun saveAndLoadPosition_roundTrip() = runBlocking {
         val s = store()
         s.savePosition("v1", 12345L)
         assertEquals(12345L, s.loadPosition("v1"))
     }
 
     @Test
-    fun savePosition_overwritesPreviousValue() {
+    fun savePosition_overwritesPreviousValue() = runBlocking {
         val s = store()
         s.savePosition("v1", 100L)
         s.savePosition("v1", 200L)
@@ -33,19 +34,19 @@ class InMemoryPlaybackStoreTest {
     // --- PlaybackSpeed ---
 
     @Test
-    fun loadPlaybackSpeed_returnsNullForUnknownMediaId() {
+    fun loadPlaybackSpeed_returnsNullForUnknownMediaId() = runBlocking {
         assertNull(store().loadPlaybackSpeed("unknown"))
     }
 
     @Test
-    fun saveAndLoadPlaybackSpeed_roundTrip() {
+    fun saveAndLoadPlaybackSpeed_roundTrip() = runBlocking {
         val s = store()
         s.savePlaybackSpeed("v1", 1.5f)
         assertEquals(1.5f, s.loadPlaybackSpeed("v1"))
     }
 
     @Test
-    fun savePlaybackSpeed_overwritesPreviousValue() {
+    fun savePlaybackSpeed_overwritesPreviousValue() = runBlocking {
         val s = store()
         s.savePlaybackSpeed("v1", 1.0f)
         s.savePlaybackSpeed("v1", 2.0f)
@@ -55,19 +56,19 @@ class InMemoryPlaybackStoreTest {
     // --- AudioTrack ---
 
     @Test
-    fun loadAudioTrackId_returnsNullForUnknownMediaId() {
+    fun loadAudioTrackId_returnsNullForUnknownMediaId() = runBlocking {
         assertNull(store().loadAudioTrackId("unknown"))
     }
 
     @Test
-    fun saveAndLoadAudioTrackId_roundTrip() {
+    fun saveAndLoadAudioTrackId_roundTrip() = runBlocking {
         val s = store()
         s.saveAudioTrackId("v1", "audio-3")
         assertEquals("audio-3", s.loadAudioTrackId("v1"))
     }
 
     @Test
-    fun saveAudioTrackId_overwritesPreviousValue() {
+    fun saveAudioTrackId_overwritesPreviousValue() = runBlocking {
         val s = store()
         s.saveAudioTrackId("v1", "audio-1")
         s.saveAudioTrackId("v1", "audio-5")
@@ -77,19 +78,19 @@ class InMemoryPlaybackStoreTest {
     // --- SubtitleTrack ---
 
     @Test
-    fun loadSubtitleTrackId_returnsNullForUnknownMediaId() {
+    fun loadSubtitleTrackId_returnsNullForUnknownMediaId() = runBlocking {
         assertNull(store().loadSubtitleTrackId("unknown"))
     }
 
     @Test
-    fun saveAndLoadSubtitleTrackId_roundTrip() {
+    fun saveAndLoadSubtitleTrackId_roundTrip() = runBlocking {
         val s = store()
         s.saveSubtitleTrackId("v1", "subtitle-2")
         assertEquals("subtitle-2", s.loadSubtitleTrackId("v1"))
     }
 
     @Test
-    fun saveSubtitleTrackId_overwritesPreviousValue() {
+    fun saveSubtitleTrackId_overwritesPreviousValue() = runBlocking {
         val s = store()
         s.saveSubtitleTrackId("v1", "subtitle-0")
         s.saveSubtitleTrackId("v1", "subtitle-4")
@@ -99,19 +100,19 @@ class InMemoryPlaybackStoreTest {
     // --- Zoom ---
 
     @Test
-    fun loadZoom_returnsNullForUnknownMediaId() {
+    fun loadZoom_returnsNullForUnknownMediaId() = runBlocking {
         assertNull(store().loadZoom("unknown"))
     }
 
     @Test
-    fun saveAndLoadZoom_roundTrip() {
+    fun saveAndLoadZoom_roundTrip() = runBlocking {
         val s = store()
         s.saveZoom("v1", 2.5f)
         assertEquals(2.5f, s.loadZoom("v1"))
     }
 
     @Test
-    fun saveZoom_overwritesPreviousValue() {
+    fun saveZoom_overwritesPreviousValue() = runBlocking {
         val s = store()
         s.saveZoom("v1", 1.0f)
         s.saveZoom("v1", 3.0f)
@@ -121,7 +122,7 @@ class InMemoryPlaybackStoreTest {
     // --- Independence ---
 
     @Test
-    fun differentMediaIds_doNotInterfere() {
+    fun differentMediaIds_doNotInterfere() = runBlocking {
         val s = store()
         s.savePosition("v1", 100L)
         s.savePosition("v2", 200L)

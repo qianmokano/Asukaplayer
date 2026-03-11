@@ -75,8 +75,8 @@ class PlaybackSessionHostTest {
                 override val settings = MutableStateFlow(PlaybackRuntimeSettings())
             }
             override val playbackUiPersistence = object : PlaybackUiPersistence {
-                override fun readZoom(mediaId: String): Float? = null
-                override fun saveZoom(mediaId: String, zoom: Float) {}
+                override suspend fun readZoom(mediaId: String): Float? = null
+                override suspend fun saveZoom(mediaId: String, zoom: Float) {}
                 override fun readRememberedBrightness(): Float? = null
                 override fun saveRememberedBrightness(brightness: Float) {}
             }

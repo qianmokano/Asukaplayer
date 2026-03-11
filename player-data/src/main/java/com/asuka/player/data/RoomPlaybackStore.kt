@@ -1,6 +1,8 @@
 package com.asuka.player.data
 
 import com.asuka.player.contract.PlaybackStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class RoomPlaybackStore(
     private val playbackStateDao: PlaybackStateDao,
@@ -9,77 +11,91 @@ class RoomPlaybackStore(
 ) : PlaybackStore {
     private val lock = Any()
 
-    override fun recentMediaIds(limit: Int): List<String> {
-        synchronized(lock) {
-            val safeLimit = limit.coerceAtLeast(0)
-            if (safeLimit == 0) return emptyList()
-            return playbackStateDao.recentMediaIds(safeLimit)
+    override suspend fun recentMediaIds(limit: Int): List<String> {
+        return withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val safeLimit = limit.coerceAtLeast(0)
+                if (safeLimit == 0) return@synchronized emptyList()
+                playbackStateDao.recentMediaIds(safeLimit)
+            }
         }
     }
 
-    override fun loadPosition(mediaId: String): Long? = synchronized(lock) {
-        playbackStateDao.findByMediaId(mediaId)?.positionMs
+    override suspend fun loadPosition(mediaId: String): Long? = withContext(Dispatchers.IO) {
+        synchronized(lock) {
+            playbackStateDao.findByMediaId(mediaId)?.positionMs
+        }
     }
 
-    override fun savePosition(mediaId: String, positionMs: Long) {
+    override suspend fun savePosition(mediaId: String, positionMs: Long) {
         update(mediaId) { current ->
             current.copy(positionMs = positionMs)
         }
     }
 
-    override fun loadPlaybackSpeed(mediaId: String): Float? = synchronized(lock) {
-        playbackStateDao.findByMediaId(mediaId)?.playbackSpeed
+    override suspend fun loadPlaybackSpeed(mediaId: String): Float? = withContext(Dispatchers.IO) {
+        synchronized(lock) {
+            playbackStateDao.findByMediaId(mediaId)?.playbackSpeed
+        }
     }
 
-    override fun savePlaybackSpeed(mediaId: String, speed: Float) {
+    override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) {
         update(mediaId) { current ->
             current.copy(playbackSpeed = speed)
         }
     }
 
-    override fun loadAudioTrackId(mediaId: String): String? = synchronized(lock) {
-        playbackStateDao.findByMediaId(mediaId)?.audioTrackId
+    override suspend fun loadAudioTrackId(mediaId: String): String? = withContext(Dispatchers.IO) {
+        synchronized(lock) {
+            playbackStateDao.findByMediaId(mediaId)?.audioTrackId
+        }
     }
 
-    override fun saveAudioTrackId(mediaId: String, trackId: String) {
+    override suspend fun saveAudioTrackId(mediaId: String, trackId: String) {
         update(mediaId) { current ->
             current.copy(audioTrackId = trackId)
         }
     }
 
-    override fun loadSubtitleTrackId(mediaId: String): String? = synchronized(lock) {
-        playbackStateDao.findByMediaId(mediaId)?.subtitleTrackId
+    override suspend fun loadSubtitleTrackId(mediaId: String): String? = withContext(Dispatchers.IO) {
+        synchronized(lock) {
+            playbackStateDao.findByMediaId(mediaId)?.subtitleTrackId
+        }
     }
 
-    override fun saveSubtitleTrackId(mediaId: String, trackId: String) {
+    override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) {
         update(mediaId) { current ->
             current.copy(subtitleTrackId = trackId)
         }
     }
 
-    override fun loadZoom(mediaId: String): Float? = synchronized(lock) {
-        playbackStateDao.findByMediaId(mediaId)?.zoom
+    override suspend fun loadZoom(mediaId: String): Float? = withContext(Dispatchers.IO) {
+        synchronized(lock) {
+            playbackStateDao.findByMediaId(mediaId)?.zoom
+        }
     }
 
-    override fun saveZoom(mediaId: String, zoom: Float) {
+    override suspend fun saveZoom(mediaId: String, zoom: Float) {
         update(mediaId) { current ->
             current.copy(zoom = zoom)
         }
     }
 
-    private fun update(
+    private suspend fun update(
         mediaId: String,
         change: (PlaybackStateEntity) -> PlaybackStateEntity,
     ) {
-        synchronized(lock) {
-            val current = playbackStateDao.findByMediaId(mediaId) ?: PlaybackStateEntity(mediaId = mediaId)
-            playbackStateDao.upsert(
-                change(current).copy(
-                    mediaId = mediaId,
-                    lastTouchedAt = nowMs(),
-                ),
-            )
-            playbackStateDao.pruneToMaxEntries(maxEntries)
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val current = playbackStateDao.findByMediaId(mediaId) ?: PlaybackStateEntity(mediaId = mediaId)
+                playbackStateDao.upsert(
+                    change(current).copy(
+                        mediaId = mediaId,
+                        lastTouchedAt = nowMs(),
+                    ),
+                )
+                playbackStateDao.pruneToMaxEntries(maxEntries)
+            }
         }
     }
 }

@@ -41,11 +41,14 @@
 - 外部 `ACTION_SEND`
 - 外部 `ACTION_SEND_MULTIPLE`
 - `ClipData` 多文件启动
+- `PlaybackIntentPayload` 编解码 round-trip
+- stable mediaId 与 fallback runtime URI 共存
 - seek fallback 后 URI / 队列一致性
 - `AsuraPlayerApp` container 启动链路
 
 ### 恢复与持久化
 
+- settings 写入完成语义（调用返回时已持久化）
 - 续播位置
 - 倍速恢复
 - 轨道恢复
@@ -54,6 +57,7 @@
 - `player-contract` 纯 queue/session model 与 `player-platform` writer / mapper 的边界一致性
 - `SharedPreferencesAppSettingsStore` -> DataStore migration
 - `SharedPreferencesPlaybackStore` / `SharedPreferencesQueueHistoryStore` -> Room import
+- deferred persistence resolver 首次初始化
 - `AppSettingsSnapshot` schema compatibility
 - Room-backed playback/history store 的顺序、裁剪和 round-trip
 
@@ -80,6 +84,7 @@
 - 能进入播放页
 - 当前文件正确
 - 显式队列中的上一项 / 下一项可用
+- fallback 文件 URI 与稳定 mediaId 保持一致，不会在恢复时串档
 
 ### 控制层与手势
 
@@ -146,6 +151,13 @@
   - `./gradlew :player-ui:compileDebugAndroidTestKotlin`
 - 可选补充：
   - `./gradlew lintDebug`
+- 组合根 / payload / persistence contract 发生改动时，优先检查：
+  - `MainActivityDirectPlaybackTest`
+  - `PlaybackLaunchCoordinatorTest`
+  - `IntentQueueReaderTest`
+  - `SettingsRepositoriesTest`
+  - `DataStoreAppSettingsStoreTest`
+  - `PlaybackPersistenceStoresFactoryTest`
 - 持久化 schema 变更时额外检查：
   - `player-data/schemas/` 是否有对应导出更新
 - 设备环境或 nightly 再执行：

@@ -5,10 +5,13 @@
 - 单一组合根：`AsuraPlayerApp` 是唯一装配入口，负责 graph、entry point 和应用级依赖 container 初始化。
 - 组合根只做装配：`AsuraPlayerApp` 不直接 new feature 级 data source / repository / use case / `ViewModelFactory`，这些责任交给 installer / factory。
 - framework 入口显式注入：`MainActivity`、`PlaybackActivity`、`PlaybackService` 通过 `AsuraPlayerApp` 提供的窄依赖 container 读取依赖，不再通过静态 registry 注入。
+- 组合根输出窄 binding：`app` 层 installer / entry point 只接收 feature 级 binding，不再继续向下传整张 `AsukaAppGraph`。
 - 纯 contract + 平台 binding 分层：`player-contract` 只保留纯 Kotlin API；Android / Media3 入口依赖统一放进 `player-platform`。
 - 单一设置真相源：播放运行时设置统一来自 `PlaybackRuntimeSettingsSource`。
+- 持久化语义显式异步：settings / playback / history 的 I/O contract 使用 `suspend` API 表达完成语义，调用返回即表示写入已完成或抛错。
 - UI 依赖 UI 模型：播放页消费 `PlaybackScreenModel` / `PlaybackScreenDependencies`，不直接拼装 Media3 细节。
 - 策略与落盘分离：规划、执行、持久化分别由独立对象负责，减少隐式耦合。
+- 单一播放 payload：启动链路使用统一的 `PlaybackIntentPayload` / codec 表达队列、稳定 mediaId 与起播位置，避免多处重复解析 intent。
 - feature 分层优先：媒体库采用 data source -> repository -> use case -> view model，theme/settings model 保持纯值对象，不携带 Compose 类型。
 
 ## 模块边界
@@ -82,6 +85,12 @@
 4. `AsuraPlayerApp` 暴露 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`
 5. `MainActivity` / `PlaybackActivity` / `PlaybackService` 在各自入口内从 `Application` 读取这些窄依赖
 
+这里的关键变化是：
+
+- `AppCompositionFactory` 现在先把 graph 拆成 `MainLibraryFeatureBindings` / `PlaybackActivityEntryBindings` / `PlaybackServiceEntryBindings`
+- feature installer 与 entry dependency wrapper 只知道自己收到的 binding，而不是继续持有整张 graph
+- 运行时依赖是否延迟初始化，成为组合根内部实现细节，而不是 feature 代码可见的能力
+
 播放入口目前只暴露两个窄依赖：
 
 - `PlaybackActivityDependencies`
@@ -99,11 +108,12 @@
 ### 1. 启动阶段
 
 - `MainActivity` 接收媒体选择或外部 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE`
+- `IncomingPlaybackIntentReader` 用 `PlaybackIntentPayloadCodec.fromExternalIntent()` 把外部 intent 归一成单一 payload
 - `PlaybackLaunchCoordinator` 负责：
-  - 解析目标 URI
-  - 必要时做 seek fallback
-  - 转发或构造显式 `ClipData` 队列
+  - 对 payload 当前项做 URI 解析与 seek fallback
+  - 保留 stable mediaId / queue / startIndex 语义
   - 生成用于启动 `PlaybackActivity` 的 intent
+- `IntentQueueReader` / `PlaybackSessionCoordinator` 在播放页只读取同一份 payload，不再重新发明队列规则
 
 说明：
 
@@ -195,6 +205,8 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
   - `PlaybackBehaviorRecord`
 - 默认实现是 `DataStoreAppSettingsStore`
 - `SharedPreferencesAppSettingsStore` 退化为 legacy migration source / compatibility store
+- `DataStoreAppSettingsStore.saveSnapshot()` 只有在 `DataStore.updateData()` 完成后才会发布新 snapshot
+- settings repository 对外暴露的是显式 `suspend` 写接口；是否等待完成由调用方决定，而不是 repository 内部偷偷 fire-and-forget
 - snapshot 的默认值、归一化裁剪和 JSON codec 集中在 `player-data/AppSettingsStore.kt`
 - 新增 settings 字段的改动面应收敛到：
   - snapshot / record
@@ -208,7 +220,8 @@ Media3 到 UI 的翻译已经前置到 host 层完成。
   - `queue_history`
 - `RoomPlaybackStore` 负责按 `mediaId` 读写位置、速度、轨道、缩放，并维护最近使用顺序
 - `RoomQueueHistoryStore` 负责顺序历史和容量裁剪
-- `PlaybackPersistenceStoresFactory` 负责在默认运行路径下打开 Room，并在首次启动时从 legacy SharedPreferences 导入 playback/history 数据
+- `PlaybackPersistenceStoresFactory` 是 `suspend` factory，负责在后台打开 Room，并在首次初始化时从 legacy SharedPreferences 导入 playback/history 数据
+- `PlaybackRuntimeFeature` 通过 deferred store wrapper + suspend resolver 延迟解析 persistence store，避免把首次建库工作泄漏到同步 getter 语义里
 - SharedPreferences playback/history store 现在主要用于 legacy import 和回归测试
 
 ### 播放状态

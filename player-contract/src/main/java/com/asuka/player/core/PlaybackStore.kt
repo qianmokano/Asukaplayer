@@ -23,20 +23,20 @@ interface PlaybackStore {
      * Not all store implementations persist a recent list. The default
      * implementation returns an empty list.
      */
-    fun recentMediaIds(limit: Int = 50): List<String> = emptyList()
+    suspend fun recentMediaIds(limit: Int = 50): List<String> = emptyList()
 
-    fun loadPosition(mediaId: String): Long?
-    fun savePosition(mediaId: String, positionMs: Long)
+    suspend fun loadPosition(mediaId: String): Long?
+    suspend fun savePosition(mediaId: String, positionMs: Long)
 
-    fun loadPlaybackSpeed(mediaId: String): Float?
-    fun savePlaybackSpeed(mediaId: String, speed: Float)
+    suspend fun loadPlaybackSpeed(mediaId: String): Float?
+    suspend fun savePlaybackSpeed(mediaId: String, speed: Float)
 
-    fun loadAudioTrackId(mediaId: String): String?
-    fun saveAudioTrackId(mediaId: String, trackId: String)
+    suspend fun loadAudioTrackId(mediaId: String): String?
+    suspend fun saveAudioTrackId(mediaId: String, trackId: String)
 
-    fun loadSubtitleTrackId(mediaId: String): String?
-    fun saveSubtitleTrackId(mediaId: String, trackId: String)
+    suspend fun loadSubtitleTrackId(mediaId: String): String?
+    suspend fun saveSubtitleTrackId(mediaId: String, trackId: String)
 
-    fun loadZoom(mediaId: String): Float?
-    fun saveZoom(mediaId: String, zoom: Float)
+    suspend fun loadZoom(mediaId: String): Float?
+    suspend fun saveZoom(mediaId: String, zoom: Float)
 }

@@ -6,6 +6,7 @@ import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.platform.QueueHistoryWriter
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -13,7 +14,7 @@ import org.robolectric.RobolectricTestRunner
 class QueueHistoryWriterTest {
 
     @Test
-    fun onMediaItemTransition_prefersStableMediaIdUri_forHistory() {
+    fun onMediaItemTransition_prefersStableMediaIdUri_forHistory() = runBlocking {
         val original = Uri.parse("content://videos/original.mp4")
         val fallback = Uri.parse("file:///cache/fallback.mp4")
         val store = InMemoryQueueHistoryStore()

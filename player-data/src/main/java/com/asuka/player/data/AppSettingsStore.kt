@@ -1,5 +1,7 @@
 package com.asuka.player.data
 
+import kotlinx.coroutines.flow.StateFlow
+
 data class CustomThemeRecord(
     val id: String,
     val name: String,
@@ -70,21 +72,23 @@ data class AppSettingsSnapshot(
 }
 
 interface AppSettingsStore {
-    fun loadSnapshot(): AppSettingsSnapshot
-    fun saveSnapshot(snapshot: AppSettingsSnapshot)
+    val snapshots: StateFlow<AppSettingsSnapshot>
+
+    fun loadSnapshot(): AppSettingsSnapshot = snapshots.value
+    suspend fun saveSnapshot(snapshot: AppSettingsSnapshot)
 
     fun loadUiSettings(): UiSettingsRecord = loadSnapshot().uiSettings
-    fun saveUiSettings(record: UiSettingsRecord) {
+    suspend fun saveUiSettings(record: UiSettingsRecord) {
         saveSnapshot(loadSnapshot().copy(uiSettings = record).normalized())
     }
 
     fun loadPlayerSettings(): PlayerSettingsRecord = loadSnapshot().playerSettings
-    fun savePlayerSettings(record: PlayerSettingsRecord) {
+    suspend fun savePlayerSettings(record: PlayerSettingsRecord) {
         saveSnapshot(loadSnapshot().copy(playerSettings = record).normalized())
     }
 
     fun loadPlaybackBehavior(): PlaybackBehaviorRecord = loadSnapshot().playbackBehavior
-    fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
+    suspend fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
         saveSnapshot(loadSnapshot().copy(playbackBehavior = record).normalized())
     }
 }

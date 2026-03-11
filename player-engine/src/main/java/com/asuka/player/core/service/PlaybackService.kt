@@ -29,6 +29,7 @@ import com.asuka.player.platform.QueueHistoryWriter
 import com.asuka.player.core.R
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.Dispatchers
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
@@ -38,6 +39,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val persistenceDispatcher = Dispatchers.IO.limitedParallelism(1)
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
@@ -83,9 +85,15 @@ class PlaybackService : MediaSessionService() {
         setForegroundServiceTimeoutMs(10_000L)
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
 
-        val w = PlaybackStateWriter(playbackDependencies.playbackStore)
+        val w = PlaybackStateWriter(
+            store = playbackDependencies.playbackStore,
+            writeDispatcher = persistenceDispatcher,
+        )
         writer = w
-        val hw = QueueHistoryWriter(playbackDependencies.queueHistoryStore)
+        val hw = QueueHistoryWriter(
+            store = playbackDependencies.queueHistoryStore,
+            writeDispatcher = persistenceDispatcher,
+        )
         historyWriter = hw
 
         val audioAttributes = AudioAttributes.Builder()
@@ -128,6 +136,8 @@ class PlaybackService : MediaSessionService() {
         runCatching { historyWriter?.let { player?.removeListener(it) } }
         runCatching { session?.release() }
         runCatching { player?.release() }
+        runCatching { writer?.close() }
+        runCatching { historyWriter?.close() }
         session = null
         player = null
         writer = null

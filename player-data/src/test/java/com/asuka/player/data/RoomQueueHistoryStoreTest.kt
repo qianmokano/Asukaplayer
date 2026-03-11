@@ -2,6 +2,7 @@ package com.asuka.player.data
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -10,7 +11,7 @@ import org.robolectric.RuntimeEnvironment
 class RoomQueueHistoryStoreTest {
 
     @Test
-    fun push_deduplicatesConsecutive_andRespectsMaxSize() {
+    fun push_deduplicatesConsecutive_andRespectsMaxSize() = runBlocking {
         val db = AsukaPlaybackRoomDatabase.inMemory(RuntimeEnvironment.getApplication())
         try {
             val store = RoomQueueHistoryStore(

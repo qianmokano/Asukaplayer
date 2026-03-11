@@ -7,14 +7,21 @@ import com.asuka.player.platform.PlaybackServiceDependencies
 import com.asuka.player.runtime.AsukaAppGraph
 
 class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, PlaybackDependenciesProvider {
-    private lateinit var graph: AsukaAppGraph
-    private lateinit var appComposition: AppComposition
-
     /**
      * Override in tests to inject a fake/stub graph without subclassing the Application.
      * Must be set before [onCreate] is called (i.e. before Robolectric starts the app).
      */
     internal var graphFactory: (Application) -> AsukaAppGraph = ::AsukaAppGraph
+
+    private val graph: AsukaAppGraph by lazy(LazyThreadSafetyMode.NONE) {
+        graphFactory(this)
+    }
+    private val appComposition: AppComposition by lazy(LazyThreadSafetyMode.NONE) {
+        AppCompositionFactory.create(
+            application = this,
+            graph = graph,
+        )
+    }
 
     override val mainActivityDependencies: MainActivityDependencies
         get() = appComposition.mainActivityDependencies
@@ -27,10 +34,5 @@ class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, Playback
 
     override fun onCreate() {
         super.onCreate()
-        graph = graphFactory(this)
-        appComposition = AppCompositionFactory.create(
-            application = this,
-            graph = graph,
-        )
     }
 }

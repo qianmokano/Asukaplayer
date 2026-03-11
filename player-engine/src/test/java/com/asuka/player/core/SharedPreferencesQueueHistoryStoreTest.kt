@@ -4,6 +4,7 @@ import android.net.Uri
 import com.asuka.player.data.SharedPreferencesQueueHistoryStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.RobolectricTestRunner
@@ -12,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 class SharedPreferencesQueueHistoryStoreTest {
 
     @Test
-    fun items_surviveAcrossInstances() {
+    fun items_surviveAcrossInstances() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val prefsName = "queue-history-persist"
         context.getSharedPreferences(prefsName, android.content.Context.MODE_PRIVATE).edit().clear().commit()
@@ -39,7 +40,7 @@ class SharedPreferencesQueueHistoryStoreTest {
     }
 
     @Test
-    fun push_respectsMaxSizeAcrossPersistedHistory() {
+    fun push_respectsMaxSizeAcrossPersistedHistory() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         val prefsName = "queue-history-max-size"
         context.getSharedPreferences(prefsName, android.content.Context.MODE_PRIVATE).edit().clear().commit()

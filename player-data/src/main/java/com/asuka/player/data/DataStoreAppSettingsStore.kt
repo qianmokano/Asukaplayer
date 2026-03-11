@@ -9,69 +9,54 @@ import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import kotlin.text.Charsets.UTF_8
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class DataStoreAppSettingsStore(
     context: Context,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-    legacyStore: SharedPreferencesAppSettingsStore = SharedPreferencesAppSettingsStore(context),
+    private val legacyStore: SharedPreferencesAppSettingsStore = SharedPreferencesAppSettingsStore(context),
 ) : AppSettingsStore {
     private val writeMutex = Mutex()
-    private val stateLock = Any()
+    private val initialLoad = CompletableDeferred<Unit>()
     private val dataStore: DataStore<AppSettingsSnapshot> = DataStoreFactory.create(
         serializer = AppSettingsSnapshotSerializer,
         migrations = listOf(SharedPreferencesAppSettingsMigration(legacyStore)),
         scope = scope,
         produceFile = { appSettingsFile(context) },
     )
-    private var snapshotCache: AppSettingsSnapshot = runBlocking {
-        dataStore.data.first().normalized()
-    }
+    private val _snapshots = MutableStateFlow(AppSettingsSnapshot())
+
+    override val snapshots: StateFlow<AppSettingsSnapshot> = _snapshots.asStateFlow()
 
     init {
         scope.launch {
             dataStore.data.collect { snapshot ->
-                synchronized(stateLock) {
-                    snapshotCache = snapshot.normalized()
-                }
+                _snapshots.value = snapshot.normalized()
+                initialLoad.complete(Unit)
             }
         }
     }
 
-    override fun loadSnapshot(): AppSettingsSnapshot {
-        synchronized(stateLock) {
-            return snapshotCache
-        }
-    }
-
-    override fun saveSnapshot(snapshot: AppSettingsSnapshot) {
+    override suspend fun saveSnapshot(snapshot: AppSettingsSnapshot) {
         val normalized = snapshot.normalized()
-        synchronized(stateLock) {
-            snapshotCache = normalized
-        }
-        persistAsync(normalized)
-    }
-
-    internal suspend fun awaitPersistence() {
-        writeMutex.withLock { }
-    }
-
-    private fun persistAsync(snapshot: AppSettingsSnapshot) {
-        dataStoreScope.launch {
-            writeMutex.withLock {
-                dataStore.updateData { snapshot }
-            }
+        writeMutex.withLock {
+            val persisted = dataStore.updateData { normalized }.normalized()
+            _snapshots.value = persisted
         }
     }
 
-    private val dataStoreScope = scope
+    internal suspend fun awaitLoaded() {
+        initialLoad.await()
+    }
 
     private class SharedPreferencesAppSettingsMigration(
         private val legacyStore: SharedPreferencesAppSettingsStore,

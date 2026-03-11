@@ -57,9 +57,8 @@ import com.asuka.player.ui.state.VolumeBrightnessState
 import com.asuka.player.ui.state.ZoomState
 import com.asuka.player.ui.theme.PlayerUiTokens
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 /**
  * M1 minimal UI: title + controls + gesture layer.
@@ -118,9 +117,7 @@ fun PlayerScreen(
     val queueActions = remember(controller) { QueueActions(controller) }
     LaunchedEffect(mediaIdState.value) {
         val mediaId = mediaIdState.value ?: return@LaunchedEffect
-        val zoom = withContext(Dispatchers.IO) {
-            playbackPersistence.readZoom(mediaId)
-        } ?: 1f
+        val zoom = playbackPersistence.readZoom(mediaId) ?: 1f
         zoomState.setTransform(zoom, Offset.Zero, pinching = false)
     }
     val pointerDetector = remember(settings.seekSensitivity, deviceController) {
@@ -150,7 +147,11 @@ fun PlayerScreen(
             seekState = seekState,
             zoomState = zoomState,
             onZoomEnd = { zoom ->
-                mediaIdState.value?.let { id -> playbackPersistence.saveZoom(id, zoom) }
+                mediaIdState.value?.let { id ->
+                    scope.launch {
+                        playbackPersistence.saveZoom(id, zoom)
+                    }
+                }
             },
             playbackSpeedProvider = { playbackSpeedState.value },
             onDoubleTapFeedback = { delta -> tapFeedbackState.show(delta) },

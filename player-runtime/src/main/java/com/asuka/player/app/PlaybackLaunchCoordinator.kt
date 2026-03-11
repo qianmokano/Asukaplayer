@@ -8,9 +8,10 @@ import android.provider.MediaStore
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
-import com.asuka.player.platform.IntentQueueReader
+import com.asuka.player.contract.PlaybackQueueEntry
+import com.asuka.player.platform.PlaybackIntentPayload
+import com.asuka.player.platform.PlaybackIntentPayloadCodec
 import com.asuka.player.platform.SeekFallbackCopier
-import com.asuka.player.platform.remapClipDataUri
 import java.io.File
 
 interface PlaybackUriResolver {
@@ -18,35 +19,32 @@ interface PlaybackUriResolver {
 }
 
 data class PlaybackLaunchRequest(
-    val mediaUri: Uri,
-    val clipData: ClipData?,
-    val mediaId: String,
-    val queueMediaIds: List<String>,
-)
+    val payload: PlaybackIntentPayload,
+) {
+    val mediaUri: Uri
+        get() = Uri.parse(payload.targetEntry.uri)
+    val clipData: ClipData
+        get() = PlaybackIntentPayloadCodec.buildClipData(payload)
+    val mediaId: String
+        get() = payload.targetEntry.mediaId
+    val queueMediaIds: List<String>
+        get() = payload.queueEntries.map(PlaybackQueueEntry::mediaId)
+}
 
 class PlaybackLaunchCoordinator(
     private val uriResolver: PlaybackUriResolver,
 ) {
     fun createLaunchRequest(
-        mediaId: String,
-        sourceIntent: Intent? = null,
-        queueMediaIds: List<String> = emptyList(),
+        payload: PlaybackIntentPayload,
     ): PlaybackLaunchRequest {
-        val sourceUri = Uri.parse(mediaId)
+        val sourceUri = Uri.parse(payload.targetEntry.uri)
         val resolvedUri = uriResolver.resolveForPlayback(sourceUri)
-        val queueClipData = sourceIntent?.clipData ?: buildQueueClipData(
-            currentUri = sourceUri,
-            queueMediaIds = queueMediaIds,
-        )
         return PlaybackLaunchRequest(
-            mediaUri = resolvedUri,
-            clipData = remapClipDataUri(
-                clipData = queueClipData,
+            payload = PlaybackIntentPayloadCodec.remapUri(
+                payload = payload,
                 originalUri = sourceUri,
                 replacementUri = resolvedUri,
             ),
-            mediaId = mediaId,
-            queueMediaIds = queueMediaIds.ifEmpty { readQueueMediaIds(queueClipData) },
         )
     }
 
@@ -57,44 +55,12 @@ class PlaybackLaunchCoordinator(
     ): Intent {
         return Intent(context, activityClass).apply {
             data = request.mediaUri
-            clipData = request.clipData
-            IntentQueueReader.applyPlaybackIdentity(
-                intent = this,
-                mediaId = request.mediaId,
-                queueMediaIds = request.queueMediaIds,
-            )
-            if (request.mediaUri.scheme == "content" || request.clipData != null) {
+            clipData = PlaybackIntentPayloadCodec.buildClipData(request.payload)
+            PlaybackIntentPayloadCodec.applyPlaybackPayload(this, request.payload)
+            if (request.payload.queueEntries.any { Uri.parse(it.uri).scheme == "content" }) {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         }
-    }
-
-    private fun buildQueueClipData(
-        currentUri: Uri,
-        queueMediaIds: List<String>,
-    ): ClipData? {
-        val queueUris = queueMediaIds
-            .map(Uri::parse)
-            .distinct()
-            .toMutableList()
-        if (currentUri !in queueUris) {
-            queueUris.add(0, currentUri)
-        }
-        if (queueUris.isEmpty()) return null
-        return ClipData.newRawUri("queue", queueUris.first()).apply {
-            queueUris.drop(1).forEach { uri ->
-                addItem(ClipData.Item(uri))
-            }
-        }
-    }
-
-    private fun readQueueMediaIds(clipData: ClipData?): List<String> {
-        if (clipData == null) return emptyList()
-        return buildList {
-            for (index in 0 until clipData.itemCount) {
-                clipData.getItemAt(index).uri?.toString()?.let(::add)
-            }
-        }.distinct()
     }
 }
 

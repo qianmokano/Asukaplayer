@@ -15,7 +15,7 @@ class PlaybackStateRepository(
      * Safe to call from any thread as long as the provided [PlaybackStore]
      * implementation honors the store contract.
      */
-    fun readResumeState(mediaId: String): ResumeState {
+    suspend fun readResumeState(mediaId: String): ResumeState {
         return ResumeState(
             positionMs = store.loadPosition(mediaId) ?: 0L,
             speed = store.loadPlaybackSpeed(mediaId),
@@ -29,25 +29,25 @@ class PlaybackStateRepository(
         )
     }
 
-    fun recentMediaIds(limit: Int = 50): List<String> = store.recentMediaIds(limit)
+    suspend fun recentMediaIds(limit: Int = 50): List<String> = store.recentMediaIds(limit)
 
-    fun savePlaybackSpeed(mediaId: String, speed: Float) {
+    suspend fun savePlaybackSpeed(mediaId: String, speed: Float) {
         store.savePlaybackSpeed(mediaId, speed)
     }
 
-    fun saveAudioTrack(mediaId: String, trackId: String) {
+    suspend fun saveAudioTrack(mediaId: String, trackId: String) {
         store.saveAudioTrackId(mediaId, trackId)
     }
 
-    fun saveSubtitleTrack(mediaId: String, trackId: String) {
+    suspend fun saveSubtitleTrack(mediaId: String, trackId: String) {
         store.saveSubtitleTrackId(mediaId, trackId)
     }
 
-    fun disableSubtitles(mediaId: String) {
+    suspend fun disableSubtitles(mediaId: String) {
         store.saveSubtitleTrackId(mediaId, PersistedTrackSelection.DISABLED_SUBTITLE_ID)
     }
 
-    fun saveZoom(mediaId: String, zoom: Float) {
+    suspend fun saveZoom(mediaId: String, zoom: Float) {
         store.saveZoom(mediaId, zoom)
     }
 }

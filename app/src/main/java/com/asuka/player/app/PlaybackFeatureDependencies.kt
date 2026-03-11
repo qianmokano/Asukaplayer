@@ -7,35 +7,36 @@ import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import com.asuka.player.platform.PlaybackServiceDependencies
-import com.asuka.player.runtime.AsukaAppGraph
 
 internal class AppPlaybackActivityDependencies(
-    private val graph: AsukaAppGraph,
+    private val bindings: PlaybackActivityEntryBindings,
 ) : PlaybackActivityDependencies {
     override val playbackSessionPlanner: PlaybackSessionPlanner
-        get() = graph.playbackSessionPlanner
+        get() = bindings.playbackSessionPlanner()
     override val playbackRuntimeSettingsSource: PlaybackRuntimeSettingsSource
-        get() = graph.playbackRuntimeSettingsSource
+        get() = bindings.playbackRuntimeSettingsSource()
     override val playbackUiPersistence: PlaybackUiPersistence
-        get() = graph.playbackUiPersistence
+        get() = bindings.playbackUiPersistence()
     override val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
-        get() = graph.playbackDeviceControllerFactory
+        get() = bindings.playbackDeviceControllerFactory()
 
     override fun createPlaybackControllerConnector(context: android.content.Context) =
-        graph.playbackControllerConnectorFactory.create(
-            context = context,
-            playbackServiceComponent = graph.playbackPlatformBindings.playbackServiceComponent,
-        )
+        bindings.createPlaybackControllerConnector(context)
 }
 
 internal class AppPlaybackServiceDependencies(
-    private val graph: AsukaAppGraph,
-    override val sessionActivityClass: Class<*>?,
-    @get:DrawableRes override val notificationSmallIconResId: Int,
+    private val bindings: PlaybackServiceEntryBindings,
 ) : PlaybackServiceDependencies {
+    override val sessionActivityClass: Class<*>?
+        get() = bindings.sessionActivityClass
+
+    @get:DrawableRes
+    override val notificationSmallIconResId: Int
+        get() = bindings.notificationSmallIconResId
+
     override val playbackStore
-        get() = graph.playbackStore
+        get() = bindings.playbackStore()
 
     override val queueHistoryStore
-        get() = graph.queueHistoryStore
+        get() = bindings.queueHistoryStore()
 }

@@ -19,6 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -43,7 +44,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun onPositionDiscontinuity_savesNewPositionForSeek() {
+    fun onPositionDiscontinuity_savesNewPositionForSeek() = runBlocking {
         val store = InMemoryPlaybackStore()
         val mediaItem = mediaItem("media://seek")
         val playerState = fakePlayer(currentMediaItem = mediaItem)
@@ -60,7 +61,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun onPlaybackParametersChanged_afterMediaItemTransition_targetsNewItem() {
+    fun onPlaybackParametersChanged_afterMediaItemTransition_targetsNewItem() = runBlocking {
         val store = InMemoryPlaybackStore()
         val first = mediaItem("media://first")
         val second = mediaItem("media://second")
@@ -76,7 +77,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun onPlaybackStateChanged_whenEnded_resetsCurrentItemPosition() {
+    fun onPlaybackStateChanged_whenEnded_resetsCurrentItemPosition() = runBlocking {
         val store = InMemoryPlaybackStore()
         val mediaItem = mediaItem("media://ended")
         val playerState = fakePlayer(currentMediaItem = mediaItem)
@@ -90,7 +91,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun checkpoint_savesPlayingPositionAfterInterval() {
+    fun checkpoint_savesPlayingPositionAfterInterval() = runBlocking {
         val store = InMemoryPlaybackStore()
         val mediaItem = mediaItem("media://checkpoint")
         val playerState = fakePlayer(
@@ -115,7 +116,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun flushCurrentPosition_savesLatestKnownPosition() {
+    fun flushCurrentPosition_savesLatestKnownPosition() = runBlocking {
         val store = InMemoryPlaybackStore()
         val mediaItem = mediaItem("media://flush")
         val playerState = fakePlayer(
@@ -133,7 +134,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun flushCurrentPosition_whenEnded_preservesResetToZero() {
+    fun flushCurrentPosition_whenEnded_preservesResetToZero() = runBlocking {
         val store = InMemoryPlaybackStore()
         val mediaItem = mediaItem("media://ended-flush")
         val playerState = fakePlayer(
@@ -151,7 +152,7 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun onTracksChanged_savesSelectionsForActualCurrentItem() {
+    fun onTracksChanged_savesSelectionsForActualCurrentItem() = runBlocking {
         val store = InMemoryPlaybackStore()
         val first = mediaItem("media://first")
         val second = mediaItem("media://second")
