@@ -1,6 +1,5 @@
 package com.asuka.player.ui
 
-import android.net.Uri
 import com.asuka.player.contract.LoopMode
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.contract.PlaybackDeviceController
@@ -31,7 +30,7 @@ internal object TestPlaybackController : PlaybackController {
         preferredTrackIndex: Int,
     ) {}
 
-    override fun addExternalSubtitle(uri: Uri, label: String?) {}
+    override fun addExternalSubtitle(uri: String, label: String?) {}
 
     override fun setVideoScaleMode(mode: VideoScaleMode) {}
 
