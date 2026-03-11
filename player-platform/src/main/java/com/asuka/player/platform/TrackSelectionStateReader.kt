@@ -1,11 +1,8 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import androidx.media3.common.C
 import androidx.media3.common.Player
 
-/**
- * Reads current selection override for audio/subtitle.
- */
 class TrackSelectionStateReader(private val player: Player) {
     data class Selected(val type: Int, val groupIndex: Int, val trackIndex: Int)
 
@@ -13,9 +10,6 @@ class TrackSelectionStateReader(private val player: Player) {
         val params = player.trackSelectionParameters
         val results = mutableListOf<Selected>()
         params.overrides.values.forEach { override ->
-            // TrackGroup.equals() is content-based (compares id + all Format entries), not
-            // reference-based, so this lookup is correct even if Media3 wraps the same
-            // underlying group in a new object between calls.
             val groupIndex = player.currentTracks.groups.indexOfFirst { it.mediaTrackGroup == override.mediaTrackGroup }
             if (groupIndex < 0) return@forEach
             val type = player.currentTracks.groups[groupIndex].type

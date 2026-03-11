@@ -1,6 +1,6 @@
 package com.asuka.player.data
 
-import com.asuka.player.core.PlaybackStore
+import com.asuka.player.contract.PlaybackStore
 import java.util.concurrent.ConcurrentHashMap
 
 class InMemoryPlaybackStore : PlaybackStore {

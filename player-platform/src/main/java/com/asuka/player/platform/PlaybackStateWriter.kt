@@ -1,21 +1,18 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import androidx.annotation.OptIn
 import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
-/**
- * Attaches to Player events and writes playback state into the store.
- * This is a lightweight, clean-room alternative and can be replaced by a use-case layer.
- *
- * **Thread safety:** All Player.Listener callbacks are delivered on the application's main thread.
- * This class must only be used on the main thread.
- */
+import com.asuka.player.contract.PersistedTrackSelection
+import com.asuka.player.contract.PlaybackStore
+
 @OptIn(UnstableApi::class)
 class PlaybackStateWriter(
     private val store: PlaybackStore,
 ) : Player.Listener {
-
     companion object {
         const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
 
@@ -46,12 +43,6 @@ class PlaybackStateWriter(
         lastCheckpointRealtimeMs = Long.MIN_VALUE
     }
 
-    /**
-     * Saves the current playback position while playback is actively progressing.
-     *
-     * Returns true when a checkpoint was written, false when the player was not in a state
-     * worth checkpointing yet or when the minimum interval has not elapsed.
-     */
     fun checkpoint(nowMs: Long, minIntervalMs: Long = POSITION_CHECKPOINT_INTERVAL_MS): Boolean {
         val player = attachedPlayer ?: return false
         if (!player.isPlaying) return false
@@ -66,10 +57,6 @@ class PlaybackStateWriter(
         return true
     }
 
-    /**
-     * Persists the latest known position regardless of whether playback is currently paused.
-     * Intended for lifecycle boundaries such as service destruction.
-     */
     fun flushCurrentPosition(): Boolean {
         val player = attachedPlayer ?: return false
         val mediaId = resolveCurrentMediaId(player) ?: return false
@@ -78,11 +65,6 @@ class PlaybackStateWriter(
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         val player = attachedPlayer ?: return
-        // During media item transitions the player briefly stops playing. At that point
-        // currentMediaId already points to the *new* item (updated by onMediaItemTransition),
-        // so saving the position here would associate a stale/zero position with the new
-        // mediaId. Skip the save when the player is between items (IDLE/ENDED) or buffering
-        // the next item.
         val state = player.playbackState
         if (!shouldSavePositionOnPause(isPlaying = isPlaying, playbackState = state)) return
         val mediaId = currentMediaId ?: return
@@ -95,7 +77,7 @@ class PlaybackStateWriter(
         lastCheckpointRealtimeMs = Long.MIN_VALUE
     }
 
-    override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+    override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         val mediaId = currentMediaId ?: return
         store.savePlaybackSpeed(mediaId, playbackParameters.speed)
     }
@@ -117,25 +99,13 @@ class PlaybackStateWriter(
         }
     }
 
-    override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-        // Why read from attachedPlayer?.currentMediaItem?.mediaId instead of currentMediaId:
-        //
-        // Media3 does NOT guarantee that onMediaItemTransition fires before onTracksChanged
-        // when the media item changes. If onTracksChanged fires first:
-        //   - currentMediaId still points to the OLD item (not yet updated)
-        //   - attachedPlayer.currentMediaItem already reflects the NEW item
-        //   - the `tracks` parameter already belongs to the NEW item
-        // Using currentMediaId here would associate new-item tracks with the old mediaId.
-        //
-        // By reading directly from the player we get the mediaId that matches `tracks`,
-        // regardless of the onMediaItemTransition ordering. In the converse case where
-        // onMediaItemTransition fires first, both sources agree, so the result is the same.
+    override fun onTracksChanged(tracks: Tracks) {
         val mediaId = attachedPlayer?.currentMediaItem?.mediaId ?: return
         var selectedAudioId: String? = null
         var selectedSubtitleId: String? = null
         var hasTextGroup = false
 
-        tracks.groups.forEachIndexed { groupIndex, group ->
+        tracks.groups.forEachIndexed { _, group ->
             if (group.type != C.TRACK_TYPE_AUDIO && group.type != C.TRACK_TYPE_TEXT) return@forEachIndexed
             if (group.type == C.TRACK_TYPE_TEXT) hasTextGroup = true
             val selectedTrackIndex = (0 until group.length).firstOrNull { trackIndex ->

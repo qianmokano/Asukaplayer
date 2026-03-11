@@ -3,12 +3,12 @@ package com.asuka.player.ui.activity
 import android.content.Intent
 import android.net.Uri
 import androidx.media3.common.PlaybackException
-import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.core.PlaybackRuntimeSettingsSource
-import com.asuka.player.core.PlaybackSessionPlan
-import com.asuka.player.core.PlaybackStartupPolicy
-import com.asuka.player.core.PlayerSettings
-import com.asuka.player.core.QueueBuilder
+import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlaybackSessionPlan
+import com.asuka.player.contract.PlaybackStartupPolicy
+import com.asuka.player.contract.PlaybackQueue
+import com.asuka.player.contract.PlayerSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -64,7 +64,7 @@ class PlaybackLaunchOrchestratorTest {
                 capturedAutoplay = autoplay
                 capturedPolicy = policy
                 PlaybackSessionPlan(
-                    queue = QueueBuilder.Queue(items = emptyList(), startIndex = 0),
+                    queue = PlaybackQueue(items = emptyList(), startIndex = 0),
                     resumePositionMs = 0L,
                     playbackSpeed = 1.25f,
                     trackSelectionRestoreRequest = null,

@@ -64,7 +64,7 @@ fun OverlayPanel(
     selectedAudio: Int?,
     selectedSubtitle: Int?,
     currentSpeed: Float,
-    currentScaleMode: com.asuka.player.core.VideoScaleMode,
+    currentScaleMode: com.asuka.player.contract.VideoScaleMode,
     audioTracks: List<TrackOption>,
     subtitleTracks: List<TrackOption>,
     onDismiss: () -> Unit,

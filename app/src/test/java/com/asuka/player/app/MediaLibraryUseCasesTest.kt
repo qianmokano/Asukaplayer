@@ -55,6 +55,24 @@ class MediaLibraryUseCasesTest {
     }
 
     @Test
+    fun refreshMediaLibraryUseCase_mapsPermissionFailureToOutcome() = runBlocking {
+        val repository = FakeMediaLibraryRepository(
+            scanFailure = SecurityException("permission denied"),
+        )
+        val useCase = RefreshMediaLibraryUseCase(
+            mediaLibraryRepository = repository,
+            minRefreshAnimMs = 0L,
+        )
+
+        val result = useCase(hasLoadedOnce = true)
+
+        assertEquals(
+            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.PermissionDenied),
+            result,
+        )
+    }
+
+    @Test
     fun resolveVideoAccessAndRecentIds_delegateToRepository() = runBlocking {
         val repository = FakeMediaLibraryRepository(
             accessState = VideoAccessState(

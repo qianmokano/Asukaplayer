@@ -1,6 +1,6 @@
 package com.asuka.player.ui.controller
 
-import com.asuka.player.core.PlaybackController
+import com.asuka.player.contract.PlaybackController
 
 /**
  * Connects overlay actions to playback commands.
@@ -12,7 +12,7 @@ class OverlayActions(
         controller.setPlaybackSpeed(value)
     }
 
-    fun setScale(mode: com.asuka.player.core.VideoScaleMode) {
+    fun setScale(mode: com.asuka.player.contract.VideoScaleMode) {
         controller.setVideoScaleMode(mode)
     }
 }

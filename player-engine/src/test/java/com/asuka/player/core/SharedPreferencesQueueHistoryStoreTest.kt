@@ -22,8 +22,8 @@ class SharedPreferencesQueueHistoryStoreTest {
             preferencesName = prefsName,
             maxSize = 3,
         ).apply {
-            push(Uri.parse("file:///1.mp4"))
-            push(Uri.parse("file:///2.mp4"))
+            push("file:///1.mp4")
+            push("file:///2.mp4")
         }
 
         val restored = SharedPreferencesQueueHistoryStore(
@@ -33,7 +33,7 @@ class SharedPreferencesQueueHistoryStoreTest {
         )
 
         assertEquals(
-            listOf(Uri.parse("file:///1.mp4"), Uri.parse("file:///2.mp4")),
+            listOf("file:///1.mp4", "file:///2.mp4"),
             restored.items(),
         )
     }
@@ -49,12 +49,12 @@ class SharedPreferencesQueueHistoryStoreTest {
             preferencesName = prefsName,
             maxSize = 2,
         )
-        store.push(Uri.parse("file:///1.mp4"))
-        store.push(Uri.parse("file:///2.mp4"))
-        store.push(Uri.parse("file:///3.mp4"))
+        store.push("file:///1.mp4")
+        store.push("file:///2.mp4")
+        store.push("file:///3.mp4")
 
         assertEquals(
-            listOf(Uri.parse("file:///2.mp4"), Uri.parse("file:///3.mp4")),
+            listOf("file:///2.mp4", "file:///3.mp4"),
             store.items(),
         )
     }

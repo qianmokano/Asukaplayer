@@ -1,6 +1,12 @@
 package com.asuka.player.core
 
 import android.net.Uri
+import com.asuka.player.contract.PersistedTrackSelection
+import com.asuka.player.contract.PlaybackQueueEntry
+import com.asuka.player.contract.PlaybackSessionPlanner
+import com.asuka.player.contract.PlaybackStartupPolicy
+import com.asuka.player.contract.PlaybackStateRepository
+import com.asuka.player.contract.TrackSelectionRestoreRequest
 import com.asuka.player.data.InMemoryPlaybackStore
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -28,9 +34,9 @@ class PlaybackSessionPlannerTest {
         )
 
         val plan = planner.plan(
-            targetUri = target,
-            launchNeighbors = listOf(extra),
-            resolvedTitles = mapOf(target to "Target Title"),
+            targetUri = target.toString(),
+            launchNeighbors = listOf(extra.toString()),
+            resolvedTitles = mapOf(target.toString() to "Target Title"),
             policy = PlaybackStartupPolicy(
                 resumePlayback = true,
                 defaultPlaybackSpeed = 1.0f,
@@ -38,7 +44,7 @@ class PlaybackSessionPlannerTest {
             ),
         )
 
-        assertEquals(listOf(target, extra), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(listOf(target.toString(), extra.toString()), plan.queue.items.map { it.uri })
         assertEquals(0, plan.queue.startIndex)
         assertEquals(42_000L, plan.resumePositionMs)
         assertEquals(1.75f, plan.playbackSpeed)
@@ -56,7 +62,7 @@ class PlaybackSessionPlannerTest {
         )
 
         val plan = planner.plan(
-            targetUri = target,
+            targetUri = target.toString(),
             launchNeighbors = emptyList(),
             policy = PlaybackStartupPolicy(
                 resumePlayback = false,
@@ -84,7 +90,7 @@ class PlaybackSessionPlannerTest {
         )
 
         val plan = planner.plan(
-            targetUri = target,
+            targetUri = target.toString(),
             launchNeighbors = emptyList(),
             policy = PlaybackStartupPolicy(
                 resumePlayback = false,
@@ -93,7 +99,7 @@ class PlaybackSessionPlannerTest {
             ),
         )
 
-        assertEquals(listOf(target), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(listOf(target.toString()), plan.queue.items.map { it.uri })
         assertEquals(0, plan.queue.startIndex)
     }
 
@@ -104,11 +110,11 @@ class PlaybackSessionPlannerTest {
         )
 
         val plan = planner.plan(
-            targetUri = target,
-            launchNeighbors = listOf(extra),
+            targetUri = target.toString(),
+            launchNeighbors = listOf(extra.toString()),
             resolvedTitles = mapOf(
-                target to "Target Title",
-                extra to "Extra Title",
+                target.toString() to "Target Title",
+                extra.toString() to "Extra Title",
             ),
             policy = PlaybackStartupPolicy(
                 resumePlayback = false,
@@ -117,10 +123,10 @@ class PlaybackSessionPlannerTest {
             ),
         )
 
-        assertEquals(listOf(target, extra), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(listOf(target.toString(), extra.toString()), plan.queue.items.map { it.uri })
         assertEquals(
             listOf("Target Title", "Extra Title"),
-            plan.queue.items.map { it.mediaMetadata.title?.toString() },
+            plan.queue.items.map { it.title },
         )
     }
 
@@ -131,12 +137,12 @@ class PlaybackSessionPlannerTest {
         )
 
         val plan = planner.plan(
-            targetUri = target,
-            launchNeighbors = listOf(previous, target, extra),
+            targetUri = target.toString(),
+            launchNeighbors = listOf(previous.toString(), target.toString(), extra.toString()),
             resolvedTitles = mapOf(
-                previous to "Previous Title",
-                target to "Target Title",
-                extra to "Extra Title",
+                previous.toString() to "Previous Title",
+                target.toString() to "Target Title",
+                extra.toString() to "Extra Title",
             ),
             policy = PlaybackStartupPolicy(
                 resumePlayback = false,
@@ -145,11 +151,11 @@ class PlaybackSessionPlannerTest {
             ),
         )
 
-        assertEquals(listOf(previous, target, extra), plan.queue.items.map { it.localConfiguration?.uri })
+        assertEquals(listOf(previous.toString(), target.toString(), extra.toString()), plan.queue.items.map { it.uri })
         assertEquals(1, plan.queue.startIndex)
         assertEquals(
             listOf("Previous Title", "Target Title", "Extra Title"),
-            plan.queue.items.map { it.mediaMetadata.title?.toString() },
+            plan.queue.items.map { it.title },
         )
     }
 
@@ -169,7 +175,7 @@ class PlaybackSessionPlannerTest {
         val plan = planner.plan(
             target = PlaybackQueueEntry(
                 mediaId = original.toString(),
-                uri = fallback,
+                uri = fallback.toString(),
             ),
             launchNeighbors = emptyList(),
             policy = PlaybackStartupPolicy(
@@ -182,7 +188,7 @@ class PlaybackSessionPlannerTest {
         assertEquals(12_345L, plan.resumePositionMs)
         assertEquals(1.25f, plan.playbackSpeed)
         assertEquals(original.toString(), plan.queue.items.single().mediaId)
-        assertEquals(fallback, plan.queue.items.single().localConfiguration?.uri)
+        assertEquals(fallback.toString(), plan.queue.items.single().uri)
         assertEquals(
             TrackSelectionRestoreRequest(
                 mediaId = original.toString(),

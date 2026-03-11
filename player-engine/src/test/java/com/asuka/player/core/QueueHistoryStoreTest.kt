@@ -14,18 +14,18 @@ class QueueHistoryStoreTest {
     fun push_deduplicatesConsecutive() {
         val store = InMemoryQueueHistoryStore(maxSize = 3)
         val a = Uri.parse("file:///a.mp4")
-        store.push(a)
-        store.push(a)
-        assertEquals(listOf(a), store.items())
+        store.push(a.toString())
+        store.push(a.toString())
+        assertEquals(listOf(a.toString()), store.items())
     }
 
     @Test
     fun push_respectsMaxSize() {
         val store = InMemoryQueueHistoryStore(maxSize = 2)
-        store.push(Uri.parse("file:///1.mp4"))
-        store.push(Uri.parse("file:///2.mp4"))
-        store.push(Uri.parse("file:///3.mp4"))
+        store.push("file:///1.mp4")
+        store.push("file:///2.mp4")
+        store.push("file:///3.mp4")
         assertEquals(2, store.items().size)
-        assertEquals(Uri.parse("file:///2.mp4"), store.items().first())
+        assertEquals("file:///2.mp4", store.items().first())
     }
 }

@@ -1,19 +1,17 @@
 package com.asuka.player.ui.activity
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.view.Window
 import androidx.media3.session.MediaController
-import com.asuka.player.core.PlaybackActivityDependencies
-import com.asuka.player.core.PlaybackDeviceController
-import com.asuka.player.core.PlaybackDeviceControllerFactory
-import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.core.PlaybackRuntimeSettingsSource
-import com.asuka.player.core.PlaybackSessionPlanner
-import com.asuka.player.core.PlaybackStateRepository
-import com.asuka.player.core.PlaybackUiPersistence
+import com.asuka.player.platform.PlaybackActivityDependencies
+import com.asuka.player.contract.PlaybackDeviceController
+import com.asuka.player.platform.PlaybackDeviceControllerFactory
+import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlaybackSessionPlanner
+import com.asuka.player.contract.PlaybackStateRepository
+import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.data.InMemoryPlaybackStore
 import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.ui.R
@@ -82,7 +80,7 @@ class PlaybackSessionHostTest {
                 override fun readRememberedBrightness(): Float? = null
                 override fun saveRememberedBrightness(brightness: Float) {}
             }
-            override val playbackDeviceControllerFactory = PlaybackDeviceControllerFactory { _: Context, _: Window ->
+            override val playbackDeviceControllerFactory = PlaybackDeviceControllerFactory { _ ->
                 object : PlaybackDeviceController {
                     override fun currentVolumePercent(): Int = 50
                     override fun setVolumePercent(percent: Int) {}
@@ -90,7 +88,8 @@ class PlaybackSessionHostTest {
                     override fun setBrightnessPercent(percent: Int) {}
                 }
             }
-            override val playbackServiceComponent = ComponentName(context, PlaybackSessionHostTest::class.java)
+            override fun createPlaybackControllerConnector(context: Context) =
+                error("PlaybackControllerConnector should be injected explicitly in this test")
         }
     }
 

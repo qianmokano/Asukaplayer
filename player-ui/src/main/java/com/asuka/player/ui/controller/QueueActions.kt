@@ -1,6 +1,6 @@
 package com.asuka.player.ui.controller
 
-import com.asuka.player.core.PlaybackController
+import com.asuka.player.contract.PlaybackController
 
 class QueueActions(
     private val controller: PlaybackController,

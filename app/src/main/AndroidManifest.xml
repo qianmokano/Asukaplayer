@@ -50,7 +50,7 @@
             android:windowLayoutInDisplayCutoutMode="shortEdges" />
 
         <service
-            android:name="com.asuka.player.core.service.PlaybackService"
+            android:name="com.asuka.player.engine.service.PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

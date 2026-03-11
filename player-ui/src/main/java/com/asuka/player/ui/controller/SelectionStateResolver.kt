@@ -1,7 +1,7 @@
 package com.asuka.player.ui.controller
 
-import com.asuka.player.core.TrackIndexCodec
-import com.asuka.player.core.TrackSelectionStateReader
+import com.asuka.player.contract.TrackIndexCodec
+import com.asuka.player.platform.TrackSelectionStateReader
 
 internal object SelectionStateResolver {
     fun audioSelection(selected: TrackSelectionStateReader.Selected?): Int? {

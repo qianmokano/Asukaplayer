@@ -9,8 +9,8 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
 import com.asuka.player.R
-import com.asuka.player.core.PlaybackStateRepository
-import com.asuka.player.core.QueueHistoryRepository
+import com.asuka.player.contract.PlaybackStateRepository
+import com.asuka.player.contract.QueueHistoryRepository
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,6 +65,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
     context: Context,
 ) : LocalVideoCatalogDataSource {
     private val appContext = context.applicationContext
+    private val contentResolver = appContext.contentResolver
 
     override suspend fun scanLocalVideos(): List<LocalVideoItem> {
         return withContext(Dispatchers.IO) {
@@ -100,59 +101,56 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
             null
         }
         val sortOrder = "${MediaStore.Video.Media.DATE_ADDED} DESC"
-        return try {
-            buildList {
-                appContext.contentResolver.query(
-                    collection,
-                    projection,
-                    selection,
-                    null,
-                    sortOrder,
-                )?.use { cursor ->
-                    val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-                    val titleIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-                    val durationIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-                    val sizeIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-                    val dataPathIdx = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
-                    val folderNameIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
-                    val folderIdIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_ID)
-                    val dateAddedIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+        val cursor = contentResolver.query(
+            collection,
+            projection,
+            selection,
+            null,
+            sortOrder,
+        ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
+        return cursor.use {
+            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            val titleIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+            val durationIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+            val sizeIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+            val dataPathIdx = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
+            val folderNameIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
+            val folderIdIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_ID)
+            val dateAddedIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
 
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idIdx)
-                        val uri = ContentUris.withAppendedId(collection, id)
-                        val fallbackFolderName = cursor.getString(folderNameIdx)
+            buildList {
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idIdx)
+                    val uri = ContentUris.withAppendedId(collection, id)
+                    val fallbackFolderName = cursor.getString(folderNameIdx)
+                        ?.takeIf { it.isNotBlank() }
+                        ?: appContext.getString(R.string.unknown_folder)
+                    val fullFolderPath = if (dataPathIdx >= 0) {
+                        cursor.getString(dataPathIdx)
                             ?.takeIf { it.isNotBlank() }
-                            ?: appContext.getString(R.string.unknown_folder)
-                        val fullFolderPath = if (dataPathIdx >= 0) {
-                            cursor.getString(dataPathIdx)
-                                ?.takeIf { it.isNotBlank() }
-                                ?.let { File(it).parent }
-                                ?.takeIf { it.isNotBlank() }
-                        } else {
-                            null
-                        }?.replace(
-                            Environment.getExternalStorageDirectory().absolutePath,
-                            appContext.getString(R.string.internal_storage),
-                        ) ?: fallbackFolderName
-                        add(
-                            LocalVideoItem(
-                                id = id,
-                                uri = uri,
-                                title = cursor.getString(titleIdx) ?: uri.lastPathSegment.orEmpty(),
-                                durationMs = cursor.getLong(durationIdx).coerceAtLeast(0L),
-                                sizeBytes = cursor.getLong(sizeIdx).coerceAtLeast(0L),
-                                folderName = fallbackFolderName,
-                                folderPath = fullFolderPath,
-                                folderId = cursor.getLong(folderIdIdx),
-                                dateAddedSec = cursor.getLong(dateAddedIdx).coerceAtLeast(0L),
-                            ),
-                        )
-                    }
+                            ?.let { File(it).parent }
+                            ?.takeIf { it.isNotBlank() }
+                    } else {
+                        null
+                    }?.replace(
+                        Environment.getExternalStorageDirectory().absolutePath,
+                        appContext.getString(R.string.internal_storage),
+                    ) ?: fallbackFolderName
+                    add(
+                        LocalVideoItem(
+                            id = id,
+                            uri = uri,
+                            title = cursor.getString(titleIdx) ?: uri.lastPathSegment.orEmpty(),
+                            durationMs = cursor.getLong(durationIdx).coerceAtLeast(0L),
+                            sizeBytes = cursor.getLong(sizeIdx).coerceAtLeast(0L),
+                            folderName = fallbackFolderName,
+                            folderPath = fullFolderPath,
+                            folderId = cursor.getLong(folderIdIdx),
+                            dateAddedSec = cursor.getLong(dateAddedIdx).coerceAtLeast(0L),
+                        ),
+                    )
                 }
             }
-        } catch (_: SecurityException) {
-            emptyList()
         }
     }
 }
@@ -164,8 +162,9 @@ internal class PlaybackRecentMediaDataSource(
     override suspend fun loadRecentMediaIds(limit: Int): List<String> {
         return withContext(Dispatchers.IO) {
             resolveRecentMediaIds(
-                historyUris = queueHistoryRepository.items(),
+                historyMediaIds = queueHistoryRepository.items(),
                 fallbackMediaIds = playbackStateRepository.recentMediaIds(limit = limit),
+                limit = limit,
             )
         }
     }

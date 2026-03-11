@@ -1,7 +1,7 @@
 package com.asuka.player.ui.activity
 
-import com.asuka.player.core.PlayerSettings
-import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
+import com.asuka.player.contract.PlaybackRuntimeSettings
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

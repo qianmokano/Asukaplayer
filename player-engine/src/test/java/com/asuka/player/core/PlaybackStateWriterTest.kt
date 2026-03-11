@@ -10,6 +10,8 @@ import androidx.media3.common.TrackGroup
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
+import com.asuka.player.platform.PlaybackStateWriter
+import com.asuka.player.platform.TrackSelectionIdentity
 import com.asuka.player.data.InMemoryPlaybackStore
 import java.lang.reflect.Proxy
 import kotlin.test.Test

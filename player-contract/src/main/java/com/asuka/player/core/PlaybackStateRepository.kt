@@ -1,4 +1,4 @@
-package com.asuka.player.core
+package com.asuka.player.contract
 
 data class ResumeState(
     val positionMs: Long,

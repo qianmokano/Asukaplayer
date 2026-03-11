@@ -5,8 +5,12 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.asuka.player.core.PlayerSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.R
+import com.asuka.player.runtime.CustomThemeEntry
+import com.asuka.player.runtime.PlayerSettingsRepository
+import com.asuka.player.runtime.ThemeConfig
+import com.asuka.player.runtime.UiSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

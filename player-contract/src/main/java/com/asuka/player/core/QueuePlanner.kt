@@ -1,6 +1,4 @@
-package com.asuka.player.core
-
-import android.net.Uri
+package com.asuka.player.contract
 
 /**
  * Queue planning: preserve an explicit queue when available; otherwise stay on the current item.
@@ -26,7 +24,7 @@ object QueuePlanner {
         return listOf(current)
     }
 
-    fun plan(current: Uri, neighbors: List<Uri> = emptyList()): List<Uri> {
+    fun plan(current: String, neighbors: List<String> = emptyList()): List<String> {
         return plan(
             current = PlaybackQueueEntry(mediaId = current.toString(), uri = current),
             neighbors = neighbors.map { uri -> PlaybackQueueEntry(mediaId = uri.toString(), uri = uri) },

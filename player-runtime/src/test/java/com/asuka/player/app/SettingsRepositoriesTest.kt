@@ -1,8 +1,10 @@
-package com.asuka.player.app
+package com.asuka.player.runtime
 
-import com.asuka.player.core.PlayerSettings
 import android.content.Context
-import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
+import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.data.AppSettingsStore
+import com.asuka.player.data.DataStoreAppSettingsStore
 import com.asuka.player.data.SharedPreferencesAppSettingsStore
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -90,9 +92,13 @@ class SettingsRepositoriesTest {
         assertEquals(0.42f, repository.rememberedBrightness)
     }
 
-    private fun freshStore(): SharedPreferencesAppSettingsStore {
+    private fun freshStore(): AppSettingsStore {
         val context = RuntimeEnvironment.getApplication()
-        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE).edit().clear().commit()
-        return SharedPreferencesAppSettingsStore(context)
+        context.getSharedPreferences(SharedPreferencesAppSettingsStore.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        context.filesDir.resolve("datastore/app_settings.json").delete()
+        return DataStoreAppSettingsStore(
+            context = context,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+        )
     }
 }

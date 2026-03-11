@@ -23,18 +23,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.asuka.player.core.PlayerSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.R
-
-internal data class MainLibraryUiState(
-    val appVersion: String,
-    val uiSettings: UiSettingsState,
-    val playerSettings: PlayerSettings,
-    val permissionGranted: Boolean,
-    val userSelectedPermissionGranted: Boolean,
-    val mediaLibraryState: MediaLibraryRefreshState,
-    val recentMediaIds: List<String>,
-)
+import com.asuka.player.runtime.CustomThemeEntry
+import com.asuka.player.runtime.ThemeConfig
+import com.asuka.player.runtime.UiSettingsState
 
 @Composable
 internal fun MainLibraryNavHost(

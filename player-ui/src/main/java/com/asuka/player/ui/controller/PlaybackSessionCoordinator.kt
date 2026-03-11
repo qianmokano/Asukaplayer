@@ -4,12 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
-import com.asuka.player.core.IntentQueueReader
-import com.asuka.player.core.PlaybackQueueEntry
-import com.asuka.player.core.PlaybackSessionPlan
-import com.asuka.player.core.PlaybackSessionPlanner
-import com.asuka.player.core.PlaybackStartupPolicy
-import com.asuka.player.core.TrackInfoReader
+import com.asuka.player.platform.IntentQueueReader
+import com.asuka.player.contract.PlaybackQueueEntry
+import com.asuka.player.contract.PlaybackSessionPlan
+import com.asuka.player.contract.PlaybackSessionPlanner
+import com.asuka.player.contract.PlaybackStartupPolicy
+import com.asuka.player.platform.toMediaItems
+import com.asuka.player.platform.TrackInfoReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -54,12 +55,12 @@ class PlaybackSessionCoordinator(
         val targetMediaId = launchIntent?.let(IntentQueueReader::readTargetMediaId) ?: target.toString()
         val launchNeighbors = launchIntent?.let(IntentQueueReader::readEntries).orEmpty()
         val resolvedTitles = withContext(Dispatchers.IO) {
-            (listOf(target) + launchNeighbors.map(PlaybackQueueEntry::uri))
+            (listOf(target.toString()) + launchNeighbors.map(PlaybackQueueEntry::uri))
                 .distinct()
-                .associateWith { uri -> titleResolver(uri) }
+                .associateWith { uri -> titleResolver(Uri.parse(uri)) }
         }
         val plan = sessionPlanner.plan(
-            target = PlaybackQueueEntry(mediaId = targetMediaId, uri = target),
+            target = PlaybackQueueEntry(mediaId = targetMediaId, uri = target.toString()),
             launchNeighbors = launchNeighbors,
             resolvedTitles = resolvedTitles,
             policy = policy,
@@ -77,7 +78,7 @@ class PlaybackSessionCoordinator(
         autoplay: Boolean,
     ) {
         mediaController.setMediaItems(
-            plan.queue.items,
+            plan.queue.toMediaItems(),
             plan.queue.startIndex,
             plan.resumePositionMs,
         )

@@ -47,6 +47,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":player-platform"))
     implementation(project(":player-runtime"))
     implementation(project(":player-ui"))
 

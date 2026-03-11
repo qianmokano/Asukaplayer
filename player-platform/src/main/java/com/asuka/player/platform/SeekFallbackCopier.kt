@@ -1,4 +1,4 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import android.content.ContentResolver
 import android.net.Uri
@@ -8,28 +8,15 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 
-/**
- * Shared helper for copying a content:// URI to the local cache so that seek works reliably.
- * Used by both PlaybackActivity (reactive, post-error fallback) and MainActivity (pre-launch check).
- */
 class SeekFallbackCopier(
     private val contentResolver: ContentResolver,
     private val cacheDir: File,
 ) {
     companion object {
-        /** Maximum per-file size that will be copied (500 MB). */
         const val MAX_FILE_BYTES = 500L * 1024L * 1024L
-
-        /** Maximum total size of the seek_fallback cache folder (1 GB). */
         const val MAX_CACHE_BYTES = 1024L * 1024L * 1024L
     }
 
-    /**
-     * Copies [uri] to the seek_fallback cache folder.
-     *
-     * @param checkSize when true, skips copying if the file exceeds [MAX_FILE_BYTES].
-     * @return a `file://` URI pointing to the local copy, or null on failure.
-     */
     fun copy(uri: Uri, checkSize: Boolean = true): Uri? {
         if (checkSize) {
             val fileSize = queryFileSize(uri)
@@ -62,7 +49,9 @@ class SeekFallbackCopier(
                     val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
                     if (idx >= 0 && cursor.moveToFirst()) cursor.getLong(idx) else -1L
                 } ?: -1L
-        } catch (_: Throwable) { -1L }
+        } catch (_: Throwable) {
+            -1L
+        }
     }
 
     fun queryDisplayName(uri: Uri): String? {
@@ -77,11 +66,9 @@ class SeekFallbackCopier(
         }
     }
 
-    /** Removes files older than 24 h and evicts oldest until the folder is under [MAX_CACHE_BYTES]. */
     fun cleanOldFiles(folder: File) {
         val now = System.currentTimeMillis()
         val maxAgeMs = 24L * 60L * 60L * 1000L
-        // Collect all files once, delete stale ones, then apply LRU eviction on the rest.
         val allFiles = folder.listFiles() ?: return
         val remaining = allFiles
             .onEach { file -> if (now - file.lastModified() > maxAgeMs) file.delete() }

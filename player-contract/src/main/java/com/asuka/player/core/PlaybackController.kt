@@ -1,6 +1,4 @@
-package com.asuka.player.core
-
-import android.net.Uri
+package com.asuka.player.contract
 
 /**
  * UI-facing controller for playback actions.
@@ -15,7 +13,7 @@ interface PlaybackController {
     fun seekBy(deltaMs: Long)
     fun setPlaybackSpeed(speed: Float)
     fun setSubtitleEnabled(enabled: Boolean, preferredGroupIndex: Int = -1, preferredTrackIndex: Int = 0)
-    fun addExternalSubtitle(uri: Uri, label: String? = null)
+    fun addExternalSubtitle(uri: String, label: String? = null)
     fun setVideoScaleMode(mode: VideoScaleMode)
     fun setLoopMode(mode: LoopMode)
     fun setShuffleEnabled(enabled: Boolean)

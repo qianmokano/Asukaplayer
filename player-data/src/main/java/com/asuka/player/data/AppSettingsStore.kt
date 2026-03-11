@@ -1,7 +1,5 @@
 package com.asuka.player.data
 
-import android.content.Context
-
 data class CustomThemeRecord(
     val id: String,
     val name: String,
@@ -51,232 +49,284 @@ data class PlaybackBehaviorRecord(
     val rememberedBrightness: Float? = null,
 )
 
-interface AppSettingsStore {
-    fun loadUiSettings(): UiSettingsRecord
-    fun saveUiSettings(record: UiSettingsRecord)
+data class AppSettingsSnapshot(
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
+    val uiSettings: UiSettingsRecord = UiSettingsRecord(),
+    val playerSettings: PlayerSettingsRecord = PlayerSettingsRecord(),
+    val playbackBehavior: PlaybackBehaviorRecord = PlaybackBehaviorRecord(),
+) {
+    fun normalized(): AppSettingsSnapshot {
+        return copy(
+            schemaVersion = CURRENT_SCHEMA_VERSION,
+            uiSettings = uiSettings.normalized(),
+            playerSettings = playerSettings.normalized(),
+            playbackBehavior = playbackBehavior.normalized(),
+        )
+    }
 
-    fun loadPlayerSettings(): PlayerSettingsRecord
-    fun savePlayerSettings(record: PlayerSettingsRecord)
-
-    fun loadPlaybackBehavior(): PlaybackBehaviorRecord
-    fun savePlaybackBehavior(record: PlaybackBehaviorRecord)
+    companion object {
+        const val CURRENT_SCHEMA_VERSION = 1
+    }
 }
 
-class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
-    private val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-    private val lock = Any()
+interface AppSettingsStore {
+    fun loadSnapshot(): AppSettingsSnapshot
+    fun saveSnapshot(snapshot: AppSettingsSnapshot)
 
-    override fun loadUiSettings(): UiSettingsRecord {
-        synchronized(lock) {
-            return UiSettingsRecord(
-                themeMode = prefs.getString(Keys.THEME_MODE, UiSettingsRecord().themeMode) ?: UiSettingsRecord().themeMode,
-                themeAppearance = prefs.getString(Keys.THEME_APPEARANCE, UiSettingsRecord().themeAppearance)
-                    ?: UiSettingsRecord().themeAppearance,
-                customSeedArgb = prefs.takeIf { it.contains(Keys.THEME_CUSTOM_SEED) }?.getInt(Keys.THEME_CUSTOM_SEED, 0),
-                customThemeId = prefs.getString(Keys.THEME_CUSTOM_THEME_ID, null),
-                customMonochrome = prefs.getBoolean(Keys.THEME_CUSTOM_MONO, false),
-                pureBlack = prefs.getBoolean(Keys.THEME_PURE_BLACK, true),
-                fontScale = prefs.getFloat(Keys.THEME_FONT_SCALE, 1.0f).coerceIn(0.85f, 1.3f),
-                fontScaleEnabled = prefs.getBoolean(Keys.THEME_FONT_SCALE_ENABLED, false),
-                customThemes = loadCustomThemes(),
-                navDurationMs = prefs.getInt(Keys.NAV_DURATION_MS, 350).coerceIn(0, 2000),
-                hapticFeedbackEnabled = prefs.getBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, true),
-            )
-        }
+    fun loadUiSettings(): UiSettingsRecord = loadSnapshot().uiSettings
+    fun saveUiSettings(record: UiSettingsRecord) {
+        saveSnapshot(loadSnapshot().copy(uiSettings = record).normalized())
     }
 
-    override fun saveUiSettings(record: UiSettingsRecord) {
-        synchronized(lock) {
-            prefs.edit()
-                .putString(Keys.THEME_MODE, record.themeMode)
-                .putString(Keys.THEME_APPEARANCE, record.themeAppearance)
-                .putBoolean(Keys.THEME_PURE_BLACK, record.pureBlack)
-                .putFloat(Keys.THEME_FONT_SCALE, record.fontScale.coerceIn(0.85f, 1.3f))
-                .putBoolean(Keys.THEME_FONT_SCALE_ENABLED, record.fontScaleEnabled)
-                .putString(Keys.THEME_CUSTOM_THEME_ID, record.customThemeId)
-                .putBoolean(Keys.THEME_CUSTOM_MONO, record.customMonochrome)
-                .putInt(Keys.NAV_DURATION_MS, record.navDurationMs.coerceIn(0, 2000))
-                .putBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, record.hapticFeedbackEnabled)
-                .putString(Keys.THEME_CUSTOM_THEMES_JSON, encodeCustomThemes(record.customThemes))
-                .apply {
-                    if (record.customSeedArgb != null) {
-                        putInt(Keys.THEME_CUSTOM_SEED, record.customSeedArgb)
-                    } else {
-                        remove(Keys.THEME_CUSTOM_SEED)
-                    }
-                }
-                .apply()
-        }
+    fun loadPlayerSettings(): PlayerSettingsRecord = loadSnapshot().playerSettings
+    fun savePlayerSettings(record: PlayerSettingsRecord) {
+        saveSnapshot(loadSnapshot().copy(playerSettings = record).normalized())
     }
 
-    override fun loadPlayerSettings(): PlayerSettingsRecord {
-        synchronized(lock) {
-            return PlayerSettingsRecord(
-                seekGestureEnabled = prefs.getBoolean(Keys.PLAYER_SEEK_GESTURE_ENABLED, true),
-                brightnessGestureEnabled = prefs.getBoolean(Keys.PLAYER_BRIGHTNESS_GESTURE_ENABLED, true),
-                volumeGestureEnabled = prefs.getBoolean(Keys.PLAYER_VOLUME_GESTURE_ENABLED, true),
-                zoomGestureEnabled = prefs.getBoolean(Keys.PLAYER_ZOOM_GESTURE_ENABLED, true),
-                panGestureEnabled = prefs.getBoolean(Keys.PLAYER_PAN_GESTURE_ENABLED, true),
-                doubleTapGestureEnabled = prefs.getBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, true),
-                doubleTapAction = prefs.getString(Keys.PLAYER_DOUBLE_TAP_ACTION, "seek") ?: "seek",
-                longPressGestureEnabled = prefs.getBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, true),
-                seekIncrementSec = prefs.getInt(Keys.PLAYER_SEEK_INCREMENT_SEC, 10).coerceIn(1, 60),
-                seekSensitivity = prefs.getFloat(Keys.PLAYER_SEEK_SENSITIVITY, 1.0f).coerceIn(0.1f, 2.0f),
-                longPressSpeed = prefs.getFloat(Keys.PLAYER_LONG_PRESS_SPEED, 2.0f).coerceIn(0.2f, 4.0f),
-                controllerTimeoutSec = prefs.getInt(Keys.PLAYER_CONTROLLER_TIMEOUT_SEC, 3).coerceIn(1, 60),
-                hideButtonsBackground = prefs.getBoolean(Keys.PLAYER_HIDE_BUTTONS_BACKGROUND, false),
-                resumePlayback = prefs.getBoolean(Keys.PLAYER_RESUME_PLAYBACK, true),
-                defaultPlaybackSpeed = prefs.getFloat(Keys.PLAYER_DEFAULT_PLAYBACK_SPEED, 1.0f).coerceIn(0.2f, 4.0f),
-                autoplay = prefs.getBoolean(Keys.PLAYER_AUTOPLAY, true),
-                autoPip = prefs.getBoolean(Keys.PLAYER_AUTO_PIP, true),
-                autoBackgroundPlay = prefs.getBoolean(Keys.PLAYER_AUTO_BACKGROUND_PLAY, false),
-                rememberBrightness = prefs.getBoolean(Keys.PLAYER_REMEMBER_BRIGHTNESS, false),
-                rememberSelections = prefs.getBoolean(Keys.PLAYER_REMEMBER_SELECTIONS, true),
-            )
-        }
+    fun loadPlaybackBehavior(): PlaybackBehaviorRecord = loadSnapshot().playbackBehavior
+    fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
+        saveSnapshot(loadSnapshot().copy(playbackBehavior = record).normalized())
+    }
+}
+
+internal fun UiSettingsRecord.normalized(): UiSettingsRecord {
+    return copy(
+        fontScale = fontScale.coerceIn(0.85f, 1.3f),
+        customThemes = customThemes.normalized(),
+        navDurationMs = navDurationMs.coerceIn(0, 2000),
+    )
+}
+
+internal fun PlayerSettingsRecord.normalized(): PlayerSettingsRecord {
+    return copy(
+        seekIncrementSec = seekIncrementSec.coerceIn(1, 60),
+        seekSensitivity = seekSensitivity.coerceIn(0.1f, 2.0f),
+        longPressSpeed = longPressSpeed.coerceIn(0.2f, 4.0f),
+        controllerTimeoutSec = controllerTimeoutSec.coerceIn(1, 60),
+        defaultPlaybackSpeed = defaultPlaybackSpeed.coerceIn(0.2f, 4.0f),
+    )
+}
+
+internal fun PlaybackBehaviorRecord.normalized(): PlaybackBehaviorRecord {
+    return copy(
+        rememberedBrightness = rememberedBrightness?.coerceIn(0f, 1f),
+    )
+}
+
+private fun List<CustomThemeRecord>.normalized(): List<CustomThemeRecord> {
+    return filter { it.id.isNotBlank() && it.name.isNotBlank() }
+}
+
+internal object AppSettingsSnapshotJsonCodec {
+    fun encode(snapshot: AppSettingsSnapshot): String {
+        val normalized = snapshot.normalized()
+        val root = org.json.JSONObject()
+        root.put(Keys.SCHEMA_VERSION, normalized.schemaVersion)
+        root.put(Keys.UI_SETTINGS, encodeUiSettings(normalized.uiSettings))
+        root.put(Keys.PLAYER_SETTINGS, encodePlayerSettings(normalized.playerSettings))
+        root.put(Keys.PLAYBACK_BEHAVIOR, encodePlaybackBehavior(normalized.playbackBehavior))
+        return root.toString()
     }
 
-    override fun savePlayerSettings(record: PlayerSettingsRecord) {
-        synchronized(lock) {
-            prefs.edit()
-                .putBoolean(Keys.PLAYER_SEEK_GESTURE_ENABLED, record.seekGestureEnabled)
-                .putBoolean(Keys.PLAYER_BRIGHTNESS_GESTURE_ENABLED, record.brightnessGestureEnabled)
-                .putBoolean(Keys.PLAYER_VOLUME_GESTURE_ENABLED, record.volumeGestureEnabled)
-                .putBoolean(Keys.PLAYER_ZOOM_GESTURE_ENABLED, record.zoomGestureEnabled)
-                .putBoolean(Keys.PLAYER_PAN_GESTURE_ENABLED, record.panGestureEnabled)
-                .putBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, record.doubleTapGestureEnabled)
-                .putString(Keys.PLAYER_DOUBLE_TAP_ACTION, record.doubleTapAction)
-                .putBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, record.longPressGestureEnabled)
-                .putInt(Keys.PLAYER_SEEK_INCREMENT_SEC, record.seekIncrementSec.coerceIn(1, 60))
-                .putFloat(Keys.PLAYER_SEEK_SENSITIVITY, record.seekSensitivity.coerceIn(0.1f, 2.0f))
-                .putFloat(Keys.PLAYER_LONG_PRESS_SPEED, record.longPressSpeed.coerceIn(0.2f, 4.0f))
-                .putInt(Keys.PLAYER_CONTROLLER_TIMEOUT_SEC, record.controllerTimeoutSec.coerceIn(1, 60))
-                .putBoolean(Keys.PLAYER_HIDE_BUTTONS_BACKGROUND, record.hideButtonsBackground)
-                .putBoolean(Keys.PLAYER_RESUME_PLAYBACK, record.resumePlayback)
-                .putFloat(Keys.PLAYER_DEFAULT_PLAYBACK_SPEED, record.defaultPlaybackSpeed.coerceIn(0.2f, 4.0f))
-                .putBoolean(Keys.PLAYER_AUTOPLAY, record.autoplay)
-                .putBoolean(Keys.PLAYER_AUTO_PIP, record.autoPip)
-                .putBoolean(Keys.PLAYER_AUTO_BACKGROUND_PLAY, record.autoBackgroundPlay)
-                .putBoolean(Keys.PLAYER_REMEMBER_BRIGHTNESS, record.rememberBrightness)
-                .putBoolean(Keys.PLAYER_REMEMBER_SELECTIONS, record.rememberSelections)
-                .apply()
-        }
+    fun decode(raw: String): AppSettingsSnapshot {
+        if (raw.isBlank()) return AppSettingsSnapshot()
+        val root = org.json.JSONObject(raw)
+        return AppSettingsSnapshot(
+            schemaVersion = root.optInt(Keys.SCHEMA_VERSION, AppSettingsSnapshot.CURRENT_SCHEMA_VERSION),
+            uiSettings = decodeUiSettings(root.optJSONObject(Keys.UI_SETTINGS)),
+            playerSettings = decodePlayerSettings(root.optJSONObject(Keys.PLAYER_SETTINGS)),
+            playbackBehavior = decodePlaybackBehavior(root.optJSONObject(Keys.PLAYBACK_BEHAVIOR)),
+        ).normalized()
     }
 
-    override fun loadPlaybackBehavior(): PlaybackBehaviorRecord {
-        synchronized(lock) {
-            return PlaybackBehaviorRecord(
-                keepConnectionInBackground = prefs.getBoolean(Keys.KEEP_CONNECTION_IN_BACKGROUND, true),
-                rememberedBrightness = prefs
-                    .takeIf { it.contains(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS) }
-                    ?.getFloat(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS, 0f)
-                    ?.coerceIn(0f, 1f),
-            )
-        }
-    }
-
-    override fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
-        synchronized(lock) {
-            prefs.edit()
-                .putBoolean(Keys.KEEP_CONNECTION_IN_BACKGROUND, record.keepConnectionInBackground)
-                .apply {
-                    if (record.rememberedBrightness != null) {
-                        putFloat(
-                            Keys.PLAYBACK_REMEMBERED_BRIGHTNESS,
-                            record.rememberedBrightness.coerceIn(0f, 1f),
-                        )
-                    } else {
-                        remove(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS)
-                    }
-                }
-                .apply()
-        }
-    }
-
-    private fun loadCustomThemes(): List<CustomThemeRecord> {
-        val raw = prefs.getString(Keys.THEME_CUSTOM_THEMES_JSON, null) ?: return emptyList()
-        return runCatching {
-            val array = org.json.JSONArray(raw)
-            buildList {
-                for (idx in 0 until array.length()) {
-                    val obj = array.optJSONObject(idx) ?: continue
-                    // Records written before version tagging are treated as version 1.
-                    // Records with an unrecognised version are skipped to avoid loading
-                    // fields that may no longer exist in the current schema.
-                    val version = obj.optInt("version", 1)
-                    if (version != CUSTOM_THEME_JSON_VERSION) continue
-                    val id = obj.optString("id")
-                    val name = obj.optString("name")
-                    val seedArgb = obj.optInt("seedArgb", Int.MIN_VALUE)
-                    if (id.isBlank() || name.isBlank() || seedArgb == Int.MIN_VALUE) continue
-                    add(
-                        CustomThemeRecord(
-                            id = id,
-                            name = name,
-                            seedArgb = seedArgb,
-                            monochrome = obj.optBoolean("monochrome", false),
-                        ),
+    private fun encodeUiSettings(record: UiSettingsRecord): org.json.JSONObject {
+        return org.json.JSONObject().apply {
+            put(UiKeys.THEME_MODE, record.themeMode)
+            put(UiKeys.THEME_APPEARANCE, record.themeAppearance)
+            if (record.customSeedArgb != null) put(UiKeys.CUSTOM_SEED_ARGB, record.customSeedArgb)
+            put(UiKeys.CUSTOM_THEME_ID, record.customThemeId)
+            put(UiKeys.CUSTOM_MONOCHROME, record.customMonochrome)
+            put(UiKeys.PURE_BLACK, record.pureBlack)
+            put(UiKeys.FONT_SCALE, record.fontScale)
+            put(UiKeys.FONT_SCALE_ENABLED, record.fontScaleEnabled)
+            put(UiKeys.CUSTOM_THEMES, org.json.JSONArray().apply {
+                record.customThemes.forEach { theme ->
+                    put(
+                        org.json.JSONObject().apply {
+                            put(ThemeKeys.ID, theme.id)
+                            put(ThemeKeys.NAME, theme.name)
+                            put(ThemeKeys.SEED_ARGB, theme.seedArgb)
+                            put(ThemeKeys.MONOCHROME, theme.monochrome)
+                        },
                     )
                 }
+            })
+            put(UiKeys.NAV_DURATION_MS, record.navDurationMs)
+            put(UiKeys.HAPTIC_FEEDBACK_ENABLED, record.hapticFeedbackEnabled)
+        }
+    }
+
+    private fun decodeUiSettings(obj: org.json.JSONObject?): UiSettingsRecord {
+        return UiSettingsRecord(
+            themeMode = obj?.optString(UiKeys.THEME_MODE, UiSettingsRecord().themeMode) ?: UiSettingsRecord().themeMode,
+            themeAppearance = obj?.optString(UiKeys.THEME_APPEARANCE, UiSettingsRecord().themeAppearance)
+                ?: UiSettingsRecord().themeAppearance,
+            customSeedArgb = obj?.takeIf { it.has(UiKeys.CUSTOM_SEED_ARGB) }?.optInt(UiKeys.CUSTOM_SEED_ARGB),
+            customThemeId = obj
+                ?.takeIf { it.has(UiKeys.CUSTOM_THEME_ID) }
+                ?.optString(UiKeys.CUSTOM_THEME_ID),
+            customMonochrome = obj?.optBoolean(UiKeys.CUSTOM_MONOCHROME, false) ?: false,
+            pureBlack = obj?.optBoolean(UiKeys.PURE_BLACK, true) ?: true,
+            fontScale = obj?.optDouble(UiKeys.FONT_SCALE, 1.0)?.toFloat() ?: 1.0f,
+            fontScaleEnabled = obj?.optBoolean(UiKeys.FONT_SCALE_ENABLED, false) ?: false,
+            customThemes = decodeCustomThemes(obj?.optJSONArray(UiKeys.CUSTOM_THEMES)),
+            navDurationMs = obj?.optInt(UiKeys.NAV_DURATION_MS, 350) ?: 350,
+            hapticFeedbackEnabled = obj?.optBoolean(UiKeys.HAPTIC_FEEDBACK_ENABLED, true) ?: true,
+        ).normalized()
+    }
+
+    private fun encodePlayerSettings(record: PlayerSettingsRecord): org.json.JSONObject {
+        return org.json.JSONObject().apply {
+            put(PlayerKeys.SEEK_GESTURE_ENABLED, record.seekGestureEnabled)
+            put(PlayerKeys.BRIGHTNESS_GESTURE_ENABLED, record.brightnessGestureEnabled)
+            put(PlayerKeys.VOLUME_GESTURE_ENABLED, record.volumeGestureEnabled)
+            put(PlayerKeys.ZOOM_GESTURE_ENABLED, record.zoomGestureEnabled)
+            put(PlayerKeys.PAN_GESTURE_ENABLED, record.panGestureEnabled)
+            put(PlayerKeys.DOUBLE_TAP_GESTURE_ENABLED, record.doubleTapGestureEnabled)
+            put(PlayerKeys.DOUBLE_TAP_ACTION, record.doubleTapAction)
+            put(PlayerKeys.LONG_PRESS_GESTURE_ENABLED, record.longPressGestureEnabled)
+            put(PlayerKeys.SEEK_INCREMENT_SEC, record.seekIncrementSec)
+            put(PlayerKeys.SEEK_SENSITIVITY, record.seekSensitivity)
+            put(PlayerKeys.LONG_PRESS_SPEED, record.longPressSpeed)
+            put(PlayerKeys.CONTROLLER_TIMEOUT_SEC, record.controllerTimeoutSec)
+            put(PlayerKeys.HIDE_BUTTONS_BACKGROUND, record.hideButtonsBackground)
+            put(PlayerKeys.RESUME_PLAYBACK, record.resumePlayback)
+            put(PlayerKeys.DEFAULT_PLAYBACK_SPEED, record.defaultPlaybackSpeed)
+            put(PlayerKeys.AUTOPLAY, record.autoplay)
+            put(PlayerKeys.AUTO_PIP, record.autoPip)
+            put(PlayerKeys.AUTO_BACKGROUND_PLAY, record.autoBackgroundPlay)
+            put(PlayerKeys.REMEMBER_BRIGHTNESS, record.rememberBrightness)
+            put(PlayerKeys.REMEMBER_SELECTIONS, record.rememberSelections)
+        }
+    }
+
+    private fun decodePlayerSettings(obj: org.json.JSONObject?): PlayerSettingsRecord {
+        return PlayerSettingsRecord(
+            seekGestureEnabled = obj?.optBoolean(PlayerKeys.SEEK_GESTURE_ENABLED, true) ?: true,
+            brightnessGestureEnabled = obj?.optBoolean(PlayerKeys.BRIGHTNESS_GESTURE_ENABLED, true) ?: true,
+            volumeGestureEnabled = obj?.optBoolean(PlayerKeys.VOLUME_GESTURE_ENABLED, true) ?: true,
+            zoomGestureEnabled = obj?.optBoolean(PlayerKeys.ZOOM_GESTURE_ENABLED, true) ?: true,
+            panGestureEnabled = obj?.optBoolean(PlayerKeys.PAN_GESTURE_ENABLED, true) ?: true,
+            doubleTapGestureEnabled = obj?.optBoolean(PlayerKeys.DOUBLE_TAP_GESTURE_ENABLED, true) ?: true,
+            doubleTapAction = obj?.optString(PlayerKeys.DOUBLE_TAP_ACTION, "seek") ?: "seek",
+            longPressGestureEnabled = obj?.optBoolean(PlayerKeys.LONG_PRESS_GESTURE_ENABLED, true) ?: true,
+            seekIncrementSec = obj?.optInt(PlayerKeys.SEEK_INCREMENT_SEC, 10) ?: 10,
+            seekSensitivity = obj?.optDouble(PlayerKeys.SEEK_SENSITIVITY, 1.0)?.toFloat() ?: 1.0f,
+            longPressSpeed = obj?.optDouble(PlayerKeys.LONG_PRESS_SPEED, 2.0)?.toFloat() ?: 2.0f,
+            controllerTimeoutSec = obj?.optInt(PlayerKeys.CONTROLLER_TIMEOUT_SEC, 3) ?: 3,
+            hideButtonsBackground = obj?.optBoolean(PlayerKeys.HIDE_BUTTONS_BACKGROUND, false) ?: false,
+            resumePlayback = obj?.optBoolean(PlayerKeys.RESUME_PLAYBACK, true) ?: true,
+            defaultPlaybackSpeed = obj?.optDouble(PlayerKeys.DEFAULT_PLAYBACK_SPEED, 1.0)?.toFloat() ?: 1.0f,
+            autoplay = obj?.optBoolean(PlayerKeys.AUTOPLAY, true) ?: true,
+            autoPip = obj?.optBoolean(PlayerKeys.AUTO_PIP, true) ?: true,
+            autoBackgroundPlay = obj?.optBoolean(PlayerKeys.AUTO_BACKGROUND_PLAY, false) ?: false,
+            rememberBrightness = obj?.optBoolean(PlayerKeys.REMEMBER_BRIGHTNESS, false) ?: false,
+            rememberSelections = obj?.optBoolean(PlayerKeys.REMEMBER_SELECTIONS, true) ?: true,
+        ).normalized()
+    }
+
+    private fun encodePlaybackBehavior(record: PlaybackBehaviorRecord): org.json.JSONObject {
+        return org.json.JSONObject().apply {
+            put(BehaviorKeys.KEEP_CONNECTION_IN_BACKGROUND, record.keepConnectionInBackground)
+            if (record.rememberedBrightness != null) {
+                put(BehaviorKeys.REMEMBERED_BRIGHTNESS, record.rememberedBrightness)
             }
-        }.getOrDefault(emptyList())
+        }
     }
 
-    private fun encodeCustomThemes(value: List<CustomThemeRecord>): String {
-        val array = org.json.JSONArray()
-        value.forEach { theme ->
-            val obj = org.json.JSONObject()
-            obj.put("version", CUSTOM_THEME_JSON_VERSION)
-            obj.put("id", theme.id)
-            obj.put("name", theme.name)
-            obj.put("seedArgb", theme.seedArgb)
-            obj.put("monochrome", theme.monochrome)
-            array.put(obj)
-        }
-        return array.toString()
+    private fun decodePlaybackBehavior(obj: org.json.JSONObject?): PlaybackBehaviorRecord {
+        return PlaybackBehaviorRecord(
+            keepConnectionInBackground = obj?.optBoolean(BehaviorKeys.KEEP_CONNECTION_IN_BACKGROUND, true) ?: true,
+            rememberedBrightness = obj
+                ?.takeIf { it.has(BehaviorKeys.REMEMBERED_BRIGHTNESS) }
+                ?.optDouble(BehaviorKeys.REMEMBERED_BRIGHTNESS, 0.0)
+                ?.toFloat(),
+        ).normalized()
     }
 
-    private companion object {
-        object Keys {
-            const val THEME_MODE = "theme_mode"
-            const val THEME_APPEARANCE = "theme_appearance"
-            const val THEME_CUSTOM_SEED = "theme_custom_seed"
-            const val THEME_CUSTOM_THEME_ID = "theme_custom_theme_id"
-            const val THEME_CUSTOM_MONO = "theme_custom_mono"
-            const val THEME_PURE_BLACK = "theme_pure_black"
-            const val THEME_FONT_SCALE = "theme_font_scale"
-            const val THEME_FONT_SCALE_ENABLED = "theme_font_scale_enabled"
-            const val THEME_CUSTOM_THEMES_JSON = "theme_custom_themes_json"
-            const val NAV_DURATION_MS = "nav_duration_ms"
-            const val HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
+    private fun decodeCustomThemes(array: org.json.JSONArray?): List<CustomThemeRecord> {
+        if (array == null) return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                val obj = array.optJSONObject(index) ?: continue
+                val id = obj.optString(ThemeKeys.ID)
+                val name = obj.optString(ThemeKeys.NAME)
+                if (id.isBlank() || name.isBlank() || !obj.has(ThemeKeys.SEED_ARGB)) continue
+                add(
+                    CustomThemeRecord(
+                        id = id,
+                        name = name,
+                        seedArgb = obj.optInt(ThemeKeys.SEED_ARGB),
+                        monochrome = obj.optBoolean(ThemeKeys.MONOCHROME, false),
+                    ),
+                )
+            }
+        }.normalized()
+    }
 
-            const val PLAYER_SEEK_GESTURE_ENABLED = "player_seek_gesture_enabled"
-            const val PLAYER_BRIGHTNESS_GESTURE_ENABLED = "player_brightness_gesture_enabled"
-            const val PLAYER_VOLUME_GESTURE_ENABLED = "player_volume_gesture_enabled"
-            const val PLAYER_ZOOM_GESTURE_ENABLED = "player_zoom_gesture_enabled"
-            const val PLAYER_PAN_GESTURE_ENABLED = "player_pan_gesture_enabled"
-            const val PLAYER_DOUBLE_TAP_GESTURE_ENABLED = "player_double_tap_gesture_enabled"
-            const val PLAYER_DOUBLE_TAP_ACTION = "player_double_tap_action"
-            const val PLAYER_LONG_PRESS_GESTURE_ENABLED = "player_long_press_gesture_enabled"
-            const val PLAYER_SEEK_INCREMENT_SEC = "player_seek_increment_sec"
-            const val PLAYER_SEEK_SENSITIVITY = "player_seek_sensitivity"
-            const val PLAYER_LONG_PRESS_SPEED = "player_long_press_speed"
-            const val PLAYER_CONTROLLER_TIMEOUT_SEC = "player_controller_timeout_sec"
-            const val PLAYER_HIDE_BUTTONS_BACKGROUND = "player_hide_buttons_background"
-            const val PLAYER_RESUME_PLAYBACK = "player_resume_playback"
-            const val PLAYER_DEFAULT_PLAYBACK_SPEED = "player_default_playback_speed"
-            const val PLAYER_AUTOPLAY = "player_autoplay"
-            const val PLAYER_AUTO_PIP = "player_auto_pip"
-            const val PLAYER_AUTO_BACKGROUND_PLAY = "player_auto_background_play"
-            const val PLAYER_REMEMBER_BRIGHTNESS = "player_remember_brightness"
-            const val PLAYER_REMEMBER_SELECTIONS = "player_remember_selections"
+    private object Keys {
+        const val SCHEMA_VERSION = "schemaVersion"
+        const val UI_SETTINGS = "uiSettings"
+        const val PLAYER_SETTINGS = "playerSettings"
+        const val PLAYBACK_BEHAVIOR = "playbackBehavior"
+    }
 
-            const val KEEP_CONNECTION_IN_BACKGROUND = "keep_connection_in_background"
-            const val PLAYBACK_REMEMBERED_BRIGHTNESS = "playback_remembered_brightness"
-        }
+    private object UiKeys {
+        const val THEME_MODE = "themeMode"
+        const val THEME_APPEARANCE = "themeAppearance"
+        const val CUSTOM_SEED_ARGB = "customSeedArgb"
+        const val CUSTOM_THEME_ID = "customThemeId"
+        const val CUSTOM_MONOCHROME = "customMonochrome"
+        const val PURE_BLACK = "pureBlack"
+        const val FONT_SCALE = "fontScale"
+        const val FONT_SCALE_ENABLED = "fontScaleEnabled"
+        const val CUSTOM_THEMES = "customThemes"
+        const val NAV_DURATION_MS = "navDurationMs"
+        const val HAPTIC_FEEDBACK_ENABLED = "hapticFeedbackEnabled"
+    }
 
-        // Increment when adding/removing fields in encodeCustomThemes so that old code
-        // skips records it cannot safely read, rather than silently producing corrupt data.
-        const val CUSTOM_THEME_JSON_VERSION = 1
+    private object ThemeKeys {
+        const val ID = "id"
+        const val NAME = "name"
+        const val SEED_ARGB = "seedArgb"
+        const val MONOCHROME = "monochrome"
+    }
+
+    private object PlayerKeys {
+        const val SEEK_GESTURE_ENABLED = "seekGestureEnabled"
+        const val BRIGHTNESS_GESTURE_ENABLED = "brightnessGestureEnabled"
+        const val VOLUME_GESTURE_ENABLED = "volumeGestureEnabled"
+        const val ZOOM_GESTURE_ENABLED = "zoomGestureEnabled"
+        const val PAN_GESTURE_ENABLED = "panGestureEnabled"
+        const val DOUBLE_TAP_GESTURE_ENABLED = "doubleTapGestureEnabled"
+        const val DOUBLE_TAP_ACTION = "doubleTapAction"
+        const val LONG_PRESS_GESTURE_ENABLED = "longPressGestureEnabled"
+        const val SEEK_INCREMENT_SEC = "seekIncrementSec"
+        const val SEEK_SENSITIVITY = "seekSensitivity"
+        const val LONG_PRESS_SPEED = "longPressSpeed"
+        const val CONTROLLER_TIMEOUT_SEC = "controllerTimeoutSec"
+        const val HIDE_BUTTONS_BACKGROUND = "hideButtonsBackground"
+        const val RESUME_PLAYBACK = "resumePlayback"
+        const val DEFAULT_PLAYBACK_SPEED = "defaultPlaybackSpeed"
+        const val AUTOPLAY = "autoplay"
+        const val AUTO_PIP = "autoPip"
+        const val AUTO_BACKGROUND_PLAY = "autoBackgroundPlay"
+        const val REMEMBER_BRIGHTNESS = "rememberBrightness"
+        const val REMEMBER_SELECTIONS = "rememberSelections"
+    }
+
+    private object BehaviorKeys {
+        const val KEEP_CONNECTION_IN_BACKGROUND = "keepConnectionInBackground"
+        const val REMEMBERED_BRIGHTNESS = "rememberedBrightness"
     }
 }

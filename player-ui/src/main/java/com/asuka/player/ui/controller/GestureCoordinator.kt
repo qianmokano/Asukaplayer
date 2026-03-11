@@ -4,8 +4,8 @@ import android.os.SystemClock
 import androidx.annotation.MainThread
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
-import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlayerSettings
+import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.domain.GestureAlgorithms
 import com.asuka.player.domain.GestureStateMachine
 import com.asuka.player.ui.state.ControlsState

@@ -1,4 +1,4 @@
-package com.asuka.player.core
+package com.asuka.player.contract
 
 /**
  * Persistence abstraction for playback state.

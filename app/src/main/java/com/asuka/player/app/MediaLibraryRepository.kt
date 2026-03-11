@@ -97,12 +97,16 @@ internal class LoadRecentMediaIdsUseCase(
 }
 
 internal fun resolveRecentMediaIds(
-    historyUris: List<android.net.Uri>,
+    historyMediaIds: List<String>,
     fallbackMediaIds: List<String>,
+    limit: Int = 100,
 ): List<String> {
-    val historyIds = historyUris
+    val safeLimit = limit.coerceAtLeast(0)
+    if (safeLimit == 0) return emptyList()
+    val historyIds = historyMediaIds
         .asReversed()
-        .map(android.net.Uri::toString)
+        .filter { it.isNotBlank() }
         .distinct()
-    return historyIds.ifEmpty { fallbackMediaIds }
+        .take(safeLimit)
+    return historyIds.ifEmpty { fallbackMediaIds.take(safeLimit) }
 }

@@ -1,20 +1,15 @@
-package com.asuka.player.app
+package com.asuka.player.runtime
 
 import android.app.Application
-import android.content.ComponentName
-import com.asuka.player.core.PlaybackDeviceControllerFactory
-import com.asuka.player.core.PlaybackSessionPlanner
-import com.asuka.player.core.PlaybackStateRepository
-import com.asuka.player.core.PlaybackStateWriter
-import com.asuka.player.core.PlaybackRuntimeSettingsSource
-import com.asuka.player.core.PlaybackUiPersistence
-import com.asuka.player.core.QueueHistoryRepository
-import com.asuka.player.core.QueueHistoryWriter
-import com.asuka.player.core.R as CoreR
-import com.asuka.player.core.service.PlaybackService
-import com.asuka.player.data.SharedPreferencesAppSettingsStore
-import com.asuka.player.data.SharedPreferencesPlaybackStore
-import com.asuka.player.data.SharedPreferencesQueueHistoryStore
+import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlaybackSessionPlanner
+import com.asuka.player.contract.PlaybackStore
+import com.asuka.player.contract.PlaybackStateRepository
+import com.asuka.player.contract.PlaybackUiPersistence
+import com.asuka.player.contract.QueueHistoryRepository
+import com.asuka.player.contract.QueueHistoryStore
+import com.asuka.player.platform.PlaybackControllerConnectorFactory
+import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,47 +18,42 @@ class AsukaAppGraph(
     application: Application,
 ) {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val settingsStore = SharedPreferencesAppSettingsStore(application)
-    private val playbackStore = SharedPreferencesPlaybackStore(application)
-    private val queueHistoryStore = SharedPreferencesQueueHistoryStore(application)
-    private val uriResolver = SeekAwarePlaybackUriResolver(
-        contentResolver = application.contentResolver,
-        cacheDir = application.cacheDir,
-    )
-
-    val uiSettingsRepository = UiSettingsRepository(settingsStore)
-    val playerSettingsRepository = PlayerSettingsRepository(settingsStore)
-    val playbackBehaviorRepository = PlaybackBehaviorRepository(settingsStore)
-    val playbackRuntimeSettingsSource: PlaybackRuntimeSettingsSource = AppPlaybackRuntimeSettingsSource(
-        playerSettingsRepository = playerSettingsRepository,
-        playbackBehaviorRepository = playbackBehaviorRepository,
+    val settings = SettingsRuntimeInstaller.install(
+        application = application,
         scope = appScope,
     )
-
-    val queueHistoryRepository = QueueHistoryRepository(queueHistoryStore)
-
-    val playbackStateRepository = PlaybackStateRepository(playbackStore)
-    val playbackSessionPlanner = PlaybackSessionPlanner(
-        playbackStateRepository = playbackStateRepository,
-    )
-    val playbackUiPersistence: PlaybackUiPersistence = PlaybackStateUiPersistence(
-        playbackStateRepository = playbackStateRepository,
-        playbackBehaviorRepository = playbackBehaviorRepository,
-    )
-    val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory =
-        DefaultPlaybackDeviceControllerFactory
-
-    val playbackLaunchCoordinator = PlaybackLaunchCoordinator(uriResolver)
-    val playbackPlatformBindings = PlaybackPlatformBindings(
-        playbackServiceComponent = ComponentName(application, PlaybackService::class.java),
-        notificationSmallIconResId = CoreR.drawable.ic_stat_playback,
+    val playback = PlaybackRuntimeInstaller.install(
+        application = application,
+        playbackBehaviorRepository = settings.playbackBehaviorRepository,
     )
 
-    fun createPlaybackStateWriter(): PlaybackStateWriter {
-        return PlaybackStateWriter(playbackStore)
-    }
+    val uiSettingsRepository: UiSettingsRepository
+        get() = settings.uiSettingsRepository
+    val playerSettingsRepository: PlayerSettingsRepository
+        get() = settings.playerSettingsRepository
+    val playbackBehaviorRepository: PlaybackBehaviorRepository
+        get() = settings.playbackBehaviorRepository
+    val playbackRuntimeSettingsSource: PlaybackRuntimeSettingsSource
+        get() = settings.playbackRuntimeSettingsSource
 
-    fun createQueueHistoryWriter(): QueueHistoryWriter {
-        return QueueHistoryWriter(queueHistoryStore)
-    }
+    val playbackStore: PlaybackStore
+        get() = playback.playbackStore
+    val queueHistoryStore: QueueHistoryStore
+        get() = playback.queueHistoryStore
+    val queueHistoryRepository: QueueHistoryRepository
+        get() = playback.queueHistoryRepository
+    val playbackStateRepository: PlaybackStateRepository
+        get() = playback.playbackStateRepository
+    val playbackSessionPlanner: PlaybackSessionPlanner
+        get() = playback.playbackSessionPlanner
+    val playbackUiPersistence: PlaybackUiPersistence
+        get() = playback.playbackUiPersistence
+    val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
+        get() = playback.playbackDeviceControllerFactory
+    val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory
+        get() = playback.playbackControllerConnectorFactory
+    val playbackLaunchCoordinator: PlaybackLaunchCoordinator
+        get() = playback.playbackLaunchCoordinator
+    val playbackPlatformBindings: PlaybackPlatformBindings
+        get() = playback.playbackPlatformBindings
 }

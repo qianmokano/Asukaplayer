@@ -1,6 +1,4 @@
-package com.asuka.player.core
-
-import android.net.Uri
+package com.asuka.player.contract
 
 /**
  * History of played media used to seed new playback sessions.
@@ -8,6 +6,6 @@ import android.net.Uri
  * **Thread safety:** Implementations must be safe to call from any thread.
  */
 interface QueueHistoryStore {
-    fun push(uri: Uri)
-    fun items(): List<Uri>
+    fun push(mediaId: String)
+    fun items(): List<String>
 }

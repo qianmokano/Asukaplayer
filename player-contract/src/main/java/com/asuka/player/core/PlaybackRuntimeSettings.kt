@@ -1,13 +1,9 @@
-package com.asuka.player.core
+package com.asuka.player.contract
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
-
-@Parcelize
 data class PlaybackRuntimeSettings(
     val playerSettings: PlayerSettings = PlayerSettings(),
     val keepSessionConnectionInBackground: Boolean = true,
-) : Parcelable {
+) {
     val seekGestureEnabled: Boolean
         get() = playerSettings.seekGestureEnabled
 
@@ -67,8 +63,4 @@ data class PlaybackRuntimeSettings(
 
     val rememberSelections: Boolean
         get() = playerSettings.rememberSelections
-
-    companion object {
-        const val EXTRA_KEY = "player_runtime_settings"
-    }
 }

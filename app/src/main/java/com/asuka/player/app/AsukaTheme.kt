@@ -15,6 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.core.view.WindowCompat
+import com.asuka.player.runtime.ThemeAppearanceMode
+import com.asuka.player.runtime.ThemeConfig
+import com.asuka.player.runtime.ThemeMode
 
 @Composable
 internal fun AsukaTheme(

@@ -1,6 +1,7 @@
 package com.asuka.player.core
 
 import android.net.Uri
+import com.asuka.player.contract.QueuePlanner
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.runner.RunWith
@@ -16,8 +17,8 @@ class QueuePlannerTest {
             Uri.parse("file:///c.mp4"),
             Uri.parse("file:///a.mp4"),
         )
-        val result = QueuePlanner.plan(current, neighbors)
-        assertEquals(listOf(current, Uri.parse("file:///c.mp4"), Uri.parse("file:///a.mp4")), result)
+        val result = QueuePlanner.plan(current.toString(), neighbors.map(Uri::toString))
+        assertEquals(listOf(current.toString(), "file:///c.mp4", "file:///a.mp4"), result)
     }
 
     @Test
@@ -27,19 +28,19 @@ class QueuePlannerTest {
         val c = Uri.parse("file:///c.mp4")
 
         val result = QueuePlanner.plan(
-            current = current,
-            neighbors = listOf(a, current, c),
+            current = current.toString(),
+            neighbors = listOf(a.toString(), current.toString(), c.toString()),
         )
 
-        assertEquals(listOf(a, current, c), result)
+        assertEquals(listOf(a.toString(), current.toString(), c.toString()), result)
     }
 
     @Test
     fun plan_returnsOnlyCurrentWhenNoExplicitQueueProvided() {
         val current = Uri.parse("file:///b.mp4")
-        val result = QueuePlanner.plan(current, neighbors = emptyList())
+        val result = QueuePlanner.plan(current.toString(), neighbors = emptyList())
 
-        assertEquals(listOf(current), result)
+        assertEquals(listOf(current.toString()), result)
     }
 
     @Test
@@ -47,8 +48,8 @@ class QueuePlannerTest {
         val current = Uri.parse("file:///current.mp4")
         val neighbors = listOf(Uri.parse("file:///next.mp4"))
 
-        val result = QueuePlanner.plan(current, neighbors)
+        val result = QueuePlanner.plan(current.toString(), neighbors.map(Uri::toString))
 
-        assertEquals(listOf(current, Uri.parse("file:///next.mp4")), result)
+        assertEquals(listOf(current.toString(), "file:///next.mp4"), result)
     }
 }

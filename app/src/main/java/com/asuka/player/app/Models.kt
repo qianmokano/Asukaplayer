@@ -4,6 +4,8 @@ import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import com.asuka.player.R
+import com.asuka.player.runtime.CustomThemeEntry
+import com.asuka.player.runtime.ThemeMode
 import java.util.Locale
 
 internal data class ThemePreset(

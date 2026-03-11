@@ -1,9 +1,9 @@
 package com.asuka.player.ui.controller
 
 import androidx.media3.common.C
-import com.asuka.player.core.PersistedTrackSelection
-import com.asuka.player.core.TrackInfoReader
-import com.asuka.player.core.TrackSelectionRestoreRequest
+import com.asuka.player.contract.PersistedTrackSelection
+import com.asuka.player.platform.TrackInfoReader
+import com.asuka.player.contract.TrackSelectionRestoreRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

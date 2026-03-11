@@ -1,9 +1,7 @@
-package com.asuka.player.core
-
-import android.net.Uri
+package com.asuka.player.contract
 
 class QueueHistoryRepository(
     private val store: QueueHistoryStore,
 ) {
-    fun items(): List<Uri> = store.items()
+    fun items(): List<String> = store.items()
 }

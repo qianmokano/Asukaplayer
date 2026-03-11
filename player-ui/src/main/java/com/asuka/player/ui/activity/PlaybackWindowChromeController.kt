@@ -9,8 +9,8 @@ import android.view.Window
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.core.PlaybackUiPersistence
+import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackUiPersistence
 
 internal class PlaybackWindowChromeController(
     private val window: Window,

@@ -13,8 +13,8 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
-import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.ui.R
 
 internal data class PictureInPictureAspectRatio(

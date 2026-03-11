@@ -1,29 +1,28 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import com.asuka.player.contract.QueueHistoryStore
 
 class QueueHistoryWriter(
     private val store: QueueHistoryStore,
 ) : Player.Listener {
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        val uri = resolveHistoryUri(mediaItem)
-        if (mediaItem != null && uri == null) {
-            // Remote/stream media without a local URI is expected; silently skip history.
+        val mediaId = resolveHistoryMediaId(mediaItem)
+        if (mediaItem != null && mediaId == null) {
             Log.v(TAG, "Media item '${mediaItem.mediaId}' has no local URI, skipping history")
         }
-        uri?.let { store.push(it) }
+        mediaId?.let(store::push)
     }
 
-    private fun resolveHistoryUri(mediaItem: MediaItem?): Uri? {
-        val stableMediaUri = mediaItem?.mediaId
+    private fun resolveHistoryMediaId(mediaItem: MediaItem?): String? {
+        val stableMediaId = mediaItem?.mediaId
             ?.takeIf { it.isNotBlank() }
-            ?.let(Uri::parse)
-            ?.takeIf { it.scheme != null }
-        return stableMediaUri ?: mediaItem?.localConfiguration?.uri
+            ?.takeIf { runCatching { Uri.parse(it) }.getOrNull()?.scheme != null }
+        return stableMediaId ?: mediaItem?.localConfiguration?.uri?.toString()
     }
 
     companion object {

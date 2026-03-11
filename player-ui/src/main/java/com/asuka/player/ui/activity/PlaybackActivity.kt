@@ -23,11 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
-import com.asuka.player.core.PlaybackActivityDependencies
-import com.asuka.player.core.PlaybackDependenciesProvider
-import com.asuka.player.core.PlaybackDeviceController
-import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.core.PlaybackUiPersistence
+import com.asuka.player.platform.PlaybackActivityDependencies
+import com.asuka.player.platform.PlaybackDependenciesProvider
+import com.asuka.player.contract.PlaybackDeviceController
+import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.ui.PlaybackScreenDependencies
 import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
@@ -48,10 +48,7 @@ class PlaybackActivity : ComponentActivity() {
     private val activityBehavior = PlaybackActivityBehavior()
     private val playbackUiPersistence: PlaybackUiPersistence by lazy { playbackDependencies.playbackUiPersistence }
     private val playbackDeviceController: PlaybackDeviceController by lazy {
-        playbackDependencies.playbackDeviceControllerFactory.create(
-            context = this,
-            window = window,
-        )
+        playbackDependencies.playbackDeviceControllerFactory.create(this)
     }
     private val sessionHost by lazy {
         PlaybackSessionHost(

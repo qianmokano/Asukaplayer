@@ -7,11 +7,9 @@ import android.util.Log
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
-import com.asuka.player.core.PlaybackActivityDependencies
-import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.impl.Media3PlaybackController
+import com.asuka.player.platform.PlaybackActivityDependencies
+import com.asuka.player.contract.PlaybackController
 import com.asuka.player.ui.R
-import com.asuka.player.ui.controller.ControllerProvider
 import com.asuka.player.ui.controller.PlaybackControllerConnector
 import com.asuka.player.ui.controller.PlaybackTrackSelectionController
 import com.asuka.player.ui.controller.PlaybackTrackUiState
@@ -45,10 +43,8 @@ internal class PlaybackSessionHost(
     private val scope: CoroutineScope,
     private val dependencies: PlaybackActivityDependencies,
     controllerContext: android.content.Context,
-    private val controllerProvider: PlaybackControllerConnector = ControllerProvider(
-        context = controllerContext.applicationContext,
-        playbackServiceComponent = dependencies.playbackServiceComponent,
-    ),
+    private val controllerProvider: PlaybackControllerConnector =
+        dependencies.createPlaybackControllerConnector(controllerContext.applicationContext),
 ) {
     private val appContext = controllerContext.applicationContext
     private val mediaMetadataBridge = PlaybackSessionMediaMetadataBridge(
@@ -70,12 +66,11 @@ internal class PlaybackSessionHost(
         get() = playbackController
 
     private var mediaController: MediaController? = null
-    private var playbackController: Media3PlaybackController? = null
+    private var playbackController: PlaybackController? = null
     private var stateHolder: PlayerUiStateHolder? = null
     private var trackUiStateHolder: PlaybackTrackUiStateHolder? = null
     private var trackSelectionController: PlaybackTrackSelectionController? = null
     private var initJob: Job? = null
-    private var seekFallbackJob: Job? = null
     private var uiStateFeedJob: Job? = null
     private var trackUiStateFeedJob: Job? = null
     private var sessionCoordinator: PlaybackSessionCoordinator? = null

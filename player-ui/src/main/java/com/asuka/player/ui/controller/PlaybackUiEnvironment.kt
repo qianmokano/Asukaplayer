@@ -17,8 +17,4 @@ data class PlaybackTrackUiState(
     val selectedSubtitle: Int? = null,
 )
 
-interface PlaybackTrackSelectionController {
-    fun setAudioTrack(groupIndex: Int, trackIndex: Int)
-    fun setSubtitleTrack(groupIndex: Int, trackIndex: Int)
-    fun disableSubtitles()
-}
+typealias PlaybackTrackSelectionController = com.asuka.player.platform.PlaybackTrackSelectionController

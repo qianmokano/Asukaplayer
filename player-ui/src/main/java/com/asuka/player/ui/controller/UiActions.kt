@@ -1,7 +1,7 @@
 package com.asuka.player.ui.controller
 
-import com.asuka.player.core.LoopMode
-import com.asuka.player.core.PlaybackController
+import com.asuka.player.contract.LoopMode
+import com.asuka.player.contract.PlaybackController
 
 class UiActions(private val controller: PlaybackController) {
     fun onLoop() {

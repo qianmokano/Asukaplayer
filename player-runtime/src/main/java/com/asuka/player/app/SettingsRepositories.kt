@@ -1,7 +1,7 @@
-package com.asuka.player.app
-import com.asuka.player.core.PlaybackRuntimeSettings
-import com.asuka.player.core.PlaybackRuntimeSettingsSource
-import com.asuka.player.core.PlayerSettings
+package com.asuka.player.runtime
+import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.data.AppSettingsStore
 import com.asuka.player.data.CustomThemeRecord
 import com.asuka.player.data.PlaybackBehaviorRecord

@@ -1,5 +1,7 @@
 package com.asuka.player.core
 
+import com.asuka.player.contract.PlaybackStateRepository
+import com.asuka.player.contract.ResumeState
 import com.asuka.player.data.SharedPreferencesPlaybackStore
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -3,6 +3,8 @@ package com.asuka.player.core
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.contract.PlaybackQueueEntry
+import com.asuka.player.platform.IntentQueueReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.runner.RunWith
@@ -26,7 +28,7 @@ class IntentQueueReaderTest {
 
         val result = IntentQueueReader.read(intent)
 
-        assertEquals(listOf(previous, current, next), result)
+        assertEquals(listOf(previous.toString(), current.toString(), next.toString()), result)
     }
 
     @Test
@@ -40,7 +42,7 @@ class IntentQueueReaderTest {
 
         val result = IntentQueueReader.read(intent)
 
-        assertEquals(listOf(current, next), result)
+        assertEquals(listOf(current.toString(), next.toString()), result)
     }
 
     @Test
@@ -64,8 +66,8 @@ class IntentQueueReaderTest {
 
         assertEquals(
             listOf(
-                PlaybackQueueEntry(mediaId = original.toString(), uri = fallback),
-                PlaybackQueueEntry(mediaId = next.toString(), uri = next),
+                PlaybackQueueEntry(mediaId = original.toString(), uri = fallback.toString()),
+                PlaybackQueueEntry(mediaId = next.toString(), uri = next.toString()),
             ),
             result,
         )

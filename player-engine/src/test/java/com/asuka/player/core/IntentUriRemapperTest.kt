@@ -3,9 +3,9 @@ package com.asuka.player.core
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.platform.copyIntentWithRemappedUri
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -35,7 +35,7 @@ class IntentUriRemapperTest {
 
         assertEquals(replacement, remapped.data)
         assertEquals(true, remapped.getBooleanExtra("autoplay", false))
-        val clipData = assertNotNull(remapped.clipData)
+        val clipData = remapped.clipData ?: error("Expected clipData to be preserved")
         assertEquals(previous, clipData.getItemAt(0).uri)
         assertEquals(replacement, clipData.getItemAt(1).uri)
         assertEquals(next, clipData.getItemAt(2).uri)

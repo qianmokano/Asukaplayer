@@ -3,6 +3,7 @@ package com.asuka.player.core
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import com.asuka.player.data.InMemoryQueueHistoryStore
+import com.asuka.player.platform.QueueHistoryWriter
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.runner.RunWith
@@ -26,6 +27,6 @@ class QueueHistoryWriterTest {
             0,
         )
 
-        assertEquals(listOf(original), store.items())
+        assertEquals(listOf(original.toString()), store.items())
     }
 }

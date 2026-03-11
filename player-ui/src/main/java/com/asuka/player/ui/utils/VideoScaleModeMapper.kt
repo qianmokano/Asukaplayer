@@ -1,7 +1,7 @@
 package com.asuka.player.ui.utils
 
 import androidx.compose.ui.layout.ContentScale
-import com.asuka.player.core.VideoScaleMode
+import com.asuka.player.contract.VideoScaleMode
 
 object VideoScaleModeMapper {
     fun toContentScale(mode: VideoScaleMode): ContentScale {

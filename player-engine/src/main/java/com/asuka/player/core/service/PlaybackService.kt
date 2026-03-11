@@ -1,4 +1,4 @@
-package com.asuka.player.core.service
+package com.asuka.player.engine.service
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,7 +13,6 @@ import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -22,18 +21,15 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.asuka.player.platform.PlaybackCustomCommands
+import com.asuka.player.platform.PlaybackDependenciesProvider
+import com.asuka.player.platform.PlaybackServiceDependencies
+import com.asuka.player.platform.PlaybackStateWriter
+import com.asuka.player.platform.QueueHistoryWriter
+import com.asuka.player.core.R
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.asuka.player.core.PlaybackDependenciesProvider
-import com.asuka.player.core.R
-import com.asuka.player.core.PlaybackStateWriter
-import com.asuka.player.core.QueueHistoryWriter
-import com.asuka.player.core.PlaybackServiceDependencies
-import com.asuka.player.core.impl.Media3PlaybackController
 
-/**
- * Clean-room playback service. Owns ExoPlayer + MediaSession.
- */
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     private val playbackDependencies: PlaybackServiceDependencies by lazy(LazyThreadSafetyMode.NONE) {
@@ -64,8 +60,8 @@ class PlaybackService : MediaSessionService() {
             customCommand: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
-            if (customCommand.customAction == Media3PlaybackController.CMD_SET_VIDEO_SCALE_TYPE) {
-                val scaleType = args.getInt(Media3PlaybackController.ARG_SCALE_TYPE, C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
+            if (customCommand.customAction == PlaybackCustomCommands.CMD_SET_VIDEO_SCALE_TYPE) {
+                val scaleType = args.getInt(PlaybackCustomCommands.ARG_SCALE_TYPE, C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
                 player?.setVideoScalingMode(scaleType)
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
             }
@@ -84,16 +80,12 @@ class PlaybackService : MediaSessionService() {
                 .build()
                 .apply { setSmallIcon(playbackDependencies.notificationSmallIconResId) },
         )
-        // When playback pauses briefly (e.g. buffering transitions or rapid play/pause),
-        // keep the service in the foreground for a short grace period to avoid churn.
         setForegroundServiceTimeoutMs(10_000L)
-        // Allow the notification to remain visible after playback is paused/stopped, but avoid
-        // showing a notification for a brand-new idle player that hasn't started playback yet.
         setShowNotificationForIdlePlayer(SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR)
 
-        val w = playbackDependencies.createPlaybackStateWriter()
+        val w = PlaybackStateWriter(playbackDependencies.playbackStore)
         writer = w
-        val hw = playbackDependencies.createQueueHistoryWriter()
+        val hw = QueueHistoryWriter(playbackDependencies.queueHistoryStore)
         historyWriter = hw
 
         val audioAttributes = AudioAttributes.Builder()
@@ -129,9 +121,6 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        // Run each cleanup step independently so that a failure in one step does not
-        // prevent the remaining steps from executing (the nested try-finally alternative
-        // makes it easy to accidentally swallow exceptions from outer blocks).
         runCatching { mainHandler.removeCallbacks(positionCheckpointRunnable) }
         runCatching { writer?.flushCurrentPosition() }
         runCatching { session?.let { removeSession(it) } }

@@ -1,6 +1,6 @@
 package com.asuka.player.ui.activity
 
-import com.asuka.player.core.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.ui.controller.BackgroundPlaybackPolicy
 
 internal data class PictureInPictureTransition(

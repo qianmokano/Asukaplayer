@@ -1,46 +1,44 @@
-package com.asuka.player.core
-
-import android.net.Uri
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
+package com.asuka.player.contract
 
 /**
- * Builds a media queue from a list of URIs. Pure mapping only.
+ * Builds a playback queue from pure queue entries without binding to a player implementation.
  */
-object QueueBuilder {
-    data class Queue(
-        val items: List<MediaItem>,
-        val startIndex: Int,
-    )
+data class PlaybackQueueItem(
+    val mediaId: String,
+    val uri: String,
+    val title: String,
+)
 
+data class PlaybackQueue(
+    val items: List<PlaybackQueueItem>,
+    val startIndex: Int,
+)
+
+object QueueBuilder {
     fun build(
         entries: List<PlaybackQueueEntry>,
         startMediaId: String?,
-        titleResolver: ((Uri) -> String?)? = null,
-    ): Queue {
+        titleResolver: ((String) -> String?)? = null,
+    ): PlaybackQueue {
         val startIndex = entries.indexOfFirst { it.mediaId == startMediaId }.takeIf { it >= 0 } ?: 0
         val items = entries.map { entry ->
             val title = titleResolver?.invoke(entry.uri)?.takeIf { it.isNotBlank() }
-                ?: (entry.uri.lastPathSegment?.takeIf { it.isNotBlank() } ?: entry.uri.toString())
-            MediaItem.Builder()
-                .setUri(entry.uri)
-                .setMediaId(entry.mediaId)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(title)
-                        .setIsPlayable(true)
-                        .build(),
-                )
-                .build()
+                ?: entry.uri.substringAfterLast('/').takeIf { it.isNotBlank() }
+                ?: entry.uri
+            PlaybackQueueItem(
+                mediaId = entry.mediaId,
+                uri = entry.uri,
+                title = title,
+            )
         }
-        return Queue(items = items, startIndex = startIndex)
+        return PlaybackQueue(items = items, startIndex = startIndex)
     }
 
-    fun build(
-        uris: List<Uri>,
-        startUri: Uri?,
-        titleResolver: ((Uri) -> String?)? = null,
-    ): Queue {
+    fun buildFromUris(
+        uris: List<String>,
+        startUri: String?,
+        titleResolver: ((String) -> String?)? = null,
+    ): PlaybackQueue {
         return build(
             entries = uris.map { uri -> PlaybackQueueEntry(mediaId = uri.toString(), uri = uri) },
             startMediaId = startUri?.toString(),

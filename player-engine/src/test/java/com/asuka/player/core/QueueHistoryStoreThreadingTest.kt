@@ -16,8 +16,8 @@ class QueueHistoryStoreThreadingTest {
     fun inMemoryStore_writeOnOneThreadReadOnAnotherThread() {
         val store = InMemoryQueueHistoryStore(maxSize = 3)
         val expected = listOf(
-            Uri.parse("file:///1.mp4"),
-            Uri.parse("file:///2.mp4"),
+            "file:///1.mp4",
+            "file:///2.mp4",
         )
 
         val writer = Thread {
@@ -26,7 +26,7 @@ class QueueHistoryStoreThreadingTest {
         writer.start()
         writer.join()
 
-        var loaded: List<Uri> = emptyList()
+        var loaded: List<String> = emptyList()
         val reader = Thread {
             loaded = store.items()
         }
@@ -47,8 +47,8 @@ class QueueHistoryStoreThreadingTest {
             maxSize = 3,
         )
         val expected = listOf(
-            Uri.parse("file:///1.mp4"),
-            Uri.parse("file:///2.mp4"),
+            "file:///1.mp4",
+            "file:///2.mp4",
         )
 
         val writer = Thread {
@@ -57,7 +57,7 @@ class QueueHistoryStoreThreadingTest {
         writer.start()
         writer.join()
 
-        var loaded: List<Uri> = emptyList()
+        var loaded: List<String> = emptyList()
         val reader = Thread {
             loaded = store.items()
         }

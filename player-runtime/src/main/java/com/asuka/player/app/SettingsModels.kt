@@ -1,4 +1,4 @@
-package com.asuka.player.app
+package com.asuka.player.runtime
 
 enum class ThemeMode {
     Dynamic,

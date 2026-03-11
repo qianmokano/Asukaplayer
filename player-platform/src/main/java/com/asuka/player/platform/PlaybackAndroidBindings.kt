@@ -1,26 +1,25 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
-import android.content.ComponentName
+import android.content.Context
 import androidx.annotation.DrawableRes
-import kotlinx.coroutines.flow.StateFlow
-
-interface PlaybackRuntimeSettingsSource {
-    val settings: StateFlow<PlaybackRuntimeSettings>
-
-    fun current(): PlaybackRuntimeSettings = settings.value
-}
+import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlaybackSessionPlanner
+import com.asuka.player.contract.PlaybackStore
+import com.asuka.player.contract.PlaybackUiPersistence
+import com.asuka.player.contract.QueueHistoryStore
 
 interface PlaybackActivityDependencies {
     val playbackSessionPlanner: PlaybackSessionPlanner
     val playbackRuntimeSettingsSource: PlaybackRuntimeSettingsSource
     val playbackUiPersistence: PlaybackUiPersistence
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
-    val playbackServiceComponent: ComponentName
+
+    fun createPlaybackControllerConnector(context: Context): PlaybackControllerConnector
 }
 
 interface PlaybackServiceDependencies {
-    fun createPlaybackStateWriter(): PlaybackStateWriter
-    fun createQueueHistoryWriter(): QueueHistoryWriter
+    val playbackStore: PlaybackStore
+    val queueHistoryStore: QueueHistoryStore
     val sessionActivityClass: Class<*>?
 
     @get:DrawableRes

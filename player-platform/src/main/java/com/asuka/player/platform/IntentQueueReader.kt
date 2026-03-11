@@ -1,8 +1,9 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.contract.PlaybackQueueEntry
 import java.util.ArrayList
 
 object IntentQueueReader {
@@ -36,35 +37,35 @@ object IntentQueueReader {
         val queueMediaIds = if (storedQueueMediaIds.isNotEmpty()) {
             normalizeQueueMediaIds(currentMediaId, storedQueueMediaIds)
         } else {
-            queueUris.map(Uri::toString)
+            queueUris
         }
 
         return queueUris.mapIndexed { index, uri ->
             PlaybackQueueEntry(
-                mediaId = queueMediaIds.getOrElse(index) { uri.toString() },
+                mediaId = queueMediaIds.getOrElse(index) { uri },
                 uri = uri,
             )
         }
     }
 
-    fun read(intent: Intent): List<Uri> {
+    fun read(intent: Intent): List<String> {
         val clip: ClipData? = intent.clipData
         val clipUris = buildList {
             if (clip != null) {
                 for (i in 0 until clip.itemCount) {
-                    clip.getItemAt(i).uri?.let { add(it) }
+                    clip.getItemAt(i).uri?.toString()?.let { add(it) }
                 }
             }
         }
         if (clipUris.isNotEmpty()) {
             val queue = clipUris.distinct().toMutableList()
-            val dataUri = intent.data
+            val dataUri = intent.data?.toString()
             if (dataUri != null && dataUri !in queue) {
                 queue.add(0, dataUri)
             }
             return queue
         }
-        return listOfNotNull(intent.data)
+        return listOfNotNull(intent.data?.toString())
     }
 
     private fun normalizeQueueMediaIds(

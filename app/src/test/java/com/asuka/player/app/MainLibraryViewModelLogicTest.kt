@@ -13,35 +13,48 @@ import org.robolectric.annotation.Config
 class MainLibraryViewModelLogicTest {
 
     @Test
-    fun resolveRecentMediaIds_prefersPlaybackHistoryOrder() {
+    fun resolveRecentMediaIds_prefersPlaybackHistoryOrder_andAppliesLimit() {
         val older = Uri.parse("content://videos/older.mp4")
         val current = Uri.parse("content://videos/current.mp4")
         val fallback = listOf("content://videos/fallback.mp4")
 
         val result = resolveRecentMediaIds(
-            historyUris = listOf(older, current, current),
+            historyMediaIds = listOf(older.toString(), current.toString(), current.toString()),
             fallbackMediaIds = fallback,
+            limit = 1,
         )
 
         assertEquals(
-            listOf(current.toString(), older.toString()),
+            listOf(current.toString()),
             result,
         )
     }
 
     @Test
-    fun resolveRecentMediaIds_fallsBackWhenHistoryEmpty() {
+    fun resolveRecentMediaIds_fallsBackWhenHistoryEmpty_andAppliesLimit() {
         val fallback = listOf(
             "content://videos/current.mp4",
             "content://videos/older.mp4",
         )
 
         val result = resolveRecentMediaIds(
-            historyUris = emptyList(),
+            historyMediaIds = emptyList(),
             fallbackMediaIds = fallback,
+            limit = 1,
         )
 
-        assertEquals(fallback, result)
+        assertEquals(listOf("content://videos/current.mp4"), result)
+    }
+
+    @Test
+    fun resolveRecentMediaIds_returnsEmptyWhenLimitIsZero() {
+        val result = resolveRecentMediaIds(
+            historyMediaIds = listOf(Uri.parse("content://videos/current.mp4").toString()),
+            fallbackMediaIds = listOf("content://videos/fallback.mp4"),
+            limit = 0,
+        )
+
+        assertEquals(emptyList(), result)
     }
 
     @Test

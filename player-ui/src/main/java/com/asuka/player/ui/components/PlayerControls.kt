@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.asuka.player.core.PlaybackController
+import com.asuka.player.contract.PlaybackController
 import com.asuka.player.ui.R
 
 @Composable

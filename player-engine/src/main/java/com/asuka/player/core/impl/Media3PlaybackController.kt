@@ -1,6 +1,7 @@
-package com.asuka.player.core.impl
+package com.asuka.player.engine
 
-import android.net.Uri
+import android.content.ComponentName
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
@@ -10,19 +11,22 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
-import com.asuka.player.core.LoopMode
-import com.asuka.player.core.PlaybackController
-import com.asuka.player.core.TrackSelectionFacade
-import com.asuka.player.core.VideoScaleMode
+import androidx.media3.session.SessionToken
+import com.asuka.player.contract.LoopMode
+import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.VideoScaleMode
+import com.asuka.player.platform.DefaultPlaybackTrackSelectionController
+import com.asuka.player.platform.PlaybackControllerConnector
+import com.asuka.player.platform.PlaybackControllerConnectorFactory
+import com.asuka.player.platform.PlaybackCustomCommands
+import com.asuka.player.platform.PlaybackTrackSelectionController
+import com.asuka.player.platform.TrackSelectionFacade
+import com.google.common.util.concurrent.ListenableFuture
 
-/**
- * Media3-backed controller. Keeps UI independent of player APIs.
- */
 @OptIn(UnstableApi::class)
 class Media3PlaybackController(
     private val controller: MediaController,
 ) : PlaybackController {
-
     private val trackSelection = TrackSelectionFacade(controller)
 
     private inline fun ifConnected(block: () -> Unit) {
@@ -60,7 +64,6 @@ class Media3PlaybackController(
             trackSelection.disableSubtitles()
             return@ifConnected
         }
-        // If the caller provided a preferred group, use it if it's still a valid text group.
         if (preferredGroupIndex >= 0) {
             val groups = controller.currentTracks.groups
             if (preferredGroupIndex < groups.size && groups[preferredGroupIndex].type == C.TRACK_TYPE_TEXT) {
@@ -68,29 +71,29 @@ class Media3PlaybackController(
                 return@ifConnected
             }
         }
-        // Fallback: pick the first text group.
         val groupIndex = controller.currentTracks.groups.indexOfFirst { it.type == C.TRACK_TYPE_TEXT }.takeIf { it >= 0 }
         if (groupIndex != null) {
             trackSelection.setSubtitleTrack(groupIndex, 0)
         }
     }
 
-    override fun addExternalSubtitle(uri: Uri, label: String?) = ifConnected {
+    override fun addExternalSubtitle(uri: String, label: String?) = ifConnected {
+        val subtitleUri = android.net.Uri.parse(uri)
         val current = controller.currentMediaItem ?: run {
             Log.w(TAG, "addExternalSubtitle: no current media item, ignoring uri=$uri")
             return@ifConnected
         }
         val builder = current.buildUpon()
-        val configuration = MediaItem.SubtitleConfiguration.Builder(uri)
+        val configuration = MediaItem.SubtitleConfiguration.Builder(subtitleUri)
             .setLabel(label)
-            .setMimeType(subtitleMimeType(uri))
+            .setMimeType(subtitleMimeType(subtitleUri))
             .build()
         val existing = current.localConfiguration?.subtitleConfigurations ?: emptyList()
         builder.setSubtitleConfigurations(existing + configuration)
         controller.replaceMediaItem(controller.currentMediaItemIndex, builder.build())
     }
 
-    private fun subtitleMimeType(uri: Uri): String =
+    private fun subtitleMimeType(uri: android.net.Uri): String =
         when (uri.lastPathSegment?.substringAfterLast('.')?.lowercase()) {
             "srt" -> "application/x-subrip"
             "vtt", "webvtt" -> "text/vtt"
@@ -100,18 +103,16 @@ class Media3PlaybackController(
         }
 
     override fun setVideoScaleMode(mode: VideoScaleMode) = ifConnected {
-        // SCALE_TO_FIT         — ExoPlayer maintains aspect ratio inside the surface (FIT).
-        // SCALE_TO_FIT_WITH_CROPPING — ExoPlayer fills the surface completely (FILL / CROP / STRETCH).
-        //   For STRETCH, VideoScaleModeMapper uses ContentScale.FillBounds which resizes the surface
-        //   to the full viewport without preserving aspect ratio; SCALE_TO_FIT_WITH_CROPPING then
-        //   makes ExoPlayer fill that distorted surface, yielding a true stretch with no cropping.
         val scaleType = when (mode) {
             VideoScaleMode.FIT -> C.VIDEO_SCALING_MODE_SCALE_TO_FIT
             VideoScaleMode.FILL, VideoScaleMode.CROP, VideoScaleMode.STRETCH ->
                 C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
         }
-        val args = Bundle().apply { putInt(ARG_SCALE_TYPE, scaleType) }
-        controller.sendCustomCommand(SessionCommand(CMD_SET_VIDEO_SCALE_TYPE, Bundle.EMPTY), args)
+        val args = Bundle().apply { putInt(PlaybackCustomCommands.ARG_SCALE_TYPE, scaleType) }
+        controller.sendCustomCommand(
+            SessionCommand(PlaybackCustomCommands.CMD_SET_VIDEO_SCALE_TYPE, Bundle.EMPTY),
+            args,
+        )
     }
 
     override fun setLoopMode(mode: LoopMode) = ifConnected {
@@ -150,7 +151,46 @@ class Media3PlaybackController(
 
     companion object {
         private const val TAG = "Media3PlaybackController"
-        internal const val CMD_SET_VIDEO_SCALE_TYPE = "cmd_set_video_scale_type"
-        internal const val ARG_SCALE_TYPE = "scale_type"
+    }
+}
+
+class Media3PlaybackControllerConnector(
+    private val context: Context,
+    private val playbackServiceComponent: ComponentName,
+) : PlaybackControllerConnector {
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+
+    override fun buildAsync(): ListenableFuture<MediaController> {
+        val future = MediaController.Builder(
+            context,
+            SessionToken(context, playbackServiceComponent),
+        ).buildAsync()
+        controllerFuture = future
+        return future
+    }
+
+    override fun asPlaybackController(mediaController: MediaController): PlaybackController {
+        return Media3PlaybackController(mediaController)
+    }
+
+    override fun asTrackSelectionController(mediaController: MediaController): PlaybackTrackSelectionController {
+        return DefaultPlaybackTrackSelectionController(mediaController)
+    }
+
+    override fun release() {
+        controllerFuture?.let(MediaController::releaseFuture)
+        controllerFuture = null
+    }
+}
+
+object Media3PlaybackControllerConnectorFactory : PlaybackControllerConnectorFactory {
+    override fun create(
+        context: Context,
+        playbackServiceComponent: ComponentName,
+    ): PlaybackControllerConnector {
+        return Media3PlaybackControllerConnector(
+            context = context,
+            playbackServiceComponent = playbackServiceComponent,
+        )
     }
 }

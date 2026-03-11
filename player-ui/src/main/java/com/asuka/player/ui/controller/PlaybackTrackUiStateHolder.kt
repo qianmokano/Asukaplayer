@@ -5,9 +5,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
-import com.asuka.player.core.TrackInfoReader
-import com.asuka.player.core.TrackSelectionFacade
-import com.asuka.player.core.TrackSelectionStateReader
+import com.asuka.player.platform.TrackInfoReader
+import com.asuka.player.platform.TrackSelectionStateReader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -62,22 +61,6 @@ class PlaybackTrackUiStateHolder(private val player: Player) : Player.Listener {
                 hasTextTracks = hasTextTracks,
             ),
         )
-    }
-}
-
-internal class DefaultPlaybackTrackSelectionController(player: Player) : PlaybackTrackSelectionController {
-    private val trackSelectionFacade = TrackSelectionFacade(player)
-
-    override fun setAudioTrack(groupIndex: Int, trackIndex: Int) {
-        trackSelectionFacade.setAudioTrack(groupIndex, trackIndex)
-    }
-
-    override fun setSubtitleTrack(groupIndex: Int, trackIndex: Int) {
-        trackSelectionFacade.setSubtitleTrack(groupIndex, trackIndex)
-    }
-
-    override fun disableSubtitles() {
-        trackSelectionFacade.disableSubtitles()
     }
 }
 

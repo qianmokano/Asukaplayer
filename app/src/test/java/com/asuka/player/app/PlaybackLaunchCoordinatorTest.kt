@@ -3,6 +3,8 @@ package com.asuka.player.app
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.runtime.PlaybackLaunchCoordinator
+import com.asuka.player.runtime.PlaybackUriResolver
 import com.asuka.player.ui.activity.PlaybackActivity
 import org.junit.Test
 import org.junit.runner.RunWith

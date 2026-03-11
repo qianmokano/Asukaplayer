@@ -1,12 +1,13 @@
-package com.asuka.player.app
+package com.asuka.player.runtime
 
+import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 import android.view.Window
-import com.asuka.player.core.PlaybackDeviceController
-import com.asuka.player.core.PlaybackDeviceControllerFactory
-import com.asuka.player.core.PlaybackStateRepository
-import com.asuka.player.core.PlaybackUiPersistence
+import com.asuka.player.contract.PlaybackDeviceController
+import com.asuka.player.contract.PlaybackStateRepository
+import com.asuka.player.contract.PlaybackUiPersistence
+import com.asuka.player.platform.PlaybackDeviceControllerFactory
 
 class PlaybackStateUiPersistence(
     private val playbackStateRepository: PlaybackStateRepository,
@@ -26,13 +27,10 @@ class PlaybackStateUiPersistence(
 }
 
 object DefaultPlaybackDeviceControllerFactory : PlaybackDeviceControllerFactory {
-    override fun create(
-        context: Context,
-        window: Window,
-    ): PlaybackDeviceController {
+    override fun create(activity: Activity): PlaybackDeviceController {
         return WindowPlaybackDeviceController(
-            appContext = context.applicationContext,
-            window = window,
+            appContext = activity.applicationContext,
+            window = activity.window,
         )
     }
 }

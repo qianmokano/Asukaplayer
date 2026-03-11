@@ -43,8 +43,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.asuka.player.core.TrackIndexCodec
-import com.asuka.player.core.VideoScaleMode
+import com.asuka.player.contract.TrackIndexCodec
+import com.asuka.player.contract.VideoScaleMode
 import com.asuka.player.ui.R
 import com.asuka.player.ui.controller.TrackOption
 

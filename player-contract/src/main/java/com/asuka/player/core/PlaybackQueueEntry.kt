@@ -1,8 +1,6 @@
-package com.asuka.player.core
-
-import android.net.Uri
+package com.asuka.player.contract
 
 data class PlaybackQueueEntry(
     val mediaId: String,
-    val uri: Uri,
+    val uri: String,
 )

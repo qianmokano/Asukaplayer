@@ -12,7 +12,7 @@
 含义：
 
 - `./gradlew test`
-  - 覆盖 `:app`、`:player-runtime`、`:player-engine`、`:player-contract`、`:player-domain`、`:player-ui`、`:player-data` 的 JVM / Robolectric 单元测试
+  - 覆盖 `:app`、`:player-runtime`、`:player-engine`、`:player-platform`、`:player-contract`、`:player-domain`、`:player-ui`、`:player-data` 的 JVM / Robolectric 单元测试
 - `:player-ui:compileDebugAndroidTestKotlin`
   - 保证 `player-ui/src/androidTest` 与当前播放页 API 保持同步
   - 不需要设备
@@ -51,6 +51,11 @@
 - 轨道恢复
 - 最近历史
 - UI overlay 不直接写 speed/track store
+- `player-contract` 纯 queue/session model 与 `player-platform` writer / mapper 的边界一致性
+- `SharedPreferencesAppSettingsStore` -> DataStore migration
+- `SharedPreferencesPlaybackStore` / `SharedPreferencesQueueHistoryStore` -> Room import
+- `AppSettingsSnapshot` schema compatibility
+- Room-backed playback/history store 的顺序、裁剪和 round-trip
 
 ### 播放页行为
 
@@ -141,5 +146,7 @@
   - `./gradlew :player-ui:compileDebugAndroidTestKotlin`
 - 可选补充：
   - `./gradlew lintDebug`
+- 持久化 schema 变更时额外检查：
+  - `player-data/schemas/` 是否有对应导出更新
 - 设备环境或 nightly 再执行：
   - `./gradlew :player-ui:connectedAndroidTest`

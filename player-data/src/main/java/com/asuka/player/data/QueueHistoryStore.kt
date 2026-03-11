@@ -1,27 +1,26 @@
 package com.asuka.player.data
 
 import android.content.Context
-import android.net.Uri
-import com.asuka.player.core.QueueHistoryStore
+import com.asuka.player.contract.QueueHistoryStore
 
 /**
  * In-memory history implementation used by tests and lightweight callers.
  */
 class InMemoryQueueHistoryStore(private val maxSize: Int = 50) : QueueHistoryStore {
     private val lock = Any()
-    private val deque = ArrayDeque<Uri>()
+    private val deque = ArrayDeque<String>()
 
-    override fun push(uri: Uri) {
+    override fun push(mediaId: String) {
         synchronized(lock) {
-            if (deque.lastOrNull() == uri) return
-            deque.addLast(uri)
+            if (deque.lastOrNull() == mediaId) return
+            deque.addLast(mediaId)
             while (deque.size > maxSize) {
                 deque.removeFirst()
             }
         }
     }
 
-    override fun items(): List<Uri> {
+    override fun items(): List<String> {
         synchronized(lock) {
             return deque.toList()
         }
@@ -38,36 +37,35 @@ class SharedPreferencesQueueHistoryStore(
 ) : QueueHistoryStore {
     private val prefs = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
     private val lock = Any()
-    private var cachedItems: MutableList<Uri>? = null
+    private var cachedItems: MutableList<String>? = null
 
-    override fun push(uri: Uri) {
+    override fun push(mediaId: String) {
         synchronized(lock) {
             val items = getOrLoadItemsLocked()
-            if (items.lastOrNull() == uri) return
-            items.add(uri)
+            if (items.lastOrNull() == mediaId) return
+            items.add(mediaId)
             while (items.size > maxSize) {
                 items.removeAt(0)
             }
             prefs.edit()
                 .putString(
                     KEY_HISTORY,
-                    SharedPreferencesPlaybackStore.MediaIdListCodec.encode(items.map(Uri::toString)),
+                    SharedPreferencesPlaybackStore.MediaIdListCodec.encode(items),
                 )
                 .apply()
         }
     }
 
-    override fun items(): List<Uri> {
+    override fun items(): List<String> {
         synchronized(lock) {
             return getOrLoadItemsLocked().toList()
         }
     }
 
-    private fun getOrLoadItemsLocked(): MutableList<Uri> {
+    private fun getOrLoadItemsLocked(): MutableList<String> {
         cachedItems?.let { return it }
         val raw = prefs.getString(KEY_HISTORY, "") ?: ""
         val parsed = SharedPreferencesPlaybackStore.MediaIdListCodec.decode(raw)
-            .map(Uri::parse)
             .toMutableList()
         cachedItems = parsed
         return parsed

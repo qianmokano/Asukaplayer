@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.asuka.player.runtime.ThemeAppearanceMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -81,7 +82,7 @@ internal fun MainLibraryScreen(
     var networkStreamUrl by rememberSaveable { mutableStateOf("") }
     var showOpenNetworkStreamDialog by rememberSaveable { mutableStateOf(false) }
 
-    val screenState = remember(
+    val screenState = rememberMainLibraryUiState(
         appVersion,
         uiSettings,
         playerSettings,
@@ -89,17 +90,7 @@ internal fun MainLibraryScreen(
         userSelectedPermissionGranted,
         mediaLibraryState,
         recentMediaIds,
-    ) {
-        MainLibraryUiState(
-            appVersion = appVersion,
-            uiSettings = uiSettings,
-            playerSettings = playerSettings,
-            permissionGranted = permissionGranted,
-            userSelectedPermissionGranted = userSelectedPermissionGranted,
-            mediaLibraryState = mediaLibraryState,
-            recentMediaIds = recentMediaIds,
-        )
-    }
+    )
 
     AsukaTheme(themeConfig = uiSettings.themeConfig) {
         CompositionLocalProvider(LocalHapticsEnabled provides uiSettings.hapticFeedbackEnabled) {

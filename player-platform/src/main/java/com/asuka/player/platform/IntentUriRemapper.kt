@@ -1,4 +1,4 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import android.content.ClipData
 import android.content.Intent

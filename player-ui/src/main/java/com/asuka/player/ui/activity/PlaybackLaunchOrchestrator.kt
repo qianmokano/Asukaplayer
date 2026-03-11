@@ -5,11 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.PlaybackException
-import com.asuka.player.core.PlaybackRuntimeSettingsSource
-import com.asuka.player.core.PlaybackSessionPlan
-import com.asuka.player.core.PlaybackStartupPolicy
-import com.asuka.player.core.SeekFallbackCopier
-import com.asuka.player.core.copyIntentWithRemappedUri
+import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlaybackSessionPlan
+import com.asuka.player.contract.PlaybackStartupPolicy
+import com.asuka.player.platform.SeekFallbackCopier
+import com.asuka.player.platform.copyIntentWithRemappedUri
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

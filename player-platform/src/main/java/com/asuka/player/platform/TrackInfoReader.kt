@@ -1,17 +1,12 @@
-package com.asuka.player.core
+package com.asuka.player.platform
 
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 
-/**
- * Extracts simple track info for UI.
- */
 @OptIn(UnstableApi::class)
 class TrackInfoReader(private val player: Player) {
-
     data class TrackInfo(
         val groupIndex: Int,
         val trackIndex: Int,
@@ -24,9 +19,6 @@ class TrackInfoReader(private val player: Player) {
     fun listTracks(): List<TrackInfo> {
         val tracks = player.currentTracks
         val results = mutableListOf<TrackInfo>()
-        // Per-type counter used to generate "Audio 1", "Audio 2", "Sub 1" fallback labels.
-        // Every track from every group is added to results (no type filtering), so the counter
-        // increments exactly once per track per type, keeping ordinals consecutive within each type.
         val typeCounters = mutableMapOf<Int, Int>()
         tracks.groups.forEachIndexed { groupIndex, group ->
             val type = group.type

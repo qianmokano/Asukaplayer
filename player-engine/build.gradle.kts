@@ -32,7 +32,8 @@ kotlin {
 }
 
 dependencies {
-    api(project(":player-contract"))
+    implementation(project(":player-contract"))
+    implementation(project(":player-platform"))
     implementation(libs.annotation)
     implementation(libs.coroutines.core)
     api(libs.media3.common)

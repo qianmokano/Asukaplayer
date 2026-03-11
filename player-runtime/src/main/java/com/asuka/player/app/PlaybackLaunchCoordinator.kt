@@ -1,4 +1,4 @@
-package com.asuka.player.app
+package com.asuka.player.runtime
 
 import android.content.ClipData
 import android.content.Context
@@ -8,9 +8,9 @@ import android.provider.MediaStore
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
-import com.asuka.player.core.IntentQueueReader
-import com.asuka.player.core.SeekFallbackCopier
-import com.asuka.player.core.remapClipDataUri
+import com.asuka.player.platform.IntentQueueReader
+import com.asuka.player.platform.SeekFallbackCopier
+import com.asuka.player.platform.remapClipDataUri
 import java.io.File
 
 interface PlaybackUriResolver {

@@ -1,6 +1,4 @@
-package com.asuka.player.core
-
-import android.net.Uri
+package com.asuka.player.contract
 
 data class PlaybackStartupPolicy(
     val resumePlayback: Boolean,
@@ -15,7 +13,7 @@ data class TrackSelectionRestoreRequest(
 )
 
 data class PlaybackSessionPlan(
-    val queue: QueueBuilder.Queue,
+    val queue: PlaybackQueue,
     val resumePositionMs: Long,
     val playbackSpeed: Float,
     val trackSelectionRestoreRequest: TrackSelectionRestoreRequest?,
@@ -27,7 +25,7 @@ class PlaybackSessionPlanner(
     fun plan(
         target: PlaybackQueueEntry,
         launchNeighbors: List<PlaybackQueueEntry>,
-        resolvedTitles: Map<Uri, String?> = emptyMap(),
+        resolvedTitles: Map<String, String?> = emptyMap(),
         policy: PlaybackStartupPolicy,
     ): PlaybackSessionPlan {
         val queueEntries = QueuePlanner.plan(
@@ -61,9 +59,9 @@ class PlaybackSessionPlanner(
     }
 
     fun plan(
-        targetUri: Uri,
-        launchNeighbors: List<Uri>,
-        resolvedTitles: Map<Uri, String?> = emptyMap(),
+        targetUri: String,
+        launchNeighbors: List<String>,
+        resolvedTitles: Map<String, String?> = emptyMap(),
         policy: PlaybackStartupPolicy,
     ): PlaybackSessionPlan {
         return plan(

@@ -1,8 +1,8 @@
 package com.asuka.player.ui.controller
 
 import androidx.media3.common.C
-import com.asuka.player.core.TrackIndexCodec
-import com.asuka.player.core.TrackSelectionStateReader
+import com.asuka.player.contract.TrackIndexCodec
+import com.asuka.player.platform.TrackSelectionStateReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

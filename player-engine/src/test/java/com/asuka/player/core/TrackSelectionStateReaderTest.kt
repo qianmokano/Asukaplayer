@@ -1,5 +1,6 @@
 package com.asuka.player.core
 
+import com.asuka.player.contract.TrackIndexCodec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.asuka.player.core.PlaybackController
+import com.asuka.player.contract.PlaybackController
 import com.asuka.player.ui.R
 import com.asuka.player.ui.theme.PlayerUiTokens
 import com.asuka.player.ui.utils.formatTimeMs
