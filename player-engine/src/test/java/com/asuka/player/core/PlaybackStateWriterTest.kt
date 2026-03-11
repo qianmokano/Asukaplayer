@@ -14,12 +14,14 @@ import com.asuka.player.platform.PlaybackStateWriter
 import com.asuka.player.platform.TrackSelectionIdentity
 import com.asuka.player.data.InMemoryPlaybackStore
 import java.lang.reflect.Proxy
+import kotlin.system.measureTimeMillis
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -56,6 +58,7 @@ class PlaybackStateWriterTest {
             newPosition = positionInfo(mediaItem = mediaItem, positionMs = 25_000L),
             reason = Player.DISCONTINUITY_REASON_SEEK,
         )
+        writer.awaitIdle()
 
         assertEquals(25_000L, store.loadPosition(mediaItem.mediaId))
     }
@@ -71,6 +74,7 @@ class PlaybackStateWriterTest {
         writer.attach(playerState.asPlayer())
         writer.onMediaItemTransition(second, Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
         writer.onPlaybackParametersChanged(PlaybackParameters(1.5f))
+        writer.awaitIdle()
 
         assertNull(store.loadPlaybackSpeed(first.mediaId))
         assertEquals(1.5f, store.loadPlaybackSpeed(second.mediaId))
@@ -86,6 +90,7 @@ class PlaybackStateWriterTest {
         store.savePosition(mediaItem.mediaId, 99_000L)
         writer.attach(playerState.asPlayer())
         writer.onPlaybackStateChanged(Player.STATE_ENDED)
+        writer.awaitIdle()
 
         assertEquals(0L, store.loadPosition(mediaItem.mediaId))
     }
@@ -105,6 +110,7 @@ class PlaybackStateWriterTest {
         writer.attach(playerState.asPlayer())
 
         assertTrue(writer.checkpoint(nowMs = 10_000L, minIntervalMs = 5_000L))
+        writer.awaitIdle()
         assertEquals(15_000L, store.loadPosition(mediaItem.mediaId))
 
         playerState.currentPosition = 17_500L
@@ -112,6 +118,7 @@ class PlaybackStateWriterTest {
         assertEquals(15_000L, store.loadPosition(mediaItem.mediaId))
 
         assertTrue(writer.checkpoint(nowMs = 16_000L, minIntervalMs = 5_000L))
+        writer.awaitIdle()
         assertEquals(17_500L, store.loadPosition(mediaItem.mediaId))
     }
 
@@ -129,7 +136,7 @@ class PlaybackStateWriterTest {
 
         writer.attach(playerState.asPlayer())
 
-        assertTrue(writer.flushCurrentPosition())
+        assertTrue(writer.flushCurrentPositionAndAwait())
         assertEquals(42_000L, store.loadPosition(mediaItem.mediaId))
     }
 
@@ -147,7 +154,7 @@ class PlaybackStateWriterTest {
         store.savePosition(mediaItem.mediaId, 15_000L)
         writer.attach(playerState.asPlayer())
 
-        assertTrue(writer.flushCurrentPosition())
+        assertTrue(writer.flushCurrentPositionAndAwait())
         assertEquals(0L, store.loadPosition(mediaItem.mediaId))
     }
 
@@ -203,6 +210,7 @@ class PlaybackStateWriterTest {
         playerState.currentMediaItem = second
         playerState.currentTracks = tracks
         writer.onTracksChanged(tracks)
+        writer.awaitIdle()
 
         assertNull(store.loadAudioTrackId(first.mediaId))
         assertEquals(
@@ -213,6 +221,25 @@ class PlaybackStateWriterTest {
             TrackSelectionIdentity.create(C.TRACK_TYPE_TEXT, subtitleFormat),
             store.loadSubtitleTrackId(second.mediaId),
         )
+    }
+
+    @Test
+    fun onPositionDiscontinuity_returnsQuickly_whenStoreWriteIsSlow() = runBlocking {
+        val mediaItem = mediaItem("media://slow")
+        val playerState = fakePlayer(currentMediaItem = mediaItem)
+        val writer = PlaybackStateWriter(SlowPlaybackStore())
+
+        writer.attach(playerState.asPlayer())
+        val elapsedMs = measureTimeMillis {
+            writer.onPositionDiscontinuity(
+                oldPosition = positionInfo(mediaItem = mediaItem, positionMs = 0L),
+                newPosition = positionInfo(mediaItem = mediaItem, positionMs = 10_000L),
+                reason = Player.DISCONTINUITY_REASON_SEEK,
+            )
+        }
+        writer.awaitIdle()
+
+        assertTrue(elapsedMs < 100, "Expected non-blocking callback, but took ${elapsedMs}ms")
     }
 
     private class FakePlayerState(
@@ -299,5 +326,28 @@ class PlaybackStateWriterTest {
                 else -> null
             }
         }
+    }
+}
+
+private class SlowPlaybackStore : com.asuka.player.contract.PlaybackStore {
+    override suspend fun loadPosition(mediaId: String): Long? = null
+    override suspend fun savePosition(mediaId: String, positionMs: Long) {
+        delay(200)
+    }
+    override suspend fun loadPlaybackSpeed(mediaId: String): Float? = null
+    override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) {
+        delay(200)
+    }
+    override suspend fun loadAudioTrackId(mediaId: String): String? = null
+    override suspend fun saveAudioTrackId(mediaId: String, trackId: String) {
+        delay(200)
+    }
+    override suspend fun loadSubtitleTrackId(mediaId: String): String? = null
+    override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) {
+        delay(200)
+    }
+    override suspend fun loadZoom(mediaId: String): Float? = null
+    override suspend fun saveZoom(mediaId: String, zoom: Float) {
+        delay(200)
     }
 }

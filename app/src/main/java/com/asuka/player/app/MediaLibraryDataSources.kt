@@ -1,26 +1,38 @@
 package com.asuka.player.app
 
 import android.Manifest
-import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import androidx.core.content.ContextCompat
-import com.asuka.player.R
 import com.asuka.player.contract.PlaybackStateRepository
 import com.asuka.player.contract.QueueHistoryRepository
-import java.io.File
+import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
+import com.asuka.player.data.IndexedFolderSummaryRow
+import com.asuka.player.data.IndexedVideoEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+
+private const val MEDIA_STORE_ID_PREFIX = "media-store:"
 
 internal interface VideoAccessDataSource {
     fun readVideoAccessState(): VideoAccessState
 }
 
 internal interface LocalVideoCatalogDataSource {
-    suspend fun scanLocalVideos(): List<LocalVideoItem>
+    val changes: Flow<Unit>
+
+    suspend fun syncIndex(forceFullRescan: Boolean = false)
+
+    suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder>
+
+    suspend fun loadVideoPage(
+        request: MediaLibraryPageRequest,
+        folderId: Long? = null,
+    ): MediaLibraryPage<LocalVideoItem>
+
+    suspend fun resolveMediaIds(mediaIds: List<String>): Map<String, LocalVideoItem>
 
     suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int)
 }
@@ -63,13 +75,61 @@ internal class AndroidVideoAccessDataSource(
 
 internal class AndroidMediaStoreVideoCatalogDataSource(
     context: Context,
+    database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
 ) : LocalVideoCatalogDataSource {
     private val appContext = context.applicationContext
-    private val contentResolver = appContext.contentResolver
+    private val dao = database.indexedVideoDao()
+    private val indexingCoordinator = MediaLibraryIndexingCoordinator(
+        context = appContext,
+        database = database,
+    )
 
-    override suspend fun scanLocalVideos(): List<LocalVideoItem> {
+    override val changes: Flow<Unit> = indexingCoordinator.changes
+
+    override suspend fun syncIndex(forceFullRescan: Boolean) {
+        indexingCoordinator.syncNow(forceFullRescan)
+    }
+
+    override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
         return withContext(Dispatchers.IO) {
-            queryMediaStoreVideos()
+            indexingCoordinator.ensureInitialized()
+            val rows = dao.pagedFolders(limit = request.limit + 1, offset = request.offset)
+            val pageItems = rows.take(request.limit).map(IndexedFolderSummaryRow::toLocalFolder)
+            MediaLibraryPage(
+                items = pageItems,
+                nextOffset = if (rows.size > request.limit) request.offset + pageItems.size else null,
+            )
+        }
+    }
+
+    override suspend fun loadVideoPage(
+        request: MediaLibraryPageRequest,
+        folderId: Long?,
+    ): MediaLibraryPage<LocalVideoItem> {
+        return withContext(Dispatchers.IO) {
+            indexingCoordinator.ensureInitialized()
+            val rows = if (folderId == null) {
+                dao.pagedVideos(limit = request.limit + 1, offset = request.offset)
+            } else {
+                dao.pagedVideosByFolder(folderId = folderId, limit = request.limit + 1, offset = request.offset)
+            }
+            val pageItems = rows.take(request.limit).map(IndexedVideoEntity::toLocalVideoItem)
+            MediaLibraryPage(
+                items = pageItems,
+                nextOffset = if (rows.size > request.limit) request.offset + pageItems.size else null,
+            )
+        }
+    }
+
+    override suspend fun resolveMediaIds(mediaIds: List<String>): Map<String, LocalVideoItem> {
+        return withContext(Dispatchers.IO) {
+            indexingCoordinator.ensureInitialized()
+            val ids = mediaIds.mapNotNull(::parseMediaStoreId).distinct()
+            if (ids.isEmpty()) return@withContext emptyMap()
+            dao.findByIds(ids)
+                .associate { entity ->
+                    entity.toPlaybackMediaId() to entity.toLocalVideoItem()
+                }
         }
     }
 
@@ -83,75 +143,10 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
         }
     }
 
-    private fun queryMediaStoreVideos(): List<LocalVideoItem> {
-        val collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        val projection = arrayOf(
-            MediaStore.Video.Media._ID,
-            MediaStore.Video.Media.DISPLAY_NAME,
-            MediaStore.Video.Media.DURATION,
-            MediaStore.Video.Media.SIZE,
-            MediaStore.Video.Media.DATA,
-            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
-            MediaStore.Video.Media.BUCKET_ID,
-            MediaStore.Video.Media.DATE_ADDED,
-        )
-        val selection = if (Build.VERSION.SDK_INT >= 29) {
-            "${MediaStore.Video.Media.IS_PENDING}=0"
-        } else {
-            null
-        }
-        val sortOrder = "${MediaStore.Video.Media.DATE_ADDED} DESC"
-        val cursor = contentResolver.query(
-            collection,
-            projection,
-            selection,
-            null,
-            sortOrder,
-        ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
-        return cursor.use {
-            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-            val titleIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-            val durationIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
-            val sizeIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
-            val dataPathIdx = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
-            val folderNameIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
-            val folderIdIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_ID)
-            val dateAddedIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
-
-            buildList {
-                while (cursor.moveToNext()) {
-                    val id = cursor.getLong(idIdx)
-                    val uri = ContentUris.withAppendedId(collection, id)
-                    val fallbackFolderName = cursor.getString(folderNameIdx)
-                        ?.takeIf { it.isNotBlank() }
-                        ?: appContext.getString(R.string.unknown_folder)
-                    val fullFolderPath = if (dataPathIdx >= 0) {
-                        cursor.getString(dataPathIdx)
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { File(it).parent }
-                            ?.takeIf { it.isNotBlank() }
-                    } else {
-                        null
-                    }?.replace(
-                        Environment.getExternalStorageDirectory().absolutePath,
-                        appContext.getString(R.string.internal_storage),
-                    ) ?: fallbackFolderName
-                    add(
-                        LocalVideoItem(
-                            id = id,
-                            uri = uri,
-                            title = cursor.getString(titleIdx) ?: uri.lastPathSegment.orEmpty(),
-                            durationMs = cursor.getLong(durationIdx).coerceAtLeast(0L),
-                            sizeBytes = cursor.getLong(sizeIdx).coerceAtLeast(0L),
-                            folderName = fallbackFolderName,
-                            folderPath = fullFolderPath,
-                            folderId = cursor.getLong(folderIdIdx),
-                            dateAddedSec = cursor.getLong(dateAddedIdx).coerceAtLeast(0L),
-                        ),
-                    )
-                }
-            }
-        }
+    private fun parseMediaStoreId(mediaId: String): Long? {
+        return mediaId.removePrefix(MEDIA_STORE_ID_PREFIX)
+            .takeIf { mediaId.startsWith(MEDIA_STORE_ID_PREFIX) }
+            ?.toLongOrNull()
     }
 }
 
@@ -171,3 +166,29 @@ internal class PlaybackRecentMediaDataSource(
         }
     }
 }
+
+private fun IndexedFolderSummaryRow.toLocalFolder(): LocalVideoFolder {
+    return LocalVideoFolder(
+        id = folderId,
+        name = folderName,
+        videoCount = videoCount,
+        totalDurationMs = totalDurationMs,
+        totalSizeBytes = totalSizeBytes,
+    )
+}
+
+private fun IndexedVideoEntity.toLocalVideoItem(): LocalVideoItem {
+    return LocalVideoItem(
+        id = mediaStoreId,
+        uri = android.net.Uri.parse(uri),
+        title = title,
+        durationMs = durationMs,
+        sizeBytes = sizeBytes,
+        folderName = folderName,
+        folderPath = folderPath,
+        folderId = folderId,
+        dateAddedSec = dateAddedSec,
+    )
+}
+
+private fun IndexedVideoEntity.toPlaybackMediaId(): String = "$MEDIA_STORE_ID_PREFIX$mediaStoreId"

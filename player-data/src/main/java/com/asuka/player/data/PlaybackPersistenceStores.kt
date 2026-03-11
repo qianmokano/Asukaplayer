@@ -18,6 +18,8 @@ object PlaybackPersistenceStoresFactory {
             val legacyQueueHistoryStore = SharedPreferencesQueueHistoryStore(context)
             val database = AsukaPlaybackRoomDatabase.open(
                 context = context,
+            )
+            database.importLegacyDataIfNeeded(
                 legacyPlaybackStore = legacyPlaybackStore,
                 legacyQueueHistoryStore = legacyQueueHistoryStore,
             )

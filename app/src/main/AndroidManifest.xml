@@ -43,7 +43,7 @@
         </activity>
 
         <activity
-            android:name="com.asuka.player.ui.activity.PlaybackActivity"
+            android:name="com.asuka.player.renderer.activity.PlaybackActivity"
             android:exported="false"
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"

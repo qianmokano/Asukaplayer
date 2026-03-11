@@ -4,6 +4,8 @@ import android.net.Uri
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -14,7 +16,7 @@ import org.robolectric.annotation.Config
 class MediaLibraryUseCasesTest {
 
     @Test
-    fun refreshMediaLibraryUseCase_returnsWarmupVideosOnFirstLoad() = runBlocking {
+    fun loadVideoPageUseCase_returnsWarmupVideosOnFirstPage() = runBlocking {
         val repository = FakeMediaLibraryRepository(
             videos = listOf(
                 localVideoItem(id = 1L, name = "one.mp4"),
@@ -22,13 +24,15 @@ class MediaLibraryUseCasesTest {
                 localVideoItem(id = 3L, name = "three.mp4"),
             ),
         )
-        val useCase = RefreshMediaLibraryUseCase(
+        val useCase = LoadVideoPageUseCase(
             mediaLibraryRepository = repository,
             minRefreshAnimMs = 0L,
             initialThumbWarmupLimit = 2,
         )
 
-        val result = assertIs<MediaLibraryRefreshOutcome.Success>(useCase(hasLoadedOnce = false))
+        val result = assertIs<MediaCatalogOutcome.Success<LocalVideoItem>>(
+            useCase(offset = 0, folderId = null, hasLoadedOnce = false, syncIndex = false),
+        )
         useCase.warmupInitialThumbnails(result.warmupVideos)
 
         assertEquals(listOf(1L, 2L), result.warmupVideos.map(LocalVideoItem::id))
@@ -37,57 +41,61 @@ class MediaLibraryUseCasesTest {
     }
 
     @Test
-    fun refreshMediaLibraryUseCase_mapsProviderFailureToOutcome() = runBlocking {
+    fun loadFolderPageUseCase_mapsProviderFailureToOutcome() = runBlocking {
         val repository = FakeMediaLibraryRepository(
-            scanFailure = IllegalStateException("provider unavailable"),
+            folderFailure = IllegalStateException("provider unavailable"),
         )
-        val useCase = RefreshMediaLibraryUseCase(
+        val useCase = LoadFolderPageUseCase(
             mediaLibraryRepository = repository,
             minRefreshAnimMs = 0L,
         )
 
-        val result = useCase(hasLoadedOnce = true)
+        val result = useCase(offset = 0, hasLoadedOnce = true, syncIndex = false)
 
         assertEquals(
-            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.ProviderUnavailable),
+            MediaCatalogOutcome.Failure(MediaCatalogFailure.ProviderUnavailable),
             result,
         )
     }
 
     @Test
-    fun refreshMediaLibraryUseCase_mapsPermissionFailureToOutcome() = runBlocking {
+    fun loadVideoPageUseCase_mapsPermissionFailureToOutcome() = runBlocking {
         val repository = FakeMediaLibraryRepository(
-            scanFailure = SecurityException("permission denied"),
+            videoFailure = SecurityException("permission denied"),
         )
-        val useCase = RefreshMediaLibraryUseCase(
+        val useCase = LoadVideoPageUseCase(
             mediaLibraryRepository = repository,
             minRefreshAnimMs = 0L,
         )
 
-        val result = useCase(hasLoadedOnce = true)
+        val result = useCase(offset = 0, folderId = null, hasLoadedOnce = true, syncIndex = false)
 
         assertEquals(
-            MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.PermissionDenied),
+            MediaCatalogOutcome.Failure(MediaCatalogFailure.PermissionDenied),
             result,
         )
     }
 
     @Test
-    fun resolveVideoAccessAndRecentIds_delegateToRepository() = runBlocking {
+    fun resolveVideoAccessRecentIdsAndRecentItems_delegateToRepository() = runBlocking {
+        val knownVideo = localVideoItem(id = 1L, name = "current.mp4")
         val repository = FakeMediaLibraryRepository(
             accessState = VideoAccessState(
                 permissionGranted = false,
                 userSelectedPermissionGranted = true,
             ),
-            recentMediaIds = listOf("content://videos/current.mp4"),
+            recentMediaIds = listOf(knownVideo.playbackMediaId),
+            recentItems = mapOf(knownVideo.playbackMediaId to knownVideo),
         )
 
         val access = ResolveVideoAccessUseCase(repository)()
         val recentIds = LoadRecentMediaIdsUseCase(repository)(limit = 10)
+        val recentItems = ResolveRecentMediaItemsUseCase(repository)(recentIds)
 
         assertEquals(false, access.permissionGranted)
         assertEquals(true, access.userSelectedPermissionGranted)
-        assertEquals(listOf("content://videos/current.mp4"), recentIds)
+        assertEquals(listOf(knownVideo.playbackMediaId), recentIds)
+        assertEquals(mapOf(knownVideo.playbackMediaId to knownVideo), recentItems)
     }
 }
 
@@ -96,10 +104,14 @@ private class FakeMediaLibraryRepository(
         permissionGranted = true,
         userSelectedPermissionGranted = false,
     ),
+    private val folders: List<LocalVideoFolder> = emptyList(),
     private val videos: List<LocalVideoItem> = emptyList(),
     private val recentMediaIds: List<String> = emptyList(),
-    private val scanFailure: Exception? = null,
+    private val recentItems: Map<String, LocalVideoItem> = emptyMap(),
+    private val folderFailure: Exception? = null,
+    private val videoFailure: Exception? = null,
 ) : MediaLibraryRepository {
+    override val changes: Flow<Unit> = emptyFlow()
     var warmupCallCount: Int = 0
         private set
     var lastWarmupLimit: Int = 0
@@ -107,9 +119,28 @@ private class FakeMediaLibraryRepository(
 
     override fun readVideoAccessState(): VideoAccessState = accessState
 
-    override suspend fun scanLocalVideos(): List<LocalVideoItem> {
-        scanFailure?.let { throw it }
-        return videos
+    override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+    override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+        folderFailure?.let { throw it }
+        val items = folders.drop(request.offset).take(request.limit)
+        val nextOffset = (request.offset + items.size).takeIf { it < folders.size }
+        return MediaLibraryPage(items = items, nextOffset = nextOffset)
+    }
+
+    override suspend fun loadVideoPage(
+        request: MediaLibraryPageRequest,
+        folderId: Long?,
+    ): MediaLibraryPage<LocalVideoItem> {
+        videoFailure?.let { throw it }
+        val source = videos.filter { folderId == null || it.folderId == folderId }
+        val items = source.drop(request.offset).take(request.limit)
+        val nextOffset = (request.offset + items.size).takeIf { it < source.size }
+        return MediaLibraryPage(items = items, nextOffset = nextOffset)
+    }
+
+    override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+        return recentItems.filterKeys(mediaIds::contains)
     }
 
     override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) {

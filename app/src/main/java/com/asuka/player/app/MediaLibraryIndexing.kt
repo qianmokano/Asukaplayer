@@ -1,0 +1,395 @@
+package com.asuka.player.app
+
+import android.content.Context
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.Environment
+import android.provider.MediaStore
+import com.asuka.player.R
+import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
+import com.asuka.player.data.IndexedVideoDao
+import com.asuka.player.data.IndexedVideoEntity
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+
+internal class MediaLibraryIndexingCoordinator(
+    context: Context,
+    private val database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+) : AutoCloseable {
+    private val appContext = context.applicationContext
+    private val contentResolver = appContext.contentResolver
+    private val dao: IndexedVideoDao = database.indexedVideoDao()
+    private val syncMutex = Mutex()
+    private val _changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            markObservedChange(emptyList(), requiresFullReconcile = true)
+            requestIncrementalSync()
+        }
+
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            markObservedChange(listOfNotNull(uri), requiresFullReconcile = uri == null)
+            requestIncrementalSync()
+        }
+
+        override fun onChange(selfChange: Boolean, uri: Uri?, flags: Int) {
+            markObservedChange(listOfNotNull(uri), requiresFullReconcile = uri == null)
+            requestIncrementalSync()
+        }
+
+        override fun onChange(selfChange: Boolean, uris: MutableCollection<Uri>, flags: Int) {
+            markObservedChange(uris, requiresFullReconcile = uris.isEmpty())
+            requestIncrementalSync()
+        }
+    }
+
+    private var observerRegistered = false
+    private var scheduledSyncJob: Job? = null
+    private var pendingObservedIds = mutableSetOf<Long>()
+    private var pendingRequiresFullReconcile = false
+    @Volatile
+    private var initialized = false
+
+    val changes: Flow<Unit> = _changes.asSharedFlow()
+
+    suspend fun ensureInitialized() {
+        registerObserverIfNeeded()
+        if (initialized) return
+        syncNow(forceFullRescan = false)
+    }
+
+    suspend fun syncNow(forceFullRescan: Boolean) {
+        registerObserverIfNeeded()
+        val changed = syncMutex.withLock {
+            performSync(forceFullRescan = forceFullRescan)
+        }
+        initialized = true
+        if (changed) {
+            _changes.tryEmit(Unit)
+        }
+    }
+
+    internal fun recordObservedChangeForTest(uri: Uri) {
+        markObservedChange(listOf(uri), requiresFullReconcile = false)
+    }
+
+    override fun close() {
+        scheduledSyncJob?.cancel()
+        if (observerRegistered) {
+            runCatching { contentResolver.unregisterContentObserver(observer) }
+            observerRegistered = false
+        }
+        database.close()
+    }
+
+    private fun requestIncrementalSync() {
+        registerObserverIfNeeded()
+        scheduledSyncJob?.cancel()
+        scheduledSyncJob = scope.launch {
+            delay(SYNC_DEBOUNCE_MS)
+            runCatching { syncNow(forceFullRescan = false) }
+        }
+    }
+
+    private fun registerObserverIfNeeded() {
+        if (observerRegistered) return
+        contentResolver.registerContentObserver(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            true,
+            observer,
+        )
+        observerRegistered = true
+    }
+
+    private suspend fun performSync(
+        forceFullRescan: Boolean,
+    ): Boolean {
+        return withContext(Dispatchers.IO) {
+            val existingIds = dao.allIds()
+            val shouldForce = forceFullRescan || existingIds.isEmpty()
+            val (observedIds, requiresFullReconcile) = consumeObservedChanges()
+            val currentGeneration = currentGeneration()
+            val baselineGeneration = if (shouldForce) null else dao.maxGenerationModified()?.takeIf { it > 0L }
+            val baselineModified = if (baselineGeneration == null && !shouldForce) dao.maxDateModifiedSec() else null
+            val changedVideos = queryIndexedVideos(
+                generationAfterExclusive = baselineGeneration,
+                modifiedSinceInclusive = baselineModified,
+            )
+            if (changedVideos.isNotEmpty()) {
+                dao.upsertAll(changedVideos)
+            }
+            val removedIds = mutableSetOf<Long>()
+            if (observedIds.isNotEmpty()) {
+                val existingObservedIds = queryExistingIds(observedIds)
+                removedIds += observedIds.filterNot(existingObservedIds::contains)
+            }
+
+            val shouldReconcileAllIds = shouldForce ||
+                requiresFullReconcile ||
+                (currentGeneration != null && baselineGeneration != null && currentGeneration > baselineGeneration && changedVideos.isEmpty())
+            if (shouldReconcileAllIds) {
+                val currentIds = queryAllCurrentIds()
+                removedIds += existingIds.filterNot(currentIds::contains)
+            }
+
+            removedIds.chunked(DELETE_CHUNK_SIZE).forEach { chunk ->
+                if (chunk.isNotEmpty()) {
+                    dao.deleteByIds(chunk)
+                }
+            }
+            changedVideos.isNotEmpty() || removedIds.isNotEmpty()
+        }
+    }
+
+    private fun markObservedChange(
+        uris: Collection<Uri>,
+        requiresFullReconcile: Boolean,
+    ) {
+        synchronized(this) {
+            pendingObservedIds += uris.mapNotNull(::parseMediaStoreId)
+            pendingRequiresFullReconcile =
+                pendingRequiresFullReconcile || requiresFullReconcile || uris.any { parseMediaStoreId(it) == null }
+        }
+    }
+
+    private suspend fun consumeObservedChanges(): Pair<Set<Long>, Boolean> {
+        return synchronized(this) {
+            val ids = pendingObservedIds.toSet()
+            val requiresFullReconcile = pendingRequiresFullReconcile
+            pendingObservedIds.clear()
+            pendingRequiresFullReconcile = false
+            ids to requiresFullReconcile
+        }
+    }
+
+    private fun queryAllCurrentIds(): Set<Long> {
+        val cursor = contentResolver.query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Video.Media._ID),
+            baseSelection(),
+            null,
+            null,
+        ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
+        return cursor.use {
+            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            buildSet {
+                while (cursor.moveToNext()) {
+                    add(cursor.getLong(idIdx))
+                }
+            }
+        }
+    }
+
+    private fun queryIndexedVideos(
+        generationAfterExclusive: Long?,
+        modifiedSinceInclusive: Long?,
+    ): List<IndexedVideoEntity> {
+        val cursor = contentResolver.query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            mediaStoreProjection(),
+            buildSelection(
+                generationAfterExclusive = generationAfterExclusive,
+                modifiedSinceInclusive = modifiedSinceInclusive,
+            ),
+            buildSelectionArgs(
+                generationAfterExclusive = generationAfterExclusive,
+                modifiedSinceInclusive = modifiedSinceInclusive,
+            ),
+            buildSortOrder(generationAfterExclusive),
+        ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
+        return cursor.use { readIndexedVideos(it) }
+    }
+
+    private fun queryExistingIds(ids: Set<Long>): Set<Long> {
+        if (ids.isEmpty()) return emptySet()
+        val placeholders = ids.joinToString(",") { "?" }
+        val cursor = contentResolver.query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Video.Media._ID),
+            "${MediaStore.Video.Media._ID} IN ($placeholders)",
+            ids.map(Long::toString).toTypedArray(),
+            null,
+        ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
+        return cursor.use {
+            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+            buildSet {
+                while (cursor.moveToNext()) {
+                    add(cursor.getLong(idIdx))
+                }
+            }
+        }
+    }
+
+    private fun readIndexedVideos(cursor: android.database.Cursor): List<IndexedVideoEntity> {
+        val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+        val titleIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
+        val durationIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION)
+        val sizeIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE)
+        val dataPathIdx = cursor.getColumnIndex(MediaStore.Video.Media.DATA)
+        val folderNameIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_DISPLAY_NAME)
+        val folderIdIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.BUCKET_ID)
+        val dateAddedIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+        val dateModifiedIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED)
+        val generationAddedIdx = cursor.getColumnIndex(MediaStore.MediaColumns.GENERATION_ADDED)
+        val generationModifiedIdx = cursor.getColumnIndex(MediaStore.MediaColumns.GENERATION_MODIFIED)
+
+        return buildList {
+            while (cursor.moveToNext()) {
+                val mediaStoreId = cursor.getLong(idIdx)
+                val uri = android.content.ContentUris.withAppendedId(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    mediaStoreId,
+                ).toString()
+                val fallbackFolderName = cursor.getString(folderNameIdx)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: appContext.getString(R.string.unknown_folder)
+                add(
+                    IndexedVideoEntity(
+                        mediaStoreId = mediaStoreId,
+                        uri = uri,
+                        title = cursor.getString(titleIdx) ?: uri.substringAfterLast('/'),
+                        durationMs = cursor.getLong(durationIdx).coerceAtLeast(0L),
+                        sizeBytes = cursor.getLong(sizeIdx).coerceAtLeast(0L),
+                        folderName = fallbackFolderName,
+                        folderPath = resolveFolderPath(
+                            rawDataPath = if (dataPathIdx >= 0) cursor.getString(dataPathIdx) else null,
+                            fallbackFolderName = fallbackFolderName,
+                        ),
+                        folderId = cursor.getLong(folderIdIdx),
+                        dateAddedSec = cursor.getLong(dateAddedIdx).coerceAtLeast(0L),
+                        dateModifiedSec = cursor.getLong(dateModifiedIdx).coerceAtLeast(0L),
+                        generationAdded = if (generationAddedIdx >= 0) cursor.getLong(generationAddedIdx).coerceAtLeast(0L) else 0L,
+                        generationModified = if (generationModifiedIdx >= 0) cursor.getLong(generationModifiedIdx).coerceAtLeast(0L) else 0L,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun mediaStoreProjection(): Array<String> {
+        val columns = mutableListOf(
+            MediaStore.Video.Media._ID,
+            MediaStore.Video.Media.DISPLAY_NAME,
+            MediaStore.Video.Media.DURATION,
+            MediaStore.Video.Media.SIZE,
+            MediaStore.Video.Media.DATA,
+            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+            MediaStore.Video.Media.BUCKET_ID,
+            MediaStore.Video.Media.DATE_ADDED,
+            MediaStore.Video.Media.DATE_MODIFIED,
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            columns += MediaStore.MediaColumns.GENERATION_ADDED
+            columns += MediaStore.MediaColumns.GENERATION_MODIFIED
+        }
+        return columns.toTypedArray()
+    }
+
+    private fun resolveFolderPath(
+        rawDataPath: String?,
+        fallbackFolderName: String,
+    ): String {
+        return rawDataPath
+            ?.takeIf { it.isNotBlank() }
+            ?.let { File(it).parent }
+            ?.takeIf { it.isNotBlank() }
+            ?.replace(
+                Environment.getExternalStorageDirectory().absolutePath,
+                appContext.getString(R.string.internal_storage),
+            )
+            ?: fallbackFolderName
+    }
+
+    private fun baseSelection(): String? {
+        return if (Build.VERSION.SDK_INT >= 29) {
+            "${MediaStore.Video.Media.IS_PENDING}=0"
+        } else {
+            null
+        }
+    }
+
+    private fun buildSelection(
+        generationAfterExclusive: Long?,
+        modifiedSinceInclusive: Long?,
+    ): String? {
+        val base = baseSelection()
+        if (generationAfterExclusive != null) {
+            return buildString {
+                if (!base.isNullOrBlank()) {
+                    append(base)
+                    append(" AND ")
+                }
+                append("(")
+                append(MediaStore.MediaColumns.GENERATION_ADDED)
+                append("> ? OR ")
+                append(MediaStore.MediaColumns.GENERATION_MODIFIED)
+                append("> ?)")
+            }
+        }
+        val modified = modifiedSinceInclusive ?: return base
+        return buildString {
+            if (!base.isNullOrBlank()) {
+                append(base)
+                append(" AND ")
+            }
+            append("${MediaStore.Video.Media.DATE_MODIFIED}>=?")
+        }
+    }
+
+    private fun buildSelectionArgs(
+        generationAfterExclusive: Long?,
+        modifiedSinceInclusive: Long?,
+    ): Array<String>? {
+        return when {
+            generationAfterExclusive != null -> arrayOf(
+                generationAfterExclusive.toString(),
+                generationAfterExclusive.toString(),
+            )
+            modifiedSinceInclusive != null -> arrayOf(modifiedSinceInclusive.toString())
+            else -> null
+        }
+    }
+
+    private fun buildSortOrder(generationAfterExclusive: Long?): String {
+        return if (generationAfterExclusive != null) {
+            "${MediaStore.MediaColumns.GENERATION_MODIFIED} ASC, ${MediaStore.Video.Media._ID} ASC"
+        } else {
+            "${MediaStore.Video.Media.DATE_MODIFIED} ASC, ${MediaStore.Video.Media._ID} ASC"
+        }
+    }
+
+    private fun currentGeneration(): Long? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching {
+                MediaStore.getGeneration(appContext, MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            }.getOrNull()
+        } else {
+            null
+        }
+    }
+
+    private fun parseMediaStoreId(uri: Uri): Long? {
+        val lastSegment = uri.lastPathSegment?.toLongOrNull() ?: return null
+        return lastSegment.takeIf { uri.authority == MediaStore.AUTHORITY }
+    }
+
+    companion object {
+        private const val SYNC_DEBOUNCE_MS = 750L
+        private const val DELETE_CHUNK_SIZE = 900
+    }
+}

@@ -27,6 +27,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
+import com.asuka.player.render.api.PlaybackSurfaceTransform
 import com.asuka.player.ui.components.BottomBar
 import com.asuka.player.ui.components.DoubleTapIndicator
 import com.asuka.player.ui.components.ErrorOverlay
@@ -39,7 +40,6 @@ import com.asuka.player.ui.components.OverlayType
 import com.asuka.player.ui.components.SeekIndicator
 import com.asuka.player.ui.components.TopBar
 import com.asuka.player.ui.components.VerticalAdjustIndicator
-import com.asuka.player.ui.components.VideoSurfaceWithTransform
 import com.asuka.player.ui.components.ZoomIndicator
 import com.asuka.player.ui.controller.GestureConfig
 import com.asuka.player.ui.controller.GestureCoordinator
@@ -74,13 +74,14 @@ fun PlayerScreen(
     onRotate: () -> Unit = {},
 ) {
     val uiState = model.uiState
-    val surfacePlayer = model.surfacePlayer
+    val surfaceState = model.surfaceState
     val trackUiState = model.trackUiState
     val settings = model.settings
     val isInPip = model.isInPip
     val controller = dependencies.controller
     val playbackPersistence = dependencies.playbackPersistence
     val deviceController = dependencies.deviceController
+    val surfaceRenderer = dependencies.surfaceRenderer
     val scope = rememberCoroutineScope()
     val controlsState = remember(settings.controllerTimeoutSec) {
         ControlsState(scope = scope, autoHideDelay = settings.controllerTimeoutSec.coerceIn(1, 60).seconds)
@@ -229,12 +230,15 @@ fun PlayerScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        surfacePlayer?.let { player ->
-            VideoSurfaceWithTransform(
+        surfaceState?.let { playbackSurface ->
+            surfaceRenderer?.Render(
                 modifier = videoBoundsModifier,
-                player = player,
-                zoomState = zoomState,
-                scaleState = scaleState,
+                surfaceState = playbackSurface,
+                transform = PlaybackSurfaceTransform(
+                    zoomScale = zoomState.scale,
+                    panOffset = zoomState.panOffset,
+                    videoScaleMode = scaleState.mode,
+                ),
             )
         }
         if (!controlsState.locked && overlayType == null && visibleError == null && !isInPip) {

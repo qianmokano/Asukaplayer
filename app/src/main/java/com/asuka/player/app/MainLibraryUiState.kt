@@ -11,8 +11,12 @@ internal data class MainLibraryUiState(
     val playerSettings: PlayerSettings,
     val permissionGranted: Boolean,
     val userSelectedPermissionGranted: Boolean,
-    val mediaLibraryState: MediaLibraryRefreshState,
+    val foldersState: MediaCatalogState<LocalVideoFolder>,
+    val allVideosState: MediaCatalogState<LocalVideoItem>,
+    val currentFolderId: Long?,
+    val currentFolderVideosState: MediaCatalogState<LocalVideoItem>,
     val recentMediaIds: List<String>,
+    val recentKnownVideos: Map<String, LocalVideoItem>,
 )
 
 @Composable
@@ -22,8 +26,12 @@ internal fun rememberMainLibraryUiState(
     playerSettings: PlayerSettings,
     permissionGranted: Boolean,
     userSelectedPermissionGranted: Boolean,
-    mediaLibraryState: MediaLibraryRefreshState,
+    foldersState: MediaCatalogState<LocalVideoFolder>,
+    allVideosState: MediaCatalogState<LocalVideoItem>,
+    currentFolderId: Long?,
+    currentFolderVideosState: MediaCatalogState<LocalVideoItem>,
     recentMediaIds: List<String>,
+    recentKnownVideos: Map<String, LocalVideoItem>,
 ): MainLibraryUiState {
     return remember(
         appVersion,
@@ -31,8 +39,12 @@ internal fun rememberMainLibraryUiState(
         playerSettings,
         permissionGranted,
         userSelectedPermissionGranted,
-        mediaLibraryState,
+        foldersState,
+        allVideosState,
+        currentFolderId,
+        currentFolderVideosState,
         recentMediaIds,
+        recentKnownVideos,
     ) {
         MainLibraryUiState(
             appVersion = appVersion,
@@ -40,8 +52,12 @@ internal fun rememberMainLibraryUiState(
             playerSettings = playerSettings,
             permissionGranted = permissionGranted,
             userSelectedPermissionGranted = userSelectedPermissionGranted,
-            mediaLibraryState = mediaLibraryState,
+            foldersState = foldersState,
+            allVideosState = allVideosState,
+            currentFolderId = currentFolderId,
+            currentFolderVideosState = currentFolderVideosState,
             recentMediaIds = recentMediaIds,
+            recentKnownVideos = recentKnownVideos,
         )
     }
 }

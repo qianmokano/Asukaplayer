@@ -30,6 +30,7 @@ import com.asuka.player.core.R
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
@@ -130,7 +131,13 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         runCatching { mainHandler.removeCallbacks(positionCheckpointRunnable) }
-        runCatching { writer?.flushCurrentPosition() }
+        runCatching {
+            runBlocking(Dispatchers.IO) {
+                writer?.flushCurrentPositionAndAwait()
+                writer?.awaitIdle()
+                historyWriter?.awaitIdle()
+            }
+        }
         runCatching { session?.let { removeSession(it) } }
         runCatching { player?.let { writer?.detach(it) } }
         runCatching { historyWriter?.let { player?.removeListener(it) } }

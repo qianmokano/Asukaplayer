@@ -11,8 +11,6 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import kotlinx.coroutines.runBlocking
-
 @Entity(tableName = "playback_state")
 data class PlaybackStateEntity(
     @PrimaryKey
@@ -40,6 +38,9 @@ interface PlaybackStateDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsert(entity: PlaybackStateEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertAll(entities: List<PlaybackStateEntity>)
 
     @Query("SELECT mediaId FROM playback_state ORDER BY lastTouchedAt DESC LIMIT :limit")
     fun recentMediaIds(limit: Int): List<String>
@@ -70,6 +71,9 @@ interface QueueHistoryDao {
 
     @Insert
     fun insert(entity: QueueHistoryEntity)
+
+    @Insert
+    fun insertAll(entities: List<QueueHistoryEntity>)
 
     @Query("SELECT COUNT(*) FROM queue_history")
     fun count(): Int
@@ -104,19 +108,12 @@ abstract class AsukaPlaybackRoomDatabase : RoomDatabase() {
 
         fun open(
             context: Context,
-            legacyPlaybackStore: SharedPreferencesPlaybackStore,
-            legacyQueueHistoryStore: SharedPreferencesQueueHistoryStore,
         ): AsukaPlaybackRoomDatabase {
-            val database = Room.databaseBuilder(
+            return Room.databaseBuilder(
                 context,
                 AsukaPlaybackRoomDatabase::class.java,
                 DB_NAME,
             ).build()
-            database.importLegacyDataIfNeeded(
-                legacyPlaybackStore = legacyPlaybackStore,
-                legacyQueueHistoryStore = legacyQueueHistoryStore,
-            )
-            return database
         }
 
         fun inMemory(context: Context): AsukaPlaybackRoomDatabase {
@@ -129,39 +126,51 @@ abstract class AsukaPlaybackRoomDatabase : RoomDatabase() {
     }
 }
 
-private fun AsukaPlaybackRoomDatabase.importLegacyDataIfNeeded(
+suspend fun AsukaPlaybackRoomDatabase.importLegacyDataIfNeeded(
     legacyPlaybackStore: SharedPreferencesPlaybackStore,
     legacyQueueHistoryStore: SharedPreferencesQueueHistoryStore,
 ) {
-    runInTransaction {
-        val playbackDao = playbackStateDao()
-        val historyDao = queueHistoryDao()
-        if (playbackDao.count() == 0) {
-            val baseTime = System.currentTimeMillis()
-            runBlocking {
-                legacyPlaybackStore.recentMediaIds(limit = 10_000)
-            }
-                .asReversed()
-                .forEachIndexed { index, mediaId ->
-                    playbackDao.upsert(
-                        PlaybackStateEntity(
-                            mediaId = mediaId,
-                            positionMs = runBlocking { legacyPlaybackStore.loadPosition(mediaId) },
-                            playbackSpeed = runBlocking { legacyPlaybackStore.loadPlaybackSpeed(mediaId) },
-                            audioTrackId = runBlocking { legacyPlaybackStore.loadAudioTrackId(mediaId) },
-                            subtitleTrackId = runBlocking { legacyPlaybackStore.loadSubtitleTrackId(mediaId) },
-                            zoom = runBlocking { legacyPlaybackStore.loadZoom(mediaId) },
-                            lastTouchedAt = baseTime + index,
-                        ),
-                    )
-                }
+    val playbackDao = playbackStateDao()
+    val historyDao = queueHistoryDao()
+    val playbackEntities = if (playbackDao.count() == 0) {
+        legacyPlaybackStore.exportLegacyPlaybackStateEntities(limit = 10_000)
+    } else {
+        emptyList()
+    }
+    val historyEntities = if (historyDao.count() == 0) {
+        legacyQueueHistoryStore.items().map { mediaId ->
+            QueueHistoryEntity(mediaId = mediaId)
         }
-        if (historyDao.count() == 0) {
-            runBlocking {
-                legacyQueueHistoryStore.items()
-            }.forEach { mediaId ->
-                historyDao.insert(QueueHistoryEntity(mediaId = mediaId))
-            }
+    } else {
+        emptyList()
+    }
+    if (playbackEntities.isEmpty() && historyEntities.isEmpty()) return
+
+    runInTransaction {
+        if (playbackEntities.isNotEmpty()) {
+            playbackDao.upsertAll(playbackEntities)
+        }
+        if (historyEntities.isNotEmpty()) {
+            historyDao.insertAll(historyEntities)
         }
     }
+}
+
+private suspend fun SharedPreferencesPlaybackStore.exportLegacyPlaybackStateEntities(
+    limit: Int,
+): List<PlaybackStateEntity> {
+    val baseTime = System.currentTimeMillis()
+    return recentMediaIds(limit = limit)
+        .asReversed()
+        .mapIndexed { index, mediaId ->
+            PlaybackStateEntity(
+                mediaId = mediaId,
+                positionMs = loadPosition(mediaId),
+                playbackSpeed = loadPlaybackSpeed(mediaId),
+                audioTrackId = loadAudioTrackId(mediaId),
+                subtitleTrackId = loadSubtitleTrackId(mediaId),
+                zoom = loadZoom(mediaId),
+                lastTouchedAt = baseTime + index,
+            )
+        }
 }

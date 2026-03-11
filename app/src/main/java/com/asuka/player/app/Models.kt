@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import com.asuka.player.R
+import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.runtime.CustomThemeEntry
 import com.asuka.player.runtime.ThemeMode
 import java.util.Locale
@@ -49,45 +50,64 @@ internal data class LocalVideoItem(
     val folderId: Long,
     val dateAddedSec: Long,
 ) {
+    val playbackMediaId: String
+        get() = "media-store:$id"
+
     val durationLabel: String
         get() = formatDuration(durationMs)
 
     val sizeLabel: String
         get() = formatSize(sizeBytes)
+
+    fun toPlaybackQueueEntry(
+        mediaIdOverride: String = playbackMediaId,
+    ): PlaybackQueueEntry {
+        return PlaybackQueueEntry(
+            mediaId = mediaIdOverride,
+            uri = uri.toString(),
+        )
+    }
+
+    fun playbackLookupKeys(): Set<String> {
+        return buildSet {
+            add(playbackMediaId)
+            add(uri.toString())
+        }
+    }
+}
+
+internal data class PlaybackSelection(
+    val targetEntry: PlaybackQueueEntry,
+    val queueEntries: List<PlaybackQueueEntry>,
+) {
+    init {
+        require(queueEntries.isNotEmpty()) { "queueEntries must not be empty" }
+    }
+}
+
+internal fun singlePlaybackSelection(uri: String): PlaybackSelection {
+    val entry = PlaybackQueueEntry(
+        mediaId = uri,
+        uri = uri,
+    )
+    return PlaybackSelection(
+        targetEntry = entry,
+        queueEntries = listOf(entry),
+    )
 }
 
 internal data class LocalVideoFolder(
     val id: Long,
     val name: String,
-    val videos: List<LocalVideoItem>,
+    val videoCount: Int,
+    val totalDurationMs: Long,
+    val totalSizeBytes: Long,
 ) {
-    val videoCount: Int
-        get() = videos.size
-
-    private val totalDurationMs: Long
-        get() = videos.sumOf { it.durationMs }.coerceAtLeast(0L)
-
-    private val totalSizeBytes: Long
-        get() = videos.sumOf { it.sizeBytes }.coerceAtLeast(0L)
-
     val totalDurationLabel: String
         get() = formatDuration(totalDurationMs)
 
     val totalSizeLabel: String
         get() = formatSize(totalSizeBytes)
-}
-
-internal fun buildFolderGroups(items: List<LocalVideoItem>): List<LocalVideoFolder> {
-    return items
-        .groupBy { it.folderId }
-        .map { (folderId, videos) ->
-            LocalVideoFolder(
-                id = folderId,
-                name = videos.firstOrNull()?.folderName.orEmpty(),
-                videos = videos.sortedByDescending { it.dateAddedSec },
-            )
-        }
-        .sortedBy { it.name.lowercase(Locale.ROOT) }
 }
 
 internal fun formatDuration(durationMs: Long): String {

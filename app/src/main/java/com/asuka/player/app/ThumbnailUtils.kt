@@ -116,26 +116,6 @@ internal fun thumbnailCacheKey(thumbnailId: Long?, uri: Uri?): String? {
     }
 }
 
-internal suspend fun prefetchFolderThumbnails(
-    context: Context,
-    folder: LocalVideoFolder?,
-    limit: Int,
-) {
-    val videos = folder?.videos.orEmpty().take(limit.coerceAtLeast(1))
-    videos.forEach { video ->
-        val key = thumbnailCacheKey(thumbnailId = video.id, uri = video.uri) ?: return@forEach
-        if (VideoThumbnailCache.get(key) != null) return@forEach
-        val loaded = VideoThumbnailCache.loadSemaphore.withPermit {
-            loadOrCreateVideoThumbnail(
-                context = context,
-                uri = video.uri,
-                thumbnailId = video.id,
-            )
-        } ?: return@forEach
-        VideoThumbnailCache.put(key, loaded)
-    }
-}
-
 internal suspend fun warmupInitialThumbnails(
     context: Context,
     videos: List<LocalVideoItem>,

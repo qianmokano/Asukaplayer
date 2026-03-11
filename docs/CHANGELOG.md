@@ -46,3 +46,22 @@
   - playback persistence initialization now goes through deferred resolver + suspend factory, so first Room open/import does not leak through synchronous getters
   - app composition root now exports narrow feature binding objects instead of passing `AsukaAppGraph` through installer / entry wrappers
   - playback launch / queue / identity semantics are unified behind `PlaybackIntentPayloadCodec`; external intake, launch request construction, playback-page decoding, and URI remap now share one model
+- Renderer and boundary cleanup:
+  - new `player-render-api` module now owns `PlaybackSurfaceState` / `PlaybackSurfaceRenderer` / `PlaybackSurfaceTransform`
+  - new `player-renderer` module now owns `PlaybackActivity`, playback session assembly, PiP/window side effects, Media3 surface adapter, and Media3-facing state holders
+  - `player-ui` no longer imports Media3 or `androidx.activity`; playback UI now consumes only render API contracts
+  - root architecture verification now enforces module dependency rules for `player-ui`, `player-platform`, `player-render-api`, `player-renderer`, and playback manifest entrypoints
+- Media library indexing and paging:
+  - media library reads now go through `AsukaMediaLibraryIndexDatabase` instead of querying MediaStore directly on page reads
+  - `MediaLibraryIndexingCoordinator` now maintains the local index and listens to `ContentObserver` changes for automatic incremental refresh
+  - incremental sync prefers `GENERATION_ADDED` / `GENERATION_MODIFIED` when available and falls back to `DATE_MODIFIED`
+  - observed deleted URIs now prefer targeted stale-row cleanup before falling back to full `_ID` reconciliation
+  - library pages now expose explicit footer loading / footer retry states for append pagination, rather than silent infinite-scroll behavior
+  - recent playback rows now use unified metadata fallback rules across `media-store:` / `content` / `file` / remote / opaque IDs
+- Playback persistence hot-path cleanup:
+  - `PlaybackStateWriter` and `QueueHistoryWriter` now enqueue writes on a serial async queue instead of using `runBlocking` inside player callback paths
+  - `PlaybackService` now flushes and awaits persistence queue drain only during teardown
+  - remembered brightness writes now run asynchronously from runtime scope instead of blocking lifecycle callbacks
+- Build/test workflow:
+  - Gradle configuration cache is now enabled by default and project-owned verification tasks were rewritten to be configuration-cache friendly
+  - performance-oriented regression tests were added for non-blocking playback persistence callbacks and media-library incremental indexing behavior

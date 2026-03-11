@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import com.asuka.player.platform.PlaybackIntentPayload
 import com.asuka.player.platform.PlaybackIntentPayloadCodec
 import com.asuka.player.runtime.IncomingPlaybackIntentReader
 import com.asuka.player.runtime.PlaybackLaunchRequest
@@ -48,11 +47,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             MainLibraryScreen(
                 viewModelFactory = mainActivityDependencies.mainLibraryViewModelFactory,
-                onPlay = { mediaId, queueMediaIds ->
+                onPlay = { selection ->
                     requestPlayback(
-                        PlaybackIntentPayloadCodec.fromSelection(
-                            targetMediaId = mediaId,
-                            queueMediaIds = queueMediaIds,
+                        PlaybackIntentPayloadCodec.fromQueueEntries(
+                            targetEntry = selection.targetEntry,
+                            queueEntries = selection.queueEntries,
                         ),
                     )
                 },
@@ -60,7 +59,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestPlayback(payload: PlaybackIntentPayload) {
+    private fun requestPlayback(payload: com.asuka.player.platform.PlaybackIntentPayload) {
         lifecycleScope.launch {
             val launchRequest = withContext(Dispatchers.IO) {
                 mainActivityDependencies.createPlaybackLaunchRequest(payload)

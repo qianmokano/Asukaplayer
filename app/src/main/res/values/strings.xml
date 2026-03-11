@@ -13,6 +13,7 @@
     <string name="recent_group_title">Recently played (%1$d)</string>
     <string name="empty_recent_list">No recent videos yet</string>
     <string name="empty_video_list">No local videos found.</string>
+    <string name="empty_folder_video_list">No videos found in this folder.</string>
     <string name="empty_video_list_limited">No selected videos found. Grant full access or pick a local video.</string>
     <string name="video_meta">%1$s • %2$s</string>
     <string name="video_meta_with_folder">%1$s • %2$s</string>
@@ -50,6 +51,9 @@
     <string name="media_library_refresh_error_provider">The media provider is temporarily unavailable. Try again in a moment.</string>
     <string name="media_library_refresh_error_unknown">Could not refresh the media library. Try again.</string>
     <string name="media_library_refresh_retry">Retry</string>
+    <string name="media_library_append_error_title">Couldn\'t load more</string>
+    <string name="media_library_append_retry">Load more again</string>
+    <string name="recent_unknown_source">Unavailable source</string>
 
     <!-- Theme preset names -->
     <string name="theme_preset_dynamic">动态</string>

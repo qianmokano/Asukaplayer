@@ -58,6 +58,24 @@ object PlaybackIntentPayloadCodec {
         )
     }
 
+    fun fromQueueEntries(
+        targetEntry: PlaybackQueueEntry,
+        queueEntries: List<PlaybackQueueEntry>,
+    ): PlaybackIntentPayload {
+        val normalized = queueEntries
+            .filter { it.mediaId.isNotBlank() && it.uri.isNotBlank() }
+            .distinctBy(PlaybackQueueEntry::mediaId)
+            .toMutableList()
+        if (normalized.none { it.mediaId == targetEntry.mediaId }) {
+            normalized.add(0, targetEntry)
+        }
+        return PlaybackIntentPayload(
+            queueEntries = normalized,
+            startIndex = normalized.indexOfFirst { it.mediaId == targetEntry.mediaId }
+                .coerceAtLeast(0),
+        )
+    }
+
     fun readPlaybackIntent(intent: Intent?): PlaybackIntentPayload? {
         val sourceIntent = intent ?: return null
         val storedQueueUris = sourceIntent.getStringArrayListExtra(EXTRA_QUEUE_URIS)

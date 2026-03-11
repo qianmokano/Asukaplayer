@@ -8,13 +8,19 @@ import com.asuka.player.contract.PlaybackDeviceController
 import com.asuka.player.contract.PlaybackStateRepository
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class PlaybackStateUiPersistence(
     private val playbackStateRepository: PlaybackStateRepository,
     private val playbackBehaviorRepository: PlaybackBehaviorRepository,
+    private val scope: CoroutineScope,
 ) : PlaybackUiPersistence {
+    private val brightnessWriteMutex = Mutex()
+
     override suspend fun readZoom(mediaId: String): Float? = playbackStateRepository.readResumeState(mediaId).zoom
 
     override suspend fun saveZoom(mediaId: String, zoom: Float) {
@@ -24,8 +30,10 @@ class PlaybackStateUiPersistence(
     override fun readRememberedBrightness(): Float? = playbackBehaviorRepository.rememberedBrightness
 
     override fun saveRememberedBrightness(brightness: Float) {
-        runBlocking(Dispatchers.IO) {
-            playbackBehaviorRepository.setRememberedBrightness(brightness)
+        scope.launch(Dispatchers.IO) {
+            brightnessWriteMutex.withLock {
+                playbackBehaviorRepository.setRememberedBrightness(brightness)
+            }
         }
     }
 }

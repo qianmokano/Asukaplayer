@@ -2,7 +2,17 @@ import com.github.jk1.license.render.JsonReportRenderer
 import com.github.jk1.license.render.ReportRenderer
 import com.github.jk1.license.render.TextReportRenderer
 import org.gradle.api.GradleException
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
@@ -51,24 +61,24 @@ data class ArchitectureViolation(
     val message: String,
 )
 
-val architectureRootPackages = mapOf(
-    "app/src/main/java" to "com.asuka.player.app",
-    "player-contract/src/main/java" to "com.asuka.player.contract",
-    "player-platform/src/main/java" to "com.asuka.player.platform",
-    "player-runtime/src/main/java" to "com.asuka.player.runtime",
-    "player-engine/src/main/java" to "com.asuka.player.engine",
-    "player-ui/src/main/java" to "com.asuka.player.ui",
-)
+@DisableCachingByDefault(because = "Fast verification task")
+abstract class VerifyArchitectureBoundariesTask : DefaultTask() {
+    @get:Input
+    abstract val projectRootPath: Property<String>
 
-tasks.register("verifyArchitectureBoundaries") {
-    group = "verification"
-    description = "Checks module boundary and package ownership rules."
+    @get:Input
+    abstract val architectureRootPackages: MapProperty<String, String>
 
-    doLast {
+    @get:InputFiles
+    abstract val trackedFiles: ConfigurableFileCollection
+
+    @TaskAction
+    fun verify() {
+        val rootDir = java.io.File(projectRootPath.get())
         val violations = mutableListOf<ArchitectureViolation>()
 
-        architectureRootPackages.forEach { (dir, packagePrefix) ->
-            fileTree(dir).matching { include("**/*.kt") }.files.forEach { file ->
+        architectureRootPackages.get().forEach { (dir, packagePrefix) ->
+            kotlinFiles(rootDir.resolve(dir)).forEach { file ->
                 val packageLine = file.useLines { lines ->
                     lines.firstOrNull { it.startsWith("package ") }?.removePrefix("package ")?.trim()
                 }
@@ -81,15 +91,35 @@ tasks.register("verifyArchitectureBoundaries") {
             }
         }
 
-        val playerUiBuild = file("player-ui/build.gradle.kts").readText()
+        val playerUiBuild = rootDir.resolve("player-ui/build.gradle.kts").readText()
         if ("project(\":player-engine\")" in playerUiBuild) {
             violations += ArchitectureViolation(
                 file = "player-ui/build.gradle.kts",
                 message = "player-ui must not depend directly on :player-engine",
             )
         }
+        listOf("libs.media3.session", "libs.media3.common").forEach { token ->
+            if (token in playerUiBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-ui/build.gradle.kts",
+                    message = "player-ui should consume Media3 session/common via :player-platform rather than declare '$token' directly",
+                )
+            }
+        }
+        if ("libs.media3.ui.compose" in playerUiBuild) {
+            violations += ArchitectureViolation(
+                file = "player-ui/build.gradle.kts",
+                message = "player-ui should not depend on media3-ui-compose directly; renderer adapters belong in :player-renderer",
+            )
+        }
+        if ("libs.activity.compose" in playerUiBuild) {
+            violations += ArchitectureViolation(
+                file = "player-ui/build.gradle.kts",
+                message = "player-ui should not depend on androidx.activity; Android activity entrypoints belong in :player-renderer",
+            )
+        }
 
-        fileTree("player-ui/src/main/java").matching { include("**/*.kt") }.files.forEach { file ->
+        kotlinFiles(rootDir.resolve("player-ui/src/main/java")).forEach { file ->
             file.readLines().forEachIndexed { index, line ->
                 val trimmed = line.trim()
                 if (trimmed.startsWith("import com.asuka.player.engine.")) {
@@ -98,7 +128,141 @@ tasks.register("verifyArchitectureBoundaries") {
                         message = "player-ui main source must not import engine implementation types",
                     )
                 }
+                if (trimmed.startsWith("import androidx.media3.")) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-ui main source must not import Media3 implementation types",
+                    )
+                }
+                if (trimmed.startsWith("import androidx.activity.")) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-ui main source must not import androidx.activity entrypoint types",
+                    )
+                }
             }
+        }
+
+        val playerUiContract = rootDir.resolve("player-ui/src/main/java/com/asuka/player/ui/PlayerScreenContract.kt")
+        if (playerUiContract.exists()) {
+            playerUiContract.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import androidx.media3.")) {
+                    violations += ArchitectureViolation(
+                        file = "player-ui/src/main/java/com/asuka/player/ui/PlayerScreenContract.kt:${index + 1}",
+                        message = "player-ui public screen contracts must not expose Media3 types",
+                    )
+                }
+            }
+            val contractBody = playerUiContract.readText()
+            if ("interface PlaybackSurfaceState" in contractBody || "interface PlaybackSurfaceRenderer" in contractBody) {
+                violations += ArchitectureViolation(
+                    file = "player-ui/src/main/java/com/asuka/player/ui/PlayerScreenContract.kt",
+                    message = "player-ui should consume surface contracts from :player-render-api rather than define them locally",
+                )
+            }
+        }
+
+        val platformBuild = rootDir.resolve("player-platform/build.gradle.kts").readText()
+        listOf("project(\":player-ui\")", "project(\":player-renderer\")", "project(\":app\")").forEach { token ->
+            if (token in platformBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-platform/build.gradle.kts",
+                    message = "player-platform must stay below UI/renderer/app layers; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-platform/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import com.asuka.player.ui.") ||
+                    trimmed.startsWith("import com.asuka.player.renderer.") ||
+                    trimmed.startsWith("import com.asuka.player.app.")
+                ) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-platform must not import UI, renderer, or app-layer types",
+                    )
+                }
+            }
+        }
+
+        val rendererBuild = rootDir.resolve("player-renderer/build.gradle.kts").readText()
+        listOf("project(\":app\")", "project(\":player-data\")", "project(\":player-runtime\")", "project(\":player-engine\")").forEach { token ->
+            if (token in rendererBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-renderer/build.gradle.kts",
+                    message = "player-renderer must assemble playback UI without depending on app/data/runtime/engine layers; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-renderer/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import com.asuka.player.app.")) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-renderer main source must not import app-layer types",
+                    )
+                }
+            }
+        }
+
+        val renderApiBuild = rootDir.resolve("player-render-api/build.gradle.kts").readText()
+        listOf(
+            "project(\":player-ui\")",
+            "project(\":player-renderer\")",
+            "project(\":player-platform\")",
+            "project(\":app\")",
+            "media3",
+            "activity-compose",
+        ).forEach { token ->
+            if (token in renderApiBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-render-api/build.gradle.kts",
+                    message = "player-render-api must stay implementation-free; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-render-api/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (
+                    trimmed.startsWith("import androidx.media3.") ||
+                    trimmed.startsWith("import androidx.activity.") ||
+                    trimmed.startsWith("import com.asuka.player.ui.") ||
+                    trimmed.startsWith("import com.asuka.player.renderer.") ||
+                    trimmed.startsWith("import com.asuka.player.platform.") ||
+                    trimmed.startsWith("import com.asuka.player.app.")
+                ) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-render-api must not import implementation-layer types",
+                    )
+                }
+            }
+        }
+
+        val appBuild = rootDir.resolve("app/build.gradle.kts").readText()
+        if ("project(\":player-ui\")" in appBuild) {
+            violations += ArchitectureViolation(
+                file = "app/build.gradle.kts",
+                message = "app should depend on :player-renderer rather than :player-ui directly for playback UI entrypoints",
+            )
+        }
+
+        val appManifest = rootDir.resolve("app/src/main/AndroidManifest.xml").readText()
+        if ("com.asuka.player.ui.activity.PlaybackActivity" in appManifest) {
+            violations += ArchitectureViolation(
+                file = "app/src/main/AndroidManifest.xml",
+                message = "Playback activity manifest entrypoint must come from :player-renderer, not :player-ui",
+            )
+        }
+        if ("com.asuka.player.renderer.activity.PlaybackActivity" !in appManifest) {
+            violations += ArchitectureViolation(
+                file = "app/src/main/AndroidManifest.xml",
+                message = "App manifest must register com.asuka.player.renderer.activity.PlaybackActivity as the playback entrypoint",
+            )
         }
 
         val forbiddenContractImportPrefixes = listOf(
@@ -114,7 +278,7 @@ tasks.register("verifyArchitectureBoundaries") {
             "import com.asuka.player.ui.",
         )
 
-        val contractBuild = file("player-contract/build.gradle.kts").readText()
+        val contractBuild = rootDir.resolve("player-contract/build.gradle.kts").readText()
         val forbiddenContractBuildTokens = listOf(
             "android.application",
             "android.library",
@@ -138,7 +302,7 @@ tasks.register("verifyArchitectureBoundaries") {
             }
         }
 
-        fileTree("player-contract/src/main/java").matching { include("**/*.kt") }.files.forEach { file ->
+        kotlinFiles(rootDir.resolve("player-contract/src/main/java")).forEach { file ->
             file.readLines().forEachIndexed { index, line ->
                 val trimmed = line.trim()
                 if (forbiddenContractImportPrefixes.any(trimmed::startsWith)) {
@@ -155,14 +319,28 @@ tasks.register("verifyArchitectureBoundaries") {
             throw GradleException("Architecture boundary violations found:\n$report")
         }
     }
+
+    private fun kotlinFiles(dir: java.io.File): Sequence<java.io.File> {
+        if (!dir.exists()) return emptySequence()
+        return dir.walkTopDown().filter { it.isFile && it.extension == "kt" }
+    }
 }
 
-tasks.register("verifySourceFileSizes") {
-    group = "verification"
-    description = "Checks file-size budgets for state/orchestration and page-level source files."
+@DisableCachingByDefault(because = "Fast verification task")
+abstract class VerifySourceFileSizesTask : DefaultTask() {
+    @get:Input
+    abstract val projectRootPath: Property<String>
 
-    doLast {
-        val baselineFile = file("tools/architecture/file-size-baselines.properties")
+    @get:Input
+    abstract val explicitBudgetPaths: ListProperty<String>
+
+    @get:InputFiles
+    abstract val trackedFiles: ConfigurableFileCollection
+
+    @TaskAction
+    fun verify() {
+        val rootDir = java.io.File(projectRootPath.get())
+        val baselineFile = rootDir.resolve("tools/architecture/file-size-baselines.properties")
         val baselineLimits = linkedMapOf<String, Int>()
         if (baselineFile.exists()) {
             baselineFile.readLines()
@@ -180,16 +358,10 @@ tasks.register("verifySourceFileSizes") {
 
         val pageRegex = Regex(""".*(Page|Pages|Screen|NavHost|Sheet|Dialog)\.kt$""")
         val orchestrationRegex = Regex(""".*(ViewModel|Coordinator|Host|Activity|Repositories)\.kt$""")
-        val explicitBudgetPaths = setOf(
-            "app/src/main/java/com/asuka/player/app",
-            "player-ui/src/main/java/com/asuka/player/ui",
-            "player-runtime/src/main/java/com/asuka/player/runtime",
-        )
-
         val violations = mutableListOf<String>()
 
-        explicitBudgetPaths.forEach { dir ->
-            fileTree(dir).matching { include("**/*.kt") }.files.forEach { file ->
+        explicitBudgetPaths.get().forEach { dir ->
+            kotlinFiles(rootDir.resolve(dir)).forEach { file ->
                 val relativePath = file.relativeTo(rootDir).path
                 val lineCount = file.readLines().size
                 val budget = baselineLimits[relativePath]
@@ -210,4 +382,54 @@ tasks.register("verifySourceFileSizes") {
             )
         }
     }
+
+    private fun kotlinFiles(dir: java.io.File): Sequence<java.io.File> {
+        if (!dir.exists()) return emptySequence()
+        return dir.walkTopDown().filter { it.isFile && it.extension == "kt" }
+    }
+}
+
+val architectureRootPackageMap = mapOf(
+    "app/src/main/java" to "com.asuka.player.app",
+    "player-contract/src/main/java" to "com.asuka.player.contract",
+    "player-platform/src/main/java" to "com.asuka.player.platform",
+    "player-render-api/src/main/java" to "com.asuka.player.render.api",
+    "player-renderer/src/main/java" to "com.asuka.player.renderer",
+    "player-runtime/src/main/java" to "com.asuka.player.runtime",
+    "player-engine/src/main/java" to "com.asuka.player.engine",
+    "player-ui/src/main/java" to "com.asuka.player.ui",
+)
+
+tasks.register<VerifyArchitectureBoundariesTask>("verifyArchitectureBoundaries") {
+    group = "verification"
+    description = "Checks module boundary and package ownership rules."
+    projectRootPath.set(layout.projectDirectory.asFile.absolutePath)
+    architectureRootPackages.putAll(architectureRootPackageMap)
+    trackedFiles.from(
+        architectureRootPackageMap.keys.map(layout.projectDirectory::dir),
+        layout.projectDirectory.file("player-ui/build.gradle.kts"),
+        layout.projectDirectory.file("player-platform/build.gradle.kts"),
+        layout.projectDirectory.file("player-render-api/build.gradle.kts"),
+        layout.projectDirectory.file("player-renderer/build.gradle.kts"),
+        layout.projectDirectory.file("player-contract/build.gradle.kts"),
+        layout.projectDirectory.file("app/build.gradle.kts"),
+        layout.projectDirectory.file("app/src/main/AndroidManifest.xml"),
+    )
+}
+
+tasks.register<VerifySourceFileSizesTask>("verifySourceFileSizes") {
+    group = "verification"
+    description = "Checks file-size budgets for state/orchestration and page-level source files."
+    projectRootPath.set(layout.projectDirectory.asFile.absolutePath)
+    explicitBudgetPaths.set(
+        listOf(
+            "app/src/main/java/com/asuka/player/app",
+            "player-ui/src/main/java/com/asuka/player/ui",
+            "player-runtime/src/main/java/com/asuka/player/runtime",
+        ),
+    )
+    trackedFiles.from(
+        explicitBudgetPaths.get().map(layout.projectDirectory::dir),
+        layout.projectDirectory.file("tools/architecture/file-size-baselines.properties"),
+    )
 }

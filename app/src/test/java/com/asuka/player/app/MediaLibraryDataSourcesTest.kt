@@ -20,7 +20,7 @@ import org.robolectric.shadows.ShadowContentResolver
 class MediaLibraryDataSourcesTest {
 
     @Test
-    fun scanLocalVideos_propagatesSecurityException() {
+    fun loadVideoPage_propagatesSecurityException() {
         registerMediaStoreProvider { _, _, _, _, _ ->
             throw SecurityException("permission denied")
         }
@@ -30,13 +30,13 @@ class MediaLibraryDataSourcesTest {
 
         assertFailsWith<SecurityException> {
             kotlinx.coroutines.runBlocking {
-                dataSource.scanLocalVideos()
+                dataSource.loadVideoPage(MediaLibraryPageRequest(offset = 0, limit = 20))
             }
         }
     }
 
     @Test
-    fun scanLocalVideos_throwsWhenQueryReturnsNullCursor() {
+    fun loadVideoPage_throwsWhenQueryReturnsNullCursor() {
         registerMediaStoreProvider { _, _, _, _, _ -> null }
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = RuntimeEnvironment.getApplication(),
@@ -44,7 +44,7 @@ class MediaLibraryDataSourcesTest {
 
         val error = assertFailsWith<IllegalStateException> {
             kotlinx.coroutines.runBlocking {
-                dataSource.scanLocalVideos()
+                dataSource.loadVideoPage(MediaLibraryPageRequest(offset = 0, limit = 20))
             }
         }
 
@@ -52,17 +52,17 @@ class MediaLibraryDataSourcesTest {
     }
 
     @Test
-    fun scanLocalVideos_returnsEmptyListWhenCursorHasNoRows() {
+    fun loadVideoPage_returnsEmptyListWhenCursorHasNoRows() {
         registerMediaStoreProvider { _, _, _, _, _ -> emptyMediaStoreCursor() }
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = RuntimeEnvironment.getApplication(),
         )
 
         val result = kotlinx.coroutines.runBlocking {
-            dataSource.scanLocalVideos()
+            dataSource.loadVideoPage(MediaLibraryPageRequest(offset = 0, limit = 20))
         }
 
-        assertEquals(emptyList<LocalVideoItem>(), result)
+        assertEquals(emptyList<LocalVideoItem>(), result.items)
     }
 
     private fun registerMediaStoreProvider(
@@ -110,6 +110,7 @@ class MediaLibraryDataSourcesTest {
                 MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
                 MediaStore.Video.Media.BUCKET_ID,
                 MediaStore.Video.Media.DATE_ADDED,
+                MediaStore.Video.Media.DATE_MODIFIED,
             ),
         )
     }

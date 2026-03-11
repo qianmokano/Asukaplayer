@@ -47,9 +47,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":player-data"))
     implementation(project(":player-platform"))
+    implementation(project(":player-renderer"))
     implementation(project(":player-runtime"))
-    implementation(project(":player-ui"))
 
     implementation(libs.activity.compose)
     implementation(libs.appcompat)
@@ -59,6 +60,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.icons.extended)
     implementation(libs.materialkolor)
+    implementation(libs.room.runtime)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)

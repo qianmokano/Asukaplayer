@@ -1,189 +1,113 @@
 package com.asuka.player.app
 
-import android.content.Context
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.asuka.player.contract.PlayerSettings
-import com.asuka.player.R
 import com.asuka.player.runtime.CustomThemeEntry
 import com.asuka.player.runtime.PlayerSettingsRepository
 import com.asuka.player.runtime.ThemeConfig
 import com.asuka.player.runtime.UiSettingsRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 internal sealed interface MainLibraryEvent {
-    data class ShowToast(val message: String) : MainLibraryEvent
+    data class ShowMessage(val message: MainLibraryText) : MainLibraryEvent
 }
 
 internal data class MainLibraryViewModelDependencies(
-    val appContext: Context,
     val uiSettingsRepository: UiSettingsRepository,
     val playerSettingsRepository: PlayerSettingsRepository,
     val resolveVideoAccessUseCase: ResolveVideoAccessUseCase,
-    val refreshMediaLibraryUseCase: RefreshMediaLibraryUseCase,
+    val loadFolderPageUseCase: LoadFolderPageUseCase,
+    val loadVideoPageUseCase: LoadVideoPageUseCase,
     val loadRecentMediaIdsUseCase: LoadRecentMediaIdsUseCase,
+    val resolveRecentMediaItemsUseCase: ResolveRecentMediaItemsUseCase,
+    val observeMediaLibraryChangesUseCase: ObserveMediaLibraryChangesUseCase,
 )
 
 internal class MainLibraryViewModel(
-    private val dependencies: MainLibraryViewModelDependencies,
+    dependencies: MainLibraryViewModelDependencies,
 ) : ViewModel() {
-    private val appContext = dependencies.appContext.applicationContext
     private val uiSettingsRepository = dependencies.uiSettingsRepository
     private val playerSettingsRepository = dependencies.playerSettingsRepository
-    private val resolveVideoAccessUseCase = dependencies.resolveVideoAccessUseCase
-    private val refreshMediaLibraryUseCase = dependencies.refreshMediaLibraryUseCase
-    private val loadRecentMediaIdsUseCase = dependencies.loadRecentMediaIdsUseCase
+    private val _events = MutableSharedFlow<MainLibraryEvent>(extraBufferCapacity = 1)
+
+    private val catalog = MainLibraryCatalogStore(
+        resolveVideoAccessUseCase = dependencies.resolveVideoAccessUseCase,
+        loadFolderPageUseCase = dependencies.loadFolderPageUseCase,
+        loadVideoPageUseCase = dependencies.loadVideoPageUseCase,
+        loadRecentMediaIdsUseCase = dependencies.loadRecentMediaIdsUseCase,
+        resolveRecentMediaItemsUseCase = dependencies.resolveRecentMediaItemsUseCase,
+        observeMediaLibraryChangesUseCase = dependencies.observeMediaLibraryChangesUseCase,
+        scope = viewModelScope,
+        publishMessage = { _events.tryEmit(MainLibraryEvent.ShowMessage(it)) },
+    )
 
     val uiSettings = uiSettingsRepository.settings
     val playerSettings = playerSettingsRepository.settings
-
-    private val _mediaLibraryState = MutableStateFlow(MediaLibraryRefreshState())
-    val mediaLibraryState = _mediaLibraryState.asStateFlow()
-
-    private val _recentMediaIds = MutableStateFlow(emptyList<String>())
-    val recentMediaIds = _recentMediaIds.asStateFlow()
-
-    private val initialVideoAccessState = resolveVideoAccessUseCase()
-
-    private val _permissionGranted = MutableStateFlow(initialVideoAccessState.permissionGranted)
-    val permissionGranted = _permissionGranted.asStateFlow()
-
-    private val _userSelectedPermissionGranted =
-        MutableStateFlow(initialVideoAccessState.userSelectedPermissionGranted)
-    val userSelectedPermissionGranted = _userSelectedPermissionGranted.asStateFlow()
-
-    private val _events = MutableSharedFlow<MainLibraryEvent>(extraBufferCapacity = 1)
+    val permissionGranted = catalog.permissionGranted
+    val userSelectedPermissionGranted = catalog.userSelectedPermissionGranted
+    val foldersState = catalog.foldersState
+    val allVideosState = catalog.allVideosState
+    val currentFolderId = catalog.currentFolderId
+    val currentFolderVideosState = catalog.currentFolderVideosState
+    val recentMediaIds = catalog.recentMediaIds
+    val recentKnownVideos = catalog.recentKnownVideos
     val events = _events.asSharedFlow()
 
     fun setThemeConfig(value: ThemeConfig) {
         if (uiSettings.value.themeConfig == value) return
-        viewModelScope.launch {
-            uiSettingsRepository.setThemeConfig(value)
-        }
+        viewModelScope.launch { uiSettingsRepository.setThemeConfig(value) }
     }
 
     fun setCustomThemes(value: List<CustomThemeEntry>) {
         if (uiSettings.value.customThemes == value) return
-        viewModelScope.launch {
-            uiSettingsRepository.setCustomThemes(value)
-        }
+        viewModelScope.launch { uiSettingsRepository.setCustomThemes(value) }
     }
 
     fun setNavDurationMs(value: Int) {
         if (uiSettings.value.navDurationMs == value) return
-        viewModelScope.launch {
-            uiSettingsRepository.setNavDurationMs(value)
-        }
+        viewModelScope.launch { uiSettingsRepository.setNavDurationMs(value) }
     }
 
     fun setHapticFeedbackEnabled(value: Boolean) {
         if (uiSettings.value.hapticFeedbackEnabled == value) return
-        viewModelScope.launch {
-            uiSettingsRepository.setHapticFeedbackEnabled(value)
-        }
+        viewModelScope.launch { uiSettingsRepository.setHapticFeedbackEnabled(value) }
     }
 
     fun setPlayerSettings(value: PlayerSettings) {
         if (playerSettings.value == value) return
-        viewModelScope.launch {
-            playerSettingsRepository.setPlayerSettings(value)
-        }
+        viewModelScope.launch { playerSettingsRepository.setPlayerSettings(value) }
     }
 
     @Suppress("UNUSED_PARAMETER")
     fun onPermissionResult(result: Map<String, Boolean>) {
-        syncVideoAccessState()
+        catalog.onPermissionResult()
     }
 
-    fun refresh() {
-        if (!mediaLibraryState.value.isLoading) {
-            scanVideos()
-        }
-    }
+    fun ensureFoldersLoaded() = catalog.ensureFoldersLoaded()
 
-    fun refreshRecentMediaIds() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _recentMediaIds.value = loadRecentMediaIdsUseCase(limit = 100)
-        }
-    }
+    fun refreshFolders() = catalog.refreshFolders()
 
-    fun validateNetworkStreamUrl(rawUrl: String): String? {
-        val trimmed = rawUrl.trim()
-        val parsed = runCatching { Uri.parse(trimmed) }.getOrNull()
-        if (trimmed.isBlank() || parsed?.scheme.isNullOrBlank()) {
-            _events.tryEmit(
-                MainLibraryEvent.ShowToast(
-                    appContext.getString(R.string.open_network_stream_invalid),
-                ),
-            )
-            return null
-        }
-        return trimmed
-    }
+    fun loadMoreFolders() = catalog.loadMoreFolders()
 
-    fun scanVideos() {
-        if (!_permissionGranted.value && !_userSelectedPermissionGranted.value) return
-        viewModelScope.launch {
-            val currentState = mediaLibraryState.value
-            val isUserRefresh = currentState.hasLoadedOnce
-            _mediaLibraryState.value = currentState.copy(
-                status = MediaLibraryRefreshStatus.Loading,
-                errorMessage = null,
-            )
+    fun ensureAllVideosLoaded() = catalog.ensureAllVideosLoaded()
 
-            when (val refreshResult = refreshMediaLibraryUseCase(hasLoadedOnce = isUserRefresh)) {
-                is MediaLibraryRefreshOutcome.Success -> {
-                    _mediaLibraryState.value = reduceMediaLibraryRefreshState(
-                        currentState = mediaLibraryState.value,
-                        result = refreshResult,
-                    )
-                    if (refreshResult.warmupVideos.isNotEmpty()) {
-                        viewModelScope.launch(Dispatchers.IO) {
-                            runCatching {
-                                refreshMediaLibraryUseCase.warmupInitialThumbnails(refreshResult.warmupVideos)
-                            }
-                        }
-                    }
-                    if (isUserRefresh) {
-                        _events.tryEmit(
-                            MainLibraryEvent.ShowToast(
-                                appContext.getString(R.string.refresh_done, refreshResult.items.size),
-                            ),
-                        )
-                    }
-                }
-                is MediaLibraryRefreshOutcome.Failure -> {
-                    if (refreshResult.reason == MediaLibraryRefreshFailure.PermissionDenied) {
-                        syncVideoAccessState()
-                        if (!_permissionGranted.value && !_userSelectedPermissionGranted.value) {
-                            return@launch
-                        }
-                    }
-                    _mediaLibraryState.value = reduceMediaLibraryRefreshState(
-                        currentState = mediaLibraryState.value,
-                        result = refreshResult,
-                        errorMessage = refreshResult.reason.toMessage(appContext),
-                    )
-                }
-            }
-        }
-    }
+    fun refreshAllVideos() = catalog.refreshAllVideos()
 
-    private fun syncVideoAccessState() {
-        val accessState = resolveVideoAccessUseCase()
-        _permissionGranted.value = accessState.permissionGranted
-        _userSelectedPermissionGranted.value = accessState.userSelectedPermissionGranted
-        if (!accessState.permissionGranted && !accessState.userSelectedPermissionGranted) {
-            _mediaLibraryState.value = MediaLibraryRefreshState()
-        }
-    }
+    fun loadMoreAllVideos() = catalog.loadMoreAllVideos()
+
+    fun ensureFolderLoaded(folderId: Long) = catalog.ensureFolderLoaded(folderId)
+
+    fun refreshFolder(folderId: Long) = catalog.refreshFolder(folderId)
+
+    fun loadMoreFolder(folderId: Long) = catalog.loadMoreFolder(folderId)
+
+    fun refreshRecentMediaIds() = catalog.refreshRecentMediaIds()
+
+    fun validateNetworkStreamUrl(rawUrl: String): String? = catalog.validateNetworkStreamUrl(rawUrl)
 
     internal class Factory(
         private val dependencies: MainLibraryViewModelDependencies,
@@ -195,35 +119,5 @@ internal class MainLibraryViewModel(
             @Suppress("UNCHECKED_CAST")
             return MainLibraryViewModel(dependencies) as T
         }
-    }
-}
-
-internal fun reduceMediaLibraryRefreshState(
-    currentState: MediaLibraryRefreshState,
-    result: MediaLibraryRefreshOutcome,
-    errorMessage: String? = null,
-): MediaLibraryRefreshState {
-    return when (result) {
-        is MediaLibraryRefreshOutcome.Success -> currentState.copy(
-            items = result.items,
-            status = MediaLibraryRefreshStatus.Idle,
-            hasLoadedOnce = true,
-            errorMessage = null,
-        )
-        is MediaLibraryRefreshOutcome.Failure -> currentState.copy(
-            status = MediaLibraryRefreshStatus.Idle,
-            errorMessage = errorMessage,
-        )
-    }
-}
-
-private fun MediaLibraryRefreshFailure.toMessage(context: Context): String {
-    return when (this) {
-        MediaLibraryRefreshFailure.PermissionDenied ->
-            context.getString(R.string.media_library_refresh_error_permission)
-        MediaLibraryRefreshFailure.ProviderUnavailable ->
-            context.getString(R.string.media_library_refresh_error_provider)
-        MediaLibraryRefreshFailure.Unknown ->
-            context.getString(R.string.media_library_refresh_error_unknown)
     }
 }

@@ -21,6 +21,9 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.failOnNoDiscoveredTests = false
+        }
     }
 
     compileOptions {
@@ -39,20 +42,16 @@ kotlin {
 dependencies {
     implementation(project(":player-contract"))
     implementation(project(":player-platform"))
+    implementation(project(":player-render-api"))
     implementation(project(":player-domain"))
 
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.icons.extended)
     implementation(libs.compose.ui.tooling.preview)
-    implementation(libs.activity.compose)
+    implementation(libs.appcompat)
 
-    implementation(libs.media3.ui.compose)
-    implementation(libs.media3.session)
-    implementation(libs.media3.common)
-
-    implementation(libs.coroutines.android)
-    implementation(libs.coroutines.guava)
+    implementation(libs.coroutines.core)
 
     testImplementation(project(":player-data"))
     testImplementation(libs.kotlin.test)

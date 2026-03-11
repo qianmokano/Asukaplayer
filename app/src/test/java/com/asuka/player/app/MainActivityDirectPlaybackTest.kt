@@ -4,7 +4,7 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.os.Looper
-import com.asuka.player.ui.activity.PlaybackActivity
+import com.asuka.player.renderer.activity.PlaybackActivity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

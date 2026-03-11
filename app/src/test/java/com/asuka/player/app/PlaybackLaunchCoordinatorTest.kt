@@ -3,10 +3,11 @@ package com.asuka.player.app
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
+import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.platform.PlaybackIntentPayloadCodec
+import com.asuka.player.renderer.activity.PlaybackActivity
 import com.asuka.player.runtime.PlaybackLaunchCoordinator
 import com.asuka.player.runtime.PlaybackUriResolver
-import com.asuka.player.ui.activity.PlaybackActivity
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
@@ -112,5 +113,35 @@ class PlaybackLaunchCoordinatorTest {
 
         assertEquals(resolved, request.clipData.getItemAt(0)?.uri)
         assertEquals(next, request.clipData.getItemAt(1)?.uri)
+    }
+
+    @Test
+    fun createLaunchRequest_preservesStableMediaIds_whenQueueEntriesCarryOpaqueIdentity() {
+        val current = PlaybackQueueEntry(
+            mediaId = "media-store:1",
+            uri = "content://videos/current.mp4",
+        )
+        val next = PlaybackQueueEntry(
+            mediaId = "media-store:2",
+            uri = "content://videos/next.mp4",
+        )
+        val coordinator = PlaybackLaunchCoordinator(
+            uriResolver = object : PlaybackUriResolver {
+                override fun resolveForPlayback(sourceUri: Uri): Uri = sourceUri
+            },
+        )
+
+        val request = coordinator.createLaunchRequest(
+            payload = PlaybackIntentPayloadCodec.fromQueueEntries(
+                targetEntry = current,
+                queueEntries = listOf(current, next),
+            ),
+        )
+
+        assertEquals("media-store:1", request.mediaId)
+        assertEquals(
+            listOf("media-store:1", "media-store:2"),
+            request.payload.queueEntries.map(PlaybackQueueEntry::mediaId),
+        )
     }
 }

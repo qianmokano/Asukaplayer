@@ -9,14 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import com.asuka.player.contract.PersistedTrackSelection
 import com.asuka.player.contract.PlaybackStore
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 @OptIn(UnstableApi::class)
 class PlaybackStateWriter(
@@ -25,6 +18,7 @@ class PlaybackStateWriter(
 ) : Player.Listener {
     companion object {
         const val POSITION_CHECKPOINT_INTERVAL_MS = 5_000L
+        private const val TAG = "PlaybackStateWriter"
 
         fun shouldSavePositionOnPause(isPlaying: Boolean, playbackState: Int): Boolean {
             if (isPlaying) return false
@@ -38,10 +32,10 @@ class PlaybackStateWriter(
     private var attachedPlayer: Player? = null
     private var lastCheckpointMediaId: String? = null
     private var lastCheckpointRealtimeMs: Long = Long.MIN_VALUE
-    private val writeMutex = Mutex()
-    private val writeScope = writeDispatcher?.let {
-        CoroutineScope(SupervisorJob() + it)
-    }
+    private val writeQueue = SerialTaskQueue(
+        dispatcher = writeDispatcher ?: Dispatchers.IO.limitedParallelism(1),
+        tag = TAG,
+    )
 
     fun attach(player: Player) {
         attachedPlayer = player
@@ -58,7 +52,11 @@ class PlaybackStateWriter(
     }
 
     fun close() {
-        writeScope?.cancel()
+        writeQueue.close()
+    }
+
+    suspend fun awaitIdle() {
+        writeQueue.awaitIdle()
     }
 
     fun checkpoint(nowMs: Long, minIntervalMs: Long = POSITION_CHECKPOINT_INTERVAL_MS): Boolean {
@@ -69,7 +67,7 @@ class PlaybackStateWriter(
         if (lastSavedForSameMedia && nowMs - lastCheckpointRealtimeMs < minIntervalMs) {
             return false
         }
-        if (!saveCurrentPosition(player, mediaId, force = false)) return false
+        if (!saveCurrentPositionAsync(player, mediaId)) return false
         lastCheckpointMediaId = mediaId
         lastCheckpointRealtimeMs = nowMs
         return true
@@ -78,7 +76,13 @@ class PlaybackStateWriter(
     fun flushCurrentPosition(): Boolean {
         val player = attachedPlayer ?: return false
         val mediaId = resolveCurrentMediaId(player) ?: return false
-        return saveCurrentPosition(player, mediaId, force = true)
+        return enqueueCurrentPosition(player, mediaId)
+    }
+
+    suspend fun flushCurrentPositionAndAwait(): Boolean {
+        val player = attachedPlayer ?: return false
+        val mediaId = resolveCurrentMediaId(player) ?: return false
+        return saveCurrentPositionAwaited(player, mediaId)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -86,7 +90,7 @@ class PlaybackStateWriter(
         val state = player.playbackState
         if (!shouldSavePositionOnPause(isPlaying = isPlaying, playbackState = state)) return
         val mediaId = currentMediaId ?: return
-        saveCurrentPosition(player, mediaId, force = false)
+        saveCurrentPositionAsync(player, mediaId)
     }
 
     override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
@@ -117,7 +121,7 @@ class PlaybackStateWriter(
     override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) {
             val mediaId = currentMediaId ?: return
-            saveCurrentPosition(attachedPlayer ?: return, mediaId, force = true)
+            enqueueCurrentPosition(attachedPlayer ?: return, mediaId)
         }
     }
 
@@ -167,49 +171,50 @@ class PlaybackStateWriter(
         return player.currentMediaItem?.mediaId ?: currentMediaId
     }
 
-    private fun saveCurrentPosition(
+    private fun saveCurrentPositionAsync(
         player: Player,
         mediaId: String,
-        force: Boolean,
     ): Boolean {
         val playbackState = player.playbackState
-        if (!force && (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED)) {
+        if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
             return false
         }
-        val position = if (playbackState == Player.STATE_ENDED) {
-            0L
-        } else {
-            player.currentPosition.coerceAtLeast(0L)
-        }
-        dispatchWrite(sync = force) {
+        return enqueueCurrentPosition(player, mediaId)
+    }
+
+    private suspend fun saveCurrentPositionAwaited(
+        player: Player,
+        mediaId: String,
+    ): Boolean {
+        val position = resolveCurrentPosition(player)
+        writeQueue.dispatchAndAwait {
             store.savePosition(mediaId, position)
         }
         return true
     }
 
-    private fun dispatchWrite(
-        sync: Boolean = false,
-        block: suspend () -> Unit,
-    ) {
-        val scope = writeScope
-        if (scope == null) {
-            runBlocking {
-                block()
-            }
-            return
+    private fun enqueueCurrentPosition(
+        player: Player,
+        mediaId: String,
+    ): Boolean {
+        val position = resolveCurrentPosition(player)
+        writeQueue.dispatch {
+            store.savePosition(mediaId, position)
         }
-        if (sync) {
-            runBlocking(Dispatchers.IO) {
-                writeMutex.withLock {
-                    block()
-                }
-            }
-            return
+        return true
+    }
+
+    private fun resolveCurrentPosition(player: Player): Long {
+        val playbackState = player.playbackState
+        val position = if (playbackState == Player.STATE_ENDED) {
+            0L
+        } else {
+            player.currentPosition.coerceAtLeast(0L)
         }
-        scope.launch {
-            writeMutex.withLock {
-                block()
-            }
-        }
+        return position
+    }
+
+    private fun dispatchWrite(block: suspend () -> Unit) {
+        writeQueue.dispatch(block)
     }
 }

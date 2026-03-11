@@ -1,33 +1,45 @@
 package com.asuka.player.app
 
-internal enum class MediaLibraryRefreshStatus {
+internal enum class MediaCatalogStatus {
     Idle,
     Loading,
+    Appending,
 }
 
-internal data class MediaLibraryRefreshState(
-    val items: List<LocalVideoItem> = emptyList(),
-    val status: MediaLibraryRefreshStatus = MediaLibraryRefreshStatus.Idle,
+internal data class MediaCatalogState<T>(
+    val items: List<T> = emptyList(),
+    val status: MediaCatalogStatus = MediaCatalogStatus.Idle,
     val hasLoadedOnce: Boolean = false,
-    val errorMessage: String? = null,
+    val hasMore: Boolean = true,
+    val nextOffset: Int = 0,
+    val errorMessage: MainLibraryText? = null,
+    val appendErrorMessage: MainLibraryText? = null,
 ) {
     val isLoading: Boolean
-        get() = status == MediaLibraryRefreshStatus.Loading
+        get() = status == MediaCatalogStatus.Loading
+
+    val isAppending: Boolean
+        get() = status == MediaCatalogStatus.Appending
 }
 
-internal enum class MediaLibraryRefreshFailure {
+internal data class MediaLibraryPage<T>(
+    val items: List<T>,
+    val nextOffset: Int?,
+)
+
+internal enum class MediaCatalogFailure {
     PermissionDenied,
     ProviderUnavailable,
     Unknown,
 }
 
-internal sealed interface MediaLibraryRefreshOutcome {
-    data class Success(
-        val items: List<LocalVideoItem>,
-        val warmupVideos: List<LocalVideoItem>,
-    ) : MediaLibraryRefreshOutcome
+internal sealed interface MediaCatalogOutcome<out T> {
+    data class Success<T>(
+        val page: MediaLibraryPage<T>,
+        val warmupVideos: List<LocalVideoItem> = emptyList(),
+    ) : MediaCatalogOutcome<T>
 
     data class Failure(
-        val reason: MediaLibraryRefreshFailure,
-    ) : MediaLibraryRefreshOutcome
+        val reason: MediaCatalogFailure,
+    ) : MediaCatalogOutcome<Nothing>
 }

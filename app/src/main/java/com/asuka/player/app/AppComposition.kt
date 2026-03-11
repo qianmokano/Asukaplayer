@@ -5,8 +5,8 @@ import androidx.annotation.DrawableRes
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.asuka.player.platform.PlaybackServiceDependencies
+import com.asuka.player.renderer.activity.PlaybackActivity
 import com.asuka.player.runtime.AsukaAppGraph
-import com.asuka.player.ui.activity.PlaybackActivity
 
 internal class AppComposition(
     private val application: Application,

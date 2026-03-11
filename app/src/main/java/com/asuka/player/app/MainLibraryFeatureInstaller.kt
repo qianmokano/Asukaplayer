@@ -47,12 +47,14 @@ private class AppMainActivityDependencies(
         val mediaLibraryRepository = createMediaLibraryRepository(application, bindings)
         MainLibraryViewModel.Factory(
             MainLibraryViewModelDependencies(
-                appContext = application,
                 uiSettingsRepository = bindings.uiSettingsRepository(),
                 playerSettingsRepository = bindings.playerSettingsRepository(),
                 resolveVideoAccessUseCase = ResolveVideoAccessUseCase(mediaLibraryRepository),
-                refreshMediaLibraryUseCase = RefreshMediaLibraryUseCase(mediaLibraryRepository),
+                loadFolderPageUseCase = LoadFolderPageUseCase(mediaLibraryRepository),
+                loadVideoPageUseCase = LoadVideoPageUseCase(mediaLibraryRepository),
                 loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(mediaLibraryRepository),
+                resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(mediaLibraryRepository),
+                observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(mediaLibraryRepository),
             ),
         )
     }

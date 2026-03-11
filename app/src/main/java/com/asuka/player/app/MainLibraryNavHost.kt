@@ -27,18 +27,24 @@ import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.R
 import com.asuka.player.runtime.CustomThemeEntry
 import com.asuka.player.runtime.ThemeConfig
-import com.asuka.player.runtime.UiSettingsState
 
 @Composable
 internal fun MainLibraryNavHost(
     state: MainLibraryUiState,
-    onPlay: (String, List<String>) -> Unit,
+    onPlay: (PlaybackSelection) -> Unit,
     onRequestPermission: () -> Unit,
     onOpenLocalVideo: () -> Unit,
     onOpenNetworkStream: () -> Unit,
-    onRefresh: () -> Unit,
+    onEnsureFoldersLoaded: () -> Unit,
+    onRefreshFolders: () -> Unit,
+    onLoadMoreFolders: () -> Unit,
+    onEnsureAllVideosLoaded: () -> Unit,
+    onRefreshAllVideos: () -> Unit,
+    onLoadMoreAllVideos: () -> Unit,
+    onEnsureFolderLoaded: (Long) -> Unit,
+    onRefreshFolder: (Long) -> Unit,
+    onLoadMoreFolder: (Long) -> Unit,
     onRefreshRecent: () -> Unit,
-    onPrefetchFolder: (LocalVideoFolder?) -> Unit,
     onHapticFeedbackEnabledChange: (Boolean) -> Unit,
     onPlayerSettingsChange: (PlayerSettings) -> Unit,
     onThemeConfigChange: (ThemeConfig) -> Unit,
@@ -49,7 +55,16 @@ internal fun MainLibraryNavHost(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: ROUTE_HOME
     val currentFolderId = backStackEntry?.arguments?.getLong(ARG_FOLDER_ID)
-    val folders = remember(state.mediaLibraryState.items) { buildFolderGroups(state.mediaLibraryState.items) }
+    val refreshCurrentPage = remember(currentRoute, currentFolderId) {
+        when {
+            currentRoute == ROUTE_HOME -> onRefreshFolders
+            currentRoute == ROUTE_ALL_VIDEOS -> onRefreshAllVideos
+            currentRoute.startsWith("folder/") && currentFolderId != null -> {
+                { onRefreshFolder(currentFolderId) }
+            }
+            else -> onRefreshFolders
+        }
+    }
     val speedDialActions = listOf(
         SpeedDialAction(
             icon = Icons.Rounded.PlayCircle,
@@ -73,18 +88,9 @@ internal fun MainLibraryNavHost(
         SpeedDialAction(
             icon = Icons.Rounded.Refresh,
             label = stringResource(id = R.string.refresh),
-            onClick = onRefresh,
+            onClick = refreshCurrentPage,
         ),
     )
-    val selectedFolderExists = remember(folders, currentFolderId) {
-        currentFolderId?.let { id -> folders.any { it.id == id } } ?: false
-    }
-
-    LaunchedEffect(currentRoute, currentFolderId, folders) {
-        if (currentRoute.startsWith("folder/") && currentFolderId != null && !selectedFolderExists) {
-            navController.popBackStack(route = ROUTE_HOME, inclusive = false)
-        }
-    }
 
     NavHost(
         navController = navController,
@@ -96,6 +102,9 @@ internal fun MainLibraryNavHost(
         popExitTransition = { pageExitTransition(state.uiSettings.navDurationMs) },
     ) {
         composable(route = ROUTE_HOME) {
+            LaunchedEffect(Unit) {
+                onEnsureFoldersLoaded()
+            }
             LibraryPageScaffold(
                 title = stringResource(id = R.string.launcher_title),
                 showBack = false,
@@ -112,13 +121,11 @@ internal fun MainLibraryNavHost(
                     modifier = Modifier.padding(innerPadding),
                     permissionGranted = state.permissionGranted,
                     hasLimitedMediaAccess = state.userSelectedPermissionGranted,
-                    mediaLibraryState = state.mediaLibraryState,
-                    folders = folders,
+                    foldersState = state.foldersState,
                     onRequestPermission = onRequestPermission,
-                    onRefresh = onRefresh,
+                    onRefresh = onRefreshFolders,
+                    onLoadMore = onLoadMoreFolders,
                     onOpenFolder = { folderId ->
-                        val targetFolder = folders.firstOrNull { it.id == folderId }
-                        onPrefetchFolder(targetFolder)
                         navController.navigate(folderRoute(folderId)) {
                             launchSingleTop = true
                         }
@@ -128,6 +135,9 @@ internal fun MainLibraryNavHost(
         }
 
         composable(route = ROUTE_ALL_VIDEOS) {
+            LaunchedEffect(Unit) {
+                onEnsureAllVideosLoaded()
+            }
             LibraryPageScaffold(
                 title = stringResource(id = R.string.tab_all_videos),
                 showBack = true,
@@ -142,17 +152,15 @@ internal fun MainLibraryNavHost(
             ) { innerPadding ->
                 VideosPageContent(
                     modifier = Modifier.padding(innerPadding),
-                    mediaLibraryState = state.mediaLibraryState,
+                    videosState = state.allVideosState,
                     onPlay = onPlay,
-                    onRefresh = onRefresh,
+                    onRefresh = onRefreshAllVideos,
+                    onLoadMore = onLoadMoreAllVideos,
                 )
             }
         }
 
         composable(route = ROUTE_RECENT) {
-            val knownByUri = remember(state.mediaLibraryState.items) {
-                state.mediaLibraryState.items.associateBy { it.uri.toString() }
-            }
             val lifecycleOwner = LocalLifecycleOwner.current
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
@@ -179,7 +187,7 @@ internal fun MainLibraryNavHost(
                 RecentPageContent(
                     modifier = Modifier.padding(innerPadding),
                     recentMediaIds = state.recentMediaIds,
-                    knownVideos = knownByUri,
+                    knownVideos = state.recentKnownVideos,
                     onPlay = onPlay,
                 )
             }
@@ -192,7 +200,14 @@ internal fun MainLibraryNavHost(
             ),
         ) { entry ->
             val folderId = entry.arguments?.getLong(ARG_FOLDER_ID)
-            val folder = folders.firstOrNull { it.id == folderId }
+            LaunchedEffect(folderId) {
+                if (folderId != null) {
+                    onEnsureFolderLoaded(folderId)
+                }
+            }
+            val folder = remember(state.foldersState.items, folderId) {
+                state.foldersState.items.firstOrNull { it.id == folderId }
+            }
             LibraryPageScaffold(
                 title = folder?.name ?: stringResource(id = R.string.launcher_title),
                 showBack = true,
@@ -207,10 +222,10 @@ internal fun MainLibraryNavHost(
             ) { innerPadding ->
                 FolderPageContent(
                     modifier = Modifier.padding(innerPadding),
-                    mediaLibraryState = state.mediaLibraryState,
-                    folder = folder,
+                    videosState = state.currentFolderVideosState,
                     onPlay = onPlay,
-                    onRefresh = onRefresh,
+                    onRefresh = { if (folderId != null) onRefreshFolder(folderId) },
+                    onLoadMore = { if (folderId != null) onLoadMoreFolder(folderId) },
                 )
             }
         }

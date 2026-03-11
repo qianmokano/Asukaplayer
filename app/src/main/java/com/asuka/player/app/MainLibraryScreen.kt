@@ -11,32 +11,32 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.asuka.player.runtime.ThemeAppearanceMode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
 internal fun MainLibraryScreen(
     viewModelFactory: ViewModelProvider.Factory,
-    onPlay: (String, List<String>) -> Unit,
+    onPlay: (PlaybackSelection) -> Unit,
 ) {
     val context = LocalContext.current
     val vm: MainLibraryViewModel = viewModel(factory = viewModelFactory)
-    val uiScope = rememberCoroutineScope()
     val appVersion = remember(context) { readAppVersion(context) }
 
     val uiSettings by vm.uiSettings.collectAsState()
     val playerSettings by vm.playerSettings.collectAsState()
     val permissionGranted by vm.permissionGranted.collectAsState()
     val userSelectedPermissionGranted by vm.userSelectedPermissionGranted.collectAsState()
-    val mediaLibraryState by vm.mediaLibraryState.collectAsState()
+    val foldersState by vm.foldersState.collectAsState()
+    val allVideosState by vm.allVideosState.collectAsState()
+    val currentFolderId by vm.currentFolderId.collectAsState()
+    val currentFolderVideosState by vm.currentFolderVideosState.collectAsState()
     val recentMediaIds by vm.recentMediaIds.collectAsState()
+    val recentKnownVideos by vm.recentKnownVideos.collectAsState()
 
     LaunchedEffect(uiSettings.themeConfig.appearance) {
         val mode = when (uiSettings.themeConfig.appearance) {
@@ -48,14 +48,14 @@ internal fun MainLibraryScreen(
     }
 
     LaunchedEffect(permissionGranted, userSelectedPermissionGranted) {
-        if (permissionGranted || userSelectedPermissionGranted) vm.scanVideos()
+        if (permissionGranted || userSelectedPermissionGranted) vm.ensureFoldersLoaded()
     }
 
     LaunchedEffect(vm, context) {
         vm.events.collect { event ->
             when (event) {
-                is MainLibraryEvent.ShowToast ->
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                is MainLibraryEvent.ShowMessage ->
+                    Toast.makeText(context, event.message.resolve(context), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -75,7 +75,7 @@ internal fun MainLibraryScreen(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
-            onPlay(uri.toString(), emptyList())
+            onPlay(singlePlaybackSelection(uri.toString()))
         }
     }
 
@@ -88,8 +88,12 @@ internal fun MainLibraryScreen(
         playerSettings,
         permissionGranted,
         userSelectedPermissionGranted,
-        mediaLibraryState,
+        foldersState,
+        allVideosState,
+        currentFolderId,
+        currentFolderVideosState,
         recentMediaIds,
+        recentKnownVideos,
     )
 
     AsukaTheme(themeConfig = uiSettings.themeConfig) {
@@ -102,7 +106,7 @@ internal fun MainLibraryScreen(
                     onPlay = { url ->
                         val trimmed = vm.validateNetworkStreamUrl(url) ?: return@OpenNetworkStreamDialog
                         showOpenNetworkStreamDialog = false
-                        onPlay(trimmed, emptyList())
+                        onPlay(singlePlaybackSelection(trimmed))
                     },
                 )
             }
@@ -113,13 +117,16 @@ internal fun MainLibraryScreen(
                 onRequestPermission = { permissionLauncher.launch(videoPermissionsForRuntime()) },
                 onOpenLocalVideo = { documentPicker.launch(arrayOf("video/*")) },
                 onOpenNetworkStream = { showOpenNetworkStreamDialog = true },
-                onRefresh = { vm.refresh() },
+                onEnsureFoldersLoaded = vm::ensureFoldersLoaded,
+                onRefreshFolders = vm::refreshFolders,
+                onLoadMoreFolders = vm::loadMoreFolders,
+                onEnsureAllVideosLoaded = vm::ensureAllVideosLoaded,
+                onRefreshAllVideos = vm::refreshAllVideos,
+                onLoadMoreAllVideos = vm::loadMoreAllVideos,
+                onEnsureFolderLoaded = vm::ensureFolderLoaded,
+                onRefreshFolder = vm::refreshFolder,
+                onLoadMoreFolder = vm::loadMoreFolder,
                 onRefreshRecent = { vm.refreshRecentMediaIds() },
-                onPrefetchFolder = { folder ->
-                    uiScope.launch(Dispatchers.IO) {
-                        prefetchFolderThumbnails(context, folder, limit = 12)
-                    }
-                },
                 onHapticFeedbackEnabledChange = { vm.setHapticFeedbackEnabled(it) },
                 onPlayerSettingsChange = { vm.setPlayerSettings(it) },
                 onThemeConfigChange = { vm.setThemeConfig(it) },

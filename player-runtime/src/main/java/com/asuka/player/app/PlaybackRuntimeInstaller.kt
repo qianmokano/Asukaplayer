@@ -17,6 +17,7 @@ import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import com.asuka.player.core.R as EngineR
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -40,6 +41,7 @@ class PlaybackRuntimeFeature(
     val playbackUiPersistence: PlaybackUiPersistence = PlaybackStateUiPersistence(
         playbackStateRepository = playbackStateRepository,
         playbackBehaviorRepository = playbackBehaviorRepository,
+        scope = scope,
     )
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory = DefaultPlaybackDeviceControllerFactory
     val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory = Media3PlaybackControllerConnectorFactory
@@ -54,6 +56,12 @@ class PlaybackRuntimeFeature(
         playbackServiceComponent = ComponentName(appContext, PlaybackService::class.java),
         notificationSmallIconResId = EngineR.drawable.ic_stat_playback,
     )
+
+    init {
+        scope.launch {
+            runCatching { persistenceResolver.resolve() }
+        }
+    }
 }
 
 object PlaybackRuntimeInstaller {

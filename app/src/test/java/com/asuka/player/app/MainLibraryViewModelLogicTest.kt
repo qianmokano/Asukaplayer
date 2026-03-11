@@ -58,22 +58,64 @@ class MainLibraryViewModelLogicTest {
     }
 
     @Test
-    fun reduceMediaLibraryRefreshState_retainsExistingItemsWhenRefreshFails() {
-        val currentState = MediaLibraryRefreshState(
+    fun applyPage_replacesItemsOnRefresh_andTracksNextOffset() {
+        val currentState = MediaCatalogState(
             items = listOf(localVideoItem(id = 1L, name = "one.mp4")),
-            status = MediaLibraryRefreshStatus.Loading,
+            status = MediaCatalogStatus.Loading,
             hasLoadedOnce = true,
         )
-        val state = reduceMediaLibraryRefreshState(
-            currentState = currentState,
-            result = MediaLibraryRefreshOutcome.Failure(MediaLibraryRefreshFailure.ProviderUnavailable),
-            errorMessage = "Provider unavailable",
+        val state = currentState.applyPage(
+            page = MediaLibraryPage(
+                items = listOf(localVideoItem(id = 2L, name = "two.mp4")),
+                nextOffset = 1,
+            ),
+            append = false,
         )
 
         assertFalse(state.isLoading)
         assertEquals(true, state.hasLoadedOnce)
+        assertEquals(listOf(2L), state.items.map(LocalVideoItem::id))
+        assertEquals(1, state.nextOffset)
+        assertEquals(true, state.hasMore)
+    }
+
+    @Test
+    fun applyFailure_onAppend_preservesItemsAndSurfacesFooterError() {
+        val currentState = MediaCatalogState(
+            items = listOf(localVideoItem(id = 1L, name = "one.mp4")),
+            status = MediaCatalogStatus.Appending,
+            hasLoadedOnce = true,
+            errorMessage = null,
+        )
+
+        val state = currentState.applyFailure(
+            offset = 40,
+            message = MainLibraryText.MediaLibraryProviderUnavailable,
+        )
+
+        assertEquals(MediaCatalogStatus.Idle, state.status)
         assertEquals(listOf(1L), state.items.map(LocalVideoItem::id))
-        assertEquals("Provider unavailable", state.errorMessage)
+        assertEquals(null, state.errorMessage)
+        assertEquals(MainLibraryText.MediaLibraryProviderUnavailable, state.appendErrorMessage)
+    }
+
+    @Test
+    fun applyFailure_onRefresh_clearsFooterErrorAndSurfacesPrimaryError() {
+        val currentState = MediaCatalogState(
+            items = listOf(localVideoItem(id = 1L, name = "one.mp4")),
+            status = MediaCatalogStatus.Loading,
+            hasLoadedOnce = true,
+            appendErrorMessage = MainLibraryText.MediaLibraryUnknown,
+        )
+
+        val state = currentState.applyFailure(
+            offset = 0,
+            message = MainLibraryText.MediaLibraryPermissionDenied,
+        )
+
+        assertEquals(MediaCatalogStatus.Idle, state.status)
+        assertEquals(MainLibraryText.MediaLibraryPermissionDenied, state.errorMessage)
+        assertEquals(null, state.appendErrorMessage)
     }
 
     private fun localVideoItem(id: Long, name: String): LocalVideoItem {
