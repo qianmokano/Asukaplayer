@@ -56,8 +56,17 @@
   - `MediaLibraryIndexingCoordinator` now maintains the local index and listens to `ContentObserver` changes for automatic incremental refresh
   - incremental sync prefers `GENERATION_ADDED` / `GENERATION_MODIFIED` when available and falls back to `DATE_MODIFIED`
   - observed deleted URIs now prefer targeted stale-row cleanup before falling back to full `_ID` reconciliation
+  - on API 23–29, observed added/changed `_ID` values now trigger targeted metadata refresh so preserved `DATE_MODIFIED` timestamps no longer cause silent index misses
   - library pages now expose explicit footer loading / footer retry states for append pagination, rather than silent infinite-scroll behavior
   - recent playback rows now use unified metadata fallback rules across `media-store:` / `content` / `file` / remote / opaque IDs
+  - opaque recent-playback ids are now rendered as unavailable, non-playable rows instead of being treated as pseudo-URIs
+- Launch and state coordination:
+  - current-folder paging now uses request token + stale-job cancellation, so folder A results cannot overwrite folder B after a fast switch
+  - playback launch orchestration now assigns request ids, cancels superseded work, and drops stale launch/fallback results before they reach the player
+  - `PlaybackSessionCoordinator` now separates prepare/apply so host-level request validation happens before mutating controller state
+- Settings bootstrap:
+  - `AppSettingsStore` now exposes an explicit readiness boundary and settings repositories wait for initial load before publishing first values
+  - cold-start playback/runtime policy now reads persisted settings directly instead of briefly using default snapshot values
 - Playback persistence hot-path cleanup:
   - `PlaybackStateWriter` and `QueueHistoryWriter` now enqueue writes on a serial async queue instead of using `runBlocking` inside player callback paths
   - `PlaybackService` now flushes and awaits persistence queue drain only during teardown

@@ -16,6 +16,8 @@
 - 单一播放 payload：启动链路使用统一的 `PlaybackIntentPayload` / codec 表达队列、稳定 mediaId 与起播位置，避免多处重复解析 intent。
 - feature 分层优先：媒体库采用 data source -> repository -> use case -> view model，theme/settings model 保持纯值对象，不携带 Compose 类型。
 - 媒体库先索引后查询：MediaStore 变更先同步到本地索引库，再由 app 层从索引执行分页读取；直接扫描 MediaStore 不再是页面读路径。
+- 旧异步结果不得覆盖新状态：folder 分页、播放启动、seek fallback 这类异步链路都必须带当前 request 身份；过期结果只能丢弃，不能回写。
+- 运行时设置先加载再发布：settings repository 的初始值必须等待 store ready，避免冷启动先按默认设置启动、再被真实值纠正。
 
 ## 模块边界
 
@@ -146,6 +148,7 @@
 - `PlaybackActivitySession` 统一持有 `PlaybackSessionHost`、`PlaybackWindowChromeController`、`PlaybackPictureInPictureController`
 - `PlaybackSessionHost` 通过注入的 `PlaybackControllerConnector` 建立 `MediaController`
 - `PlaybackLaunchOrchestrator` 负责当前 launch intent、seek fallback 与 runtime policy 编排
+- `PlaybackLaunchOrchestrator` 现在为每次播放请求分配 request id；新 intent 会使旧 request、旧 fallback job 和旧启动结果全部失效
 - `PlaybackSessionHost` 维护两类状态：
   - `PlayerUiStateHolder`：播放中的标题、时长、进度、错误、buffering
   - `PlaybackTrackUiStateHolder`：音轨、字幕、当前倍速、当前媒体 ID、选中项
@@ -153,6 +156,7 @@
 ### 3. 执行阶段
 
 - `PlaybackSessionCoordinator` 把启动 intent 与 `PlaybackSessionPlanner` 输出的 `PlaybackSessionPlan` 应用到控制器
+- `PlaybackSessionCoordinator` 现在先 `prepare` 再 `apply`，让 host 可以在真正落地前丢弃过期计划
 - 计划内容包括：
   - 显式队列
   - 续播位置
@@ -190,6 +194,7 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 - `MainLibraryUiState` 负责 library feature 入口状态聚合，不再把这部分 remember 逻辑塞进导航装配文件
 - `MainLibraryViewModel` 只负责设置项更新与把 catalog store 暴露给 UI
 - `MainLibraryCatalogStore` 负责 folders / videos / current folder / recent 的分页状态机、观察器触发刷新与分页错误分流
+- current folder 分页现在使用 request token + cancel stale job，旧 folder 的结果不能再回写当前 folder 页
 - `AndroidVideoAccessDataSource` / `AndroidMediaStoreVideoCatalogDataSource` / `PlaybackRecentMediaDataSource` 提供媒体库底层数据
 - `MediaLibraryIndexingCoordinator` 负责 MediaStore -> 本地索引同步与 `ContentObserver` 驱动的增量收敛
 - `ResolveVideoAccessUseCase` / `LoadFolderPageUseCase` / `LoadVideoPageUseCase` / `LoadRecentMediaIdsUseCase` / `ResolveRecentMediaItemsUseCase` / `ObserveMediaLibraryChangesUseCase` 负责 feature 规则
@@ -221,6 +226,7 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 - 播放页启动时读取的是当前值，而不是旧的 intent 快照
 - `hideButtonsBackground` 等默认值与 `PlayerSettings` 保持一致
 - 设置变化通过 flow 持续同步到播放页
+- settings repository 在发布初始值前会先等待 store 完成首轮加载，因此冷启动读取到的是已持久化值，而不是默认快照
 - 亮度记忆、缩放/轨道/倍速持久化、音量/亮度控制都不再由 `PlaybackActivity` 私自持有
 
 ## 持久化与恢复
@@ -251,6 +257,7 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 - `PlaybackPersistenceStoresFactory` 是 `suspend` factory，负责在后台打开 Room，并在首次初始化时从 legacy SharedPreferences 导入 playback/history 数据
 - `PlaybackRuntimeFeature` 通过 deferred store wrapper + suspend resolver 延迟解析 persistence store，并在 app scope 里做后台预热，避免首次建库工作落在播放热路径
 - SharedPreferences playback/history store 现在主要用于 legacy import 和回归测试
+- `MediaLibraryIndexingCoordinator` 在没有 generation 列的设备上，除了 `DATE_MODIFIED` 水位，还会对已观察到的新增/变更 `_ID` 做定点 metadata 回补，降低旧时间戳文件漏索引的概率
 
 ### 播放状态
 

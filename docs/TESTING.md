@@ -51,6 +51,7 @@
 - `PlaybackIntentPayload` 编解码 round-trip
 - stable mediaId 与 fallback runtime URI 共存
 - seek fallback 后 URI / 队列一致性
+- superseded launch request / seek fallback 不得在新 request 之后落地
 - `AsuraPlayerApp` container 启动链路
 
 ### 恢复与持久化
@@ -69,8 +70,10 @@
 - Room-backed playback/history store 的顺序、裁剪和 round-trip
 - playback/history writer 在慢存储场景下不阻塞播放器回调线程
 - `PlaybackService` 销毁前的 flush / await 行为
+- settings repository 初始值必须等待 store ready，不能在冷启动时先发布默认快照
 - `MediaLibraryIndexingCoordinator` 首次索引后使用增量条件（`DATE_MODIFIED` / generation）继续同步
 - 已观察到的删除 URI 优先走定点清理，而不是每次都全量 `_ID` reconcile
+- 已观察到的新增 `_ID` 在旧 `DATE_MODIFIED` 时间戳场景下仍会补 metadata，不会静默漏进索引
 
 ### 播放页行为
 
@@ -86,7 +89,9 @@
 ### 媒体库分页与 UX
 
 - 首次加载、空态、刷新失败、追加加载、追加失败的状态切换
+- 快速切换 folder 时，旧分页结果不会覆盖当前 folder 状态
 - recent 列表对 `media-store:` / `content` / `file` / `http(s)` / opaque id 的解析语义
+- opaque recent id 应展示为不可用且不可点击，而不是当成伪 URI 回放
 - `ContentObserver` 触发后已加载列表是否自动收敛到索引最新状态
 
 ## 手动测试清单
@@ -178,13 +183,16 @@
 - 组合根 / payload / persistence contract 发生改动时，优先检查：
   - `MainActivityDirectPlaybackTest`
   - `PlaybackLaunchCoordinatorTest`
+  - `PlaybackLaunchOrchestratorTest`
   - `IntentQueueReaderTest`
+  - `MainLibraryCatalogStoreTest`
   - `SettingsRepositoriesTest`
   - `DataStoreAppSettingsStoreTest`
   - `PlaybackPersistenceStoresFactoryTest`
   - `PlaybackStateWriterTest`
   - `QueueHistoryWriterTest`
   - `MediaLibraryIndexingCoordinatorTest`
+  - `RecentPlaybackDescriptorTest`
 - 持久化 schema 变更时额外检查：
   - `player-data/schemas/` 是否有对应导出更新
 - 设备环境或 nightly 再执行：
