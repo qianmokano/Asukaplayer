@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -41,7 +40,7 @@ dependencies {
     testImplementation(project(":player-platform"))
     testImplementation(project(":player-engine"))
     testImplementation(project(":player-data"))
-    testImplementation(libs.kotlin.test)
+    testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }

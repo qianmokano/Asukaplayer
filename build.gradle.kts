@@ -12,12 +12,14 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.TaskAction
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.work.DisableCachingByDefault
 
 plugins {
+    `jvm-toolchains`
     alias(libs.plugins.kotlin.jvm) apply false
-    alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.ksp) apply false
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.license.report)
@@ -25,6 +27,11 @@ plugins {
 
 subprojects {
     tasks.withType<Test>().configureEach {
+        javaLauncher.set(
+            javaToolchains.launcherFor {
+                languageVersion.set(JavaLanguageVersion.of(21))
+            },
+        )
         dependsOn(
             rootProject.tasks.named("verifyArchitectureBoundaries"),
             rootProject.tasks.named("verifySourceFileSizes"),

@@ -1,9 +1,11 @@
 package com.asuka.player.platform
 
 import androidx.media3.common.Format
+import androidx.media3.common.util.UnstableApi
 import java.security.MessageDigest
 
 object TrackSelectionIdentity {
+    @UnstableApi
     fun create(
         type: Int,
         format: Format,

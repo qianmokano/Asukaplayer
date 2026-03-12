@@ -32,6 +32,7 @@ internal fun RecentPageContent(
     onPlay: (PlaybackSelection) -> Unit,
 ) {
     val context = LocalContext.current
+    val unavailableLabel = stringResource(id = R.string.recent_unknown_source)
     val listState = rememberLazyListState()
     val queueEntries = remember(recentMediaIds, knownVideos) {
         recentMediaIds
@@ -73,11 +74,11 @@ internal fun RecentPageContent(
                 items = visibleRecentMediaIds,
                 key = { _, mediaId -> mediaId },
             ) { index, mediaId ->
-                val descriptor = remember(mediaId, knownVideos[mediaId]) {
+                val descriptor = remember(mediaId, knownVideos[mediaId], unavailableLabel) {
                     RecentPlaybackDescriptor.from(
                         mediaId = mediaId,
                         knownVideo = knownVideos[mediaId],
-                        unavailableLabel = context.getString(R.string.recent_unknown_source),
+                        unavailableLabel = unavailableLabel,
                     )
                 }
                 val title by produceState(initialValue = descriptor.fallbackTitle, descriptor) {

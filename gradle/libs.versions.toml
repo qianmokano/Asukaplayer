@@ -1,6 +1,6 @@
 [versions]
-kotlin = "2.3.0"
-agp = "8.13.2"
+kotlin = "2.2.10"
+agp = "9.0.0"
 license-report = "2.5"
 compose-bom = "2026.02.00"
 compose-ui = "1.10.3"
@@ -17,7 +17,7 @@ materialkolor = "2.0.0"
 datastore = "1.1.3"
 room = "2.8.1"
 junit = "4.13.2"
-robolectric = "4.12.2"
+robolectric = "4.16"
 compileSdk = "36"
 minSdk = "23"
 targetSdk = "36"
@@ -57,12 +57,12 @@ room-testing = { group = "androidx.room", name = "room-testing", version.ref = "
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test" }
+kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version = "2.3.6" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 license-report = { id = "com.github.jk1.dependency-license-report", version.ref = "license-report" }

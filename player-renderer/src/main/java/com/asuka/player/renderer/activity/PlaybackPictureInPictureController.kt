@@ -29,8 +29,18 @@ internal class PlaybackPictureInPictureController(
     private val activity: ComponentActivity,
     private val currentPlayerProvider: () -> Player?,
     private val currentControllerProvider: () -> PlaybackController?,
-    private val setPictureInPictureParams: (android.app.PictureInPictureParams) -> Unit = activity::setPictureInPictureParams,
-    private val enterPictureInPicture: (android.app.PictureInPictureParams) -> Boolean = activity::enterPictureInPictureMode,
+    private val setPictureInPictureParams: (android.app.PictureInPictureParams) -> Unit = { params ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity.setPictureInPictureParams(params)
+        }
+    },
+    private val enterPictureInPicture: (android.app.PictureInPictureParams) -> Boolean = { params ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity.enterPictureInPictureMode(params)
+        } else {
+            false
+        }
+    },
 ) {
     private var runtimeSettings: PlaybackRuntimeSettings = PlaybackRuntimeSettings()
     private var videoRect: Rect? = null
