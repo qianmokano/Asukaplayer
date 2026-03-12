@@ -119,64 +119,76 @@ internal fun HomePageContent(
 
             when {
                 foldersState.isLoading && !foldersState.hasLoadedOnce -> {
-                    item { LoadingBlock() }
+                    item { LoadingSectionBlock() }
                 }
 
                 folders.isEmpty() && foldersState.errorMessage != null -> {
                     item {
-                        ErrorBlock(
-                            title = stringResource(id = R.string.media_library_refresh_error_title),
-                            text = foldersState.errorMessage.resolve(context),
-                            actionLabel = stringResource(id = R.string.media_library_refresh_retry),
-                            onAction = onRefresh,
-                        )
+                        AnimatedItemEntrance {
+                            ErrorBlock(
+                                title = stringResource(id = R.string.media_library_refresh_error_title),
+                                text = foldersState.errorMessage.resolve(context),
+                                actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                                onAction = onRefresh,
+                            )
+                        }
                     }
                 }
 
                 folders.isEmpty() -> {
                     item {
-                        EmptyBlock(
-                            text = if (!permissionGranted && hasLimitedMediaAccess) {
-                                stringResource(id = R.string.empty_video_list_limited)
-                            } else {
-                                stringResource(id = R.string.empty_video_list)
-                            },
-                        )
+                        AnimatedItemEntrance {
+                            EmptyBlock(
+                                text = if (!permissionGranted && hasLimitedMediaAccess) {
+                                    stringResource(id = R.string.empty_video_list_limited)
+                                } else {
+                                    stringResource(id = R.string.empty_video_list)
+                                },
+                            )
+                        }
                     }
                 }
 
                 else -> {
                     foldersState.errorMessage?.let { message ->
                         item {
-                            ErrorBlock(
-                                title = stringResource(id = R.string.media_library_refresh_error_title),
-                                text = message.resolve(context),
-                                actionLabel = stringResource(id = R.string.media_library_refresh_retry),
-                                onAction = onRefresh,
-                            )
+                            AnimatedItemEntrance {
+                                ErrorBlock(
+                                    title = stringResource(id = R.string.media_library_refresh_error_title),
+                                    text = message.resolve(context),
+                                    actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                                    onAction = onRefresh,
+                                )
+                            }
                         }
                     }
                     item {
-                        SectionTitle(text = stringResource(id = R.string.folders_group_title, folders.size))
+                        AnimatedItemEntrance {
+                            SectionTitle(
+                                text = stringResource(id = R.string.folders_group_title, folders.size),
+                            )
+                        }
                     }
                     itemsIndexed(
                         items = folders,
                         key = { _, folder -> folder.id },
                     ) { index, folder ->
-                        GroupedListRow(
-                            index = index,
-                            totalCount = folders.size,
-                        ) {
-                            SettingsNavigationItem(
-                                icon = Icons.Outlined.FolderOpen,
-                                title = folder.name,
-                                description = stringResource(
-                                    id = R.string.folder_meta_no_size,
-                                    folder.videoCount,
-                                    folder.totalDurationLabel,
-                                ),
-                                onClick = { onOpenFolder(folder.id) },
-                            )
+                        AnimatedItemEntrance {
+                            GroupedListRow(
+                                index = index,
+                                totalCount = folders.size,
+                            ) {
+                                SettingsNavigationItem(
+                                    icon = Icons.Outlined.FolderOpen,
+                                    title = folder.name,
+                                    description = stringResource(
+                                        id = R.string.folder_meta_no_size,
+                                        folder.videoCount,
+                                        folder.totalDurationLabel,
+                                    ),
+                                    onClick = { onOpenFolder(folder.id) },
+                                )
+                            }
                         }
                     }
                     foldersState.appendErrorMessage?.let { message ->

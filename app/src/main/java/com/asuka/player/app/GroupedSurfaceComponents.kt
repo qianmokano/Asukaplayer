@@ -1,5 +1,11 @@
 package com.asuka.player.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +33,13 @@ internal data class SplicedItemData(
     val content: @Composable () -> Unit,
 )
 
+private val itemEnterTransition: EnterTransition =
+    fadeIn(animationSpec = tween(durationMillis = 240)) +
+        slideInVertically(
+            initialOffsetY = { height -> (height * 0.08f).toInt() },
+            animationSpec = tween(durationMillis = 240),
+        )
+
 internal class SplicedGroupScope {
     val items = mutableListOf<SplicedItemData>()
 
@@ -35,6 +49,23 @@ internal class SplicedGroupScope {
         content: @Composable () -> Unit,
     ) {
         items.add(SplicedItemData(key ?: items.size, visible, content))
+    }
+}
+
+@Composable
+internal fun AnimatedItemEntrance(
+    content: @Composable () -> Unit,
+) {
+    val visibleState = remember {
+        MutableTransitionState(false).apply {
+            targetState = true
+        }
+    }
+    AnimatedVisibility(
+        visibleState = visibleState,
+        enter = itemEnterTransition,
+    ) {
+        content()
     }
 }
 
@@ -105,9 +136,36 @@ internal fun LoadingBlock() {
 }
 
 @Composable
-internal fun EmptyBlock(text: String) {
+internal fun LoadingSectionBlock(
+    modifier: Modifier = Modifier,
+    horizontalPadding: Dp = GROUP_HORIZONTAL_PADDING_DEFAULT,
+) {
+    Column(modifier = modifier) {
+        SectionTitlePlaceholder()
+        GroupedListRow(
+            index = 0,
+            totalCount = 1,
+            horizontalPadding = horizontalPadding,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+    }
+}
+
+@Composable
+internal fun EmptyBlock(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         color = MaterialTheme.colorScheme.surfaceBright,
@@ -128,9 +186,10 @@ internal fun ErrorBlock(
     text: String,
     actionLabel: String,
     onAction: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         color = MaterialTheme.colorScheme.errorContainer,
@@ -207,12 +266,27 @@ internal fun ErrorFooterBlock(
 }
 
 @Composable
-internal fun SectionTitle(text: String) {
+internal fun SectionTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 32.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
+        modifier = modifier.padding(start = 32.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun SectionTitlePlaceholder(
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = " ",
+        style = MaterialTheme.typography.titleSmall,
+        color = Color.Transparent,
+        modifier = modifier.padding(start = 32.dp, top = 8.dp, end = 16.dp, bottom = 8.dp),
     )
 }
 
@@ -220,6 +294,7 @@ internal fun SectionTitle(text: String) {
 internal fun GroupedListRow(
     index: Int,
     totalCount: Int,
+    modifier: Modifier = Modifier,
     itemSpacing: Dp = GROUP_ITEM_SPACING_DEFAULT,
     horizontalPadding: Dp = GROUP_HORIZONTAL_PADDING_DEFAULT,
     useSoftCornersOnly: Boolean = false,
@@ -241,7 +316,7 @@ internal fun GroupedListRow(
         )
     }
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = horizontalPadding)
             .padding(top = if (isFirst) 0.dp else itemSpacing),

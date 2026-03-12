@@ -138,56 +138,72 @@ private fun LibraryVideoListPage(
 
             when {
                 state.isLoading && !state.hasLoadedOnce -> {
-                    item { LoadingBlock() }
-                }
-
-                videos.isEmpty() && state.errorMessage != null -> {
                     item {
-                        ErrorBlock(
-                            title = stringResource(id = R.string.media_library_refresh_error_title),
-                            text = state.errorMessage.resolve(context),
-                            actionLabel = stringResource(id = R.string.media_library_refresh_retry),
-                            onAction = onRefresh,
+                        LoadingSectionBlock(
+                            horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
                         )
                     }
                 }
 
-                videos.isEmpty() -> {
-                    item { EmptyBlock(text = emptyMessage) }
-                }
-
-                else -> {
-                    state.errorMessage?.let { message ->
-                        item {
+                videos.isEmpty() && state.errorMessage != null -> {
+                    item {
+                        AnimatedItemEntrance {
                             ErrorBlock(
                                 title = stringResource(id = R.string.media_library_refresh_error_title),
-                                text = message.resolve(context),
+                                text = state.errorMessage.resolve(context),
                                 actionLabel = stringResource(id = R.string.media_library_refresh_retry),
                                 onAction = onRefresh,
                             )
                         }
                     }
+                }
+
+                videos.isEmpty() -> {
                     item {
-                        SectionTitle(text = sectionTitle)
+                        AnimatedItemEntrance {
+                            EmptyBlock(text = emptyMessage)
+                        }
+                    }
+                }
+
+                else -> {
+                    state.errorMessage?.let { message ->
+                        item {
+                            AnimatedItemEntrance {
+                                ErrorBlock(
+                                    title = stringResource(id = R.string.media_library_refresh_error_title),
+                                    text = message.resolve(context),
+                                    actionLabel = stringResource(id = R.string.media_library_refresh_retry),
+                                    onAction = onRefresh,
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        AnimatedItemEntrance {
+                            SectionTitle(text = sectionTitle)
+                        }
                     }
                     itemsIndexed(
                         items = videos,
                         key = { _, item -> item.id },
                     ) { index, item ->
-                        GroupedListRow(
-                            index = index,
-                            totalCount = videos.size,
-                            horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
-                        ) {
-                            SettingsNavigationItem(
-                                icon = Icons.Outlined.VideoLibrary,
-                                thumbnailUri = item.uri,
-                                thumbnailId = item.id,
-                                durationLabel = item.durationLabel,
-                                title = item.title,
-                                description = item.folderPath,
-                                onClick = { onPlay(item) },
-                            )
+                        AnimatedItemEntrance {
+                            GroupedListRow(
+                                index = index,
+                                totalCount = videos.size,
+                                horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
+                            ) {
+                                SettingsNavigationItem(
+                                    icon = Icons.Outlined.VideoLibrary,
+                                    thumbnailUri = item.uri,
+                                    thumbnailId = item.id,
+                                    durationLabel = item.durationLabel,
+                                    title = item.title,
+                                    description = item.folderPath,
+                                    onClick = { onPlay(item) },
+                                )
+                            }
                         }
                     }
                     state.appendErrorMessage?.let { message ->
