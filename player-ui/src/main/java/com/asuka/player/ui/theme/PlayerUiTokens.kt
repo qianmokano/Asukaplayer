@@ -1,5 +1,7 @@
 package com.asuka.player.ui.theme
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -26,8 +28,16 @@ object PlayerUiTokens {
         const val feedbackMs = 700L
     }
 
-    // Dark navy background used by all control buttons.
-    val buttonBackground = Color(0xFF2D3047)
+    object ButtonSize {
+        val playbackPrimary = 68.dp
+        val playbackPrimaryIcon = 32.dp
+    }
+
+    @Composable
+    fun buttonBackground(): Color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
+
+    @Composable
+    fun buttonContent(): Color = MaterialTheme.colorScheme.onSecondaryContainer
 
     val panelBackground = Color(0xFF1A1A1A)
 }

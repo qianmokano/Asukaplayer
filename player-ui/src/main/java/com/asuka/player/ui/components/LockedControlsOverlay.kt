@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +69,7 @@ fun LockedControlsOverlay(
         LockToggleAnchor(
             visible = unlockHintVisible,
             labelResId = R.string.unlock,
-            icon = Icons.Outlined.Lock,
+            icon = Icons.Rounded.Lock,
             onClick = onUnlock,
             tag = "btn_unlock_controls",
         )

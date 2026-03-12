@@ -34,6 +34,13 @@
     <string name="audio_track">Audio Track</string>
     <string name="subtitle">Subtitle</string>
     <string name="playback_speed">Playback Speed</string>
+    <string name="playback_mode_title">Playback Mode</string>
+    <string name="playback_mode_short">Mode</string>
+    <string name="playback_mode_loop_off">Off</string>
+    <string name="playback_mode_loop_one">Repeat One</string>
+    <string name="playback_mode_loop_all">Repeat All</string>
+    <string name="playback_mode_shuffle_off">Shuffle Off</string>
+    <string name="playback_mode_shuffle_on">Shuffle On</string>
     <string name="content_scale">Content Scale</string>
     <string name="playback_session_connection_failed">Unable to connect to the playback session.</string>
     <string name="no_audio_track">No audio track found</string>

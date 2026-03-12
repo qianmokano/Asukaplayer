@@ -27,7 +27,7 @@ class PlayerScreenTest {
                 onBackground = {},
             )
         }
-        composeRule.onNodeWithTag("btn_speed").assertExists()
+        composeRule.onNodeWithTag("btn_playback_mode").assertExists()
     }
 
     @Test
@@ -42,6 +42,24 @@ class PlayerScreenTest {
             )
         }
         composeRule.onNodeWithTag("btn_speed").assertExists().performClick()
+        composeRule.waitForIdle()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithTag("overlay_root").fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun overlayOpens_onPlaybackModeClick() {
+        composeRule.setContent {
+            PlayerScreen(
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
+                onBack = {},
+                onPip = {},
+                onBackground = {},
+            )
+        }
+        composeRule.onNodeWithTag("btn_playback_mode").assertExists().performClick()
         composeRule.waitForIdle()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("overlay_root").fetchSemanticsNodes().isNotEmpty()

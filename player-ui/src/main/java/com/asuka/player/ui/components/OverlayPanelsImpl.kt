@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -17,8 +18,8 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -43,6 +44,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asuka.player.contract.LoopMode
 import com.asuka.player.contract.TrackIndexCodec
 import com.asuka.player.contract.VideoScaleMode
 import com.asuka.player.ui.R
@@ -144,7 +146,7 @@ fun SpeedSelectorPanel(
                     contentColor = Color.White,
                 ),
             ) {
-                Icon(imageVector = Icons.Outlined.Remove, contentDescription = null)
+                Icon(imageVector = Icons.Rounded.Remove, contentDescription = null)
             }
             Text(
                 text = selectedSpeed.toSpeedLabel(),
@@ -162,7 +164,7 @@ fun SpeedSelectorPanel(
                     contentColor = Color.White,
                 ),
             ) {
-                Icon(imageVector = Icons.Outlined.Add, contentDescription = null)
+                Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
             }
         }
 
@@ -233,7 +235,77 @@ fun ScaleSelectorPanel(
     }
 }
 
+@Composable
+fun PlaybackModePanel(
+    currentRepeatMode: LoopMode,
+    shuffleEnabled: Boolean,
+    onLoopMode: (LoopMode) -> Unit,
+    onShuffleEnabled: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        PlaybackModeSection(title = stringResource(id = R.string.loop)) {
+            TrackOptionRow(
+                label = stringResource(id = R.string.playback_mode_loop_off),
+                selected = currentRepeatMode == LoopMode.OFF,
+                onClick = { onLoopMode(LoopMode.OFF) },
+            )
+            TrackOptionRow(
+                label = stringResource(id = R.string.playback_mode_loop_one),
+                selected = currentRepeatMode == LoopMode.ONE,
+                onClick = { onLoopMode(LoopMode.ONE) },
+            )
+            TrackOptionRow(
+                label = stringResource(id = R.string.playback_mode_loop_all),
+                selected = currentRepeatMode == LoopMode.ALL,
+                onClick = { onLoopMode(LoopMode.ALL) },
+            )
+        }
+
+        PlaybackModeSection(title = stringResource(id = R.string.shuffle)) {
+            TrackOptionRow(
+                label = stringResource(id = R.string.playback_mode_shuffle_off),
+                selected = !shuffleEnabled,
+                onClick = { onShuffleEnabled(false) },
+            )
+            TrackOptionRow(
+                label = stringResource(id = R.string.playback_mode_shuffle_on),
+                selected = shuffleEnabled,
+                onClick = { onShuffleEnabled(true) },
+            )
+        }
+    }
+}
+
 // ── Shared private components ──────────────────────────────────────────────────
+
+@Composable
+private fun PlaybackModeSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            color = Color.White.copy(alpha = 0.68f),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectableGroup(),
+            content = content,
+        )
+    }
+}
 
 @Composable
 private fun TrackOptionRow(

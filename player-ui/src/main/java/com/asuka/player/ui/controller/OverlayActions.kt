@@ -1,5 +1,6 @@
 package com.asuka.player.ui.controller
 
+import com.asuka.player.contract.LoopMode
 import com.asuka.player.contract.PlaybackController
 
 /**
@@ -14,5 +15,13 @@ class OverlayActions(
 
     fun setScale(mode: com.asuka.player.contract.VideoScaleMode) {
         controller.setVideoScaleMode(mode)
+    }
+
+    fun setLoopMode(mode: LoopMode) {
+        controller.setLoopMode(mode)
+    }
+
+    fun setShuffleEnabled(enabled: Boolean) {
+        controller.setShuffleEnabled(enabled)
     }
 }

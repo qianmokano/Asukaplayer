@@ -49,48 +49,36 @@ class PlaybackActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         playbackSession.onCreate(intent)
+        val playbackThemeProvider = application as? PlaybackThemeProvider
 
         setContent {
-            val sessionState by playbackSession.uiState.collectAsState()
-            val hostState = sessionState.hostState
-            val controller = hostState.controller
-            if (controller == null) {
-                PlaybackStartupScreen(
-                    errorMessage = hostState.controllerErrorMessage,
-                    onRetry = playbackSession::retryCurrentIntent,
-                    onClose = { finish() },
-                )
-                return@setContent
-            }
-            PlayerScreen(
-                model = PlaybackScreenModel(
-                    uiState = hostState.uiState,
-                    surfaceState = hostState.surfaceState,
-                    trackUiState = hostState.trackUiState,
-                    settings = sessionState.runtimeSettings,
-                    isInPip = sessionState.isInPictureInPicture,
-                ),
-                dependencies = PlaybackScreenDependencies(
-                    controller = controller,
-                    trackSelectionController = hostState.trackSelectionController,
-                    playbackPersistence = playbackDependencies.playbackUiPersistence,
-                    deviceController = playbackSession.playbackDeviceController,
-                    surfaceRenderer = Media3PlaybackSurfaceRenderer,
-                ),
-                onVideoBoundsChanged = playbackSession::updateVideoBounds,
-                onBack = { finish() },
-                onPip = playbackSession::enterPictureInPictureMode,
-                onBackground = {
-                    playbackSession.requestBackgroundPlayback()
-                    finish()
-                },
-                onRotate = {
-                    requestedOrientation = playbackSession.toggleOrientation(
-                        requestedOrientation = requestedOrientation,
-                        currentOrientation = resources.configuration.orientation,
+            if (playbackThemeProvider != null) {
+                playbackThemeProvider.ProvidePlaybackTheme {
+                    PlaybackActivityContent(
+                        playbackSession = playbackSession,
+                        playbackDependencies = playbackDependencies,
+                        onClose = { finish() },
+                        onRotate = {
+                            requestedOrientation = playbackSession.toggleOrientation(
+                                requestedOrientation = requestedOrientation,
+                                currentOrientation = resources.configuration.orientation,
+                            )
+                        },
                     )
-                },
-            )
+                }
+            } else {
+                PlaybackActivityContent(
+                    playbackSession = playbackSession,
+                    playbackDependencies = playbackDependencies,
+                    onClose = { finish() },
+                    onRotate = {
+                        requestedOrientation = playbackSession.toggleOrientation(
+                            requestedOrientation = requestedOrientation,
+                            currentOrientation = resources.configuration.orientation,
+                        )
+                    },
+                )
+            }
         }
     }
 
@@ -124,6 +112,50 @@ class PlaybackActivity : ComponentActivity() {
         super.onUserLeaveHint()
         playbackSession.onUserLeaveHint()
     }
+}
+
+@Composable
+private fun PlaybackActivityContent(
+    playbackSession: PlaybackActivitySession,
+    playbackDependencies: PlaybackActivityDependencies,
+    onClose: () -> Unit,
+    onRotate: () -> Unit,
+) {
+    val sessionState by playbackSession.uiState.collectAsState()
+    val hostState = sessionState.hostState
+    val controller = hostState.controller
+    if (controller == null) {
+        PlaybackStartupScreen(
+            errorMessage = hostState.controllerErrorMessage,
+            onRetry = playbackSession::retryCurrentIntent,
+            onClose = onClose,
+        )
+        return
+    }
+    PlayerScreen(
+        model = PlaybackScreenModel(
+            uiState = hostState.uiState,
+            surfaceState = hostState.surfaceState,
+            trackUiState = hostState.trackUiState,
+            settings = sessionState.runtimeSettings,
+            isInPip = sessionState.isInPictureInPicture,
+        ),
+        dependencies = PlaybackScreenDependencies(
+            controller = controller,
+            trackSelectionController = hostState.trackSelectionController,
+            playbackPersistence = playbackDependencies.playbackUiPersistence,
+            deviceController = playbackSession.playbackDeviceController,
+            surfaceRenderer = Media3PlaybackSurfaceRenderer,
+        ),
+        onVideoBoundsChanged = playbackSession::updateVideoBounds,
+        onBack = onClose,
+        onPip = playbackSession::enterPictureInPictureMode,
+        onBackground = {
+            playbackSession.requestBackgroundPlayback()
+            onClose()
+        },
+        onRotate = onRotate,
+    )
 }
 
 @Composable

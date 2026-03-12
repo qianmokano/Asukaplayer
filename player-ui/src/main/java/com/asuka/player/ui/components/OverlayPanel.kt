@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asuka.player.contract.LoopMode
 import com.asuka.player.ui.controller.OverlayActions
 import com.asuka.player.ui.controller.TrackOption
 import com.asuka.player.ui.state.ScaleState
@@ -52,6 +53,7 @@ enum class OverlayType {
     SUBTITLE,
     SPEED,
     SCALE,
+    PLAYBACK_MODE,
 }
 
 @Composable
@@ -65,6 +67,8 @@ fun OverlayPanel(
     selectedSubtitle: Int?,
     currentSpeed: Float,
     currentScaleMode: com.asuka.player.contract.VideoScaleMode,
+    currentRepeatMode: LoopMode,
+    shuffleEnabled: Boolean,
     audioTracks: List<TrackOption>,
     subtitleTracks: List<TrackOption>,
     onDismiss: () -> Unit,
@@ -152,6 +156,7 @@ fun OverlayPanel(
                             OverlayType.SUBTITLE -> stringResource(id = R.string.subtitle)
                             OverlayType.SPEED -> stringResource(id = R.string.playback_speed)
                             OverlayType.SCALE -> stringResource(id = R.string.content_scale)
+                            OverlayType.PLAYBACK_MODE -> stringResource(id = R.string.playback_mode_title)
                         }
                         Text(
                             text = title,
@@ -195,6 +200,12 @@ fun OverlayPanel(
                                         overlayActions.setScale(it)
                                         scaleState.updateMode(it)
                                     }
+                                    OverlayType.PLAYBACK_MODE -> PlaybackModePanel(
+                                        currentRepeatMode = currentRepeatMode,
+                                        shuffleEnabled = shuffleEnabled,
+                                        onLoopMode = overlayActions::setLoopMode,
+                                        onShuffleEnabled = overlayActions::setShuffleEnabled,
+                                    )
                                 }
                             }
                         }

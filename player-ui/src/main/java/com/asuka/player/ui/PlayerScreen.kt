@@ -11,8 +11,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -52,7 +53,6 @@ import com.asuka.player.ui.controller.OverlayTrackActions
 import com.asuka.player.ui.controller.PointerGestureDetector
 import com.asuka.player.ui.controller.QueueActions
 import com.asuka.player.ui.state.SeekState
-import com.asuka.player.ui.controller.UiActions
 import com.asuka.player.ui.state.ControlsState
 import com.asuka.player.ui.state.LongPressSpeedState
 import com.asuka.player.ui.state.ScaleState
@@ -134,7 +134,6 @@ fun PlayerScreen(
             brightnessProvider = deviceController::currentBrightnessPercent,
         )
     }
-    val uiActions = remember(controller) { UiActions(controller) }
     val gestureCoordinator = remember(
         controller,
         controlsState,
@@ -179,28 +178,16 @@ fun PlayerScreen(
             ),
         )
     }
-    LaunchedEffect(uiState.isPlaying) {
-        if (uiState.isPlaying && !controlsState.locked) {
-            controlsState.show()
-        }
-    }
+    LaunchedEffect(uiState.isPlaying) { if (uiState.isPlaying && !controlsState.locked) controlsState.show() }
     LaunchedEffect(seekState.seeking) { controlsState.setInteractionVisibilityHold(seekState.seeking) }
-    LaunchedEffect(overlayType) {
-        if (overlayType == null && !controlsState.locked) {
-            controlsState.show()
-        }
-    }
+    LaunchedEffect(overlayType) { if (overlayType == null && !controlsState.locked) controlsState.show() }
     LaunchedEffect(tapFeedbackState.eventId) {
         if (tapFeedbackState.visible) {
             delay(PlayerUiTokens.Motion.feedbackMs)
             tapFeedbackState.hide()
         }
     }
-    LaunchedEffect(uiState.errorMessage) {
-        if (uiState.errorMessage != dismissedErrorMessage) {
-            dismissedErrorMessage = null
-        }
-    }
+    LaunchedEffect(uiState.errorMessage) { if (uiState.errorMessage != dismissedErrorMessage) dismissedErrorMessage = null }
     LaunchedEffect(controlsState.locked) {
         lockedOverlayVisible = controlsState.locked
     }
@@ -281,8 +268,7 @@ fun PlayerScreen(
                     onRotate = onRotate,
                     onPip = onPip,
                     onBackground = onBackground,
-                    onLoop = { uiActions.onLoop() },
-                    onShuffle = { uiActions.onShuffle() },
+                    onPlaybackMode = { openOverlay(OverlayType.PLAYBACK_MODE) },
                 )
             }
         } }
@@ -303,7 +289,7 @@ fun PlayerScreen(
         LockToggleAnchor(
             visible = controlsVisible && !isInPip && !controlsState.locked,
             labelResId = R.string.lock,
-            icon = Icons.Outlined.LockOpen,
+            icon = Icons.Rounded.LockOpen,
             onClick = controlsState::lock,
             tag = "btn_lock",
         )
@@ -311,12 +297,11 @@ fun PlayerScreen(
             visible = controlsState.locked,
             unlockHintVisible = lockedOverlayVisible,
             onTap = { lockedOverlayVisible = !lockedOverlayVisible },
-            onUnlock = {
-                controlsState.unlock()
-                lockedOverlayVisible = false
-            },
+            onUnlock = { controlsState.unlock(); lockedOverlayVisible = false },
         )
-        if (uiState.isBuffering) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        if (uiState.isBuffering) CircularProgressIndicator(
+            modifier = Modifier.align(Alignment.Center).size(PlayerUiTokens.ButtonSize.playbackPrimary),
+        )
         SeekIndicator(modifier = Modifier.align(Alignment.Center), seekState = seekState)
         DoubleTapIndicator(modifier = Modifier.align(Alignment.Center), state = tapFeedbackState)
         VerticalAdjustIndicator(modifier = Modifier.align(Alignment.Center), state = volumeBrightnessState)
@@ -331,6 +316,8 @@ fun PlayerScreen(
             selectedSubtitle = trackUiState.selectedSubtitle,
             currentSpeed = trackUiState.currentSpeed,
             currentScaleMode = scaleState.mode,
+            currentRepeatMode = uiState.repeatMode,
+            shuffleEnabled = uiState.shuffleEnabled,
             audioTracks = trackUiState.audioTracks,
             subtitleTracks = trackUiState.subtitleTracks,
             onDismiss = { overlayType = null },

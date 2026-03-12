@@ -34,6 +34,13 @@
     <string name="audio_track">音轨</string>
     <string name="subtitle">字幕</string>
     <string name="playback_speed">播放速度</string>
+    <string name="playback_mode_title">播放模式</string>
+    <string name="playback_mode_short">模式</string>
+    <string name="playback_mode_loop_off">关闭</string>
+    <string name="playback_mode_loop_one">单曲循环</string>
+    <string name="playback_mode_loop_all">列表循环</string>
+    <string name="playback_mode_shuffle_off">随机关闭</string>
+    <string name="playback_mode_shuffle_on">随机开启</string>
     <string name="content_scale">画面比例</string>
     <string name="playback_session_connection_failed">无法连接到播放会话。</string>
     <string name="no_audio_track">无可用音轨</string>

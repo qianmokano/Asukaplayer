@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material.icons.outlined.Subtitles
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,7 +61,7 @@ fun TopBar(
     ) {
         SimpleButton(
             label = stringResource(id = R.string.back),
-            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+            icon = Icons.AutoMirrored.Rounded.ArrowBack,
             onClick = onBack,
             tag = "btn_back",
         )
@@ -93,19 +93,19 @@ fun TopBar(
         ) {
             SimpleButton(
                 label = stringResource(id = R.string.speed),
-                icon = Icons.Outlined.Speed,
+                icon = Icons.Rounded.Speed,
                 onClick = onSpeed,
                 tag = "btn_speed",
             )
             SimpleButton(
                 label = stringResource(id = R.string.audio),
-                icon = Icons.Outlined.GraphicEq,
+                icon = Icons.Rounded.GraphicEq,
                 onClick = onAudio,
                 tag = "btn_audio",
             )
             SimpleButton(
                 label = stringResource(id = R.string.subs),
-                icon = Icons.Outlined.Subtitles,
+                icon = Icons.Rounded.Subtitles,
                 onClick = onSubtitle,
                 tag = "btn_subs",
             )

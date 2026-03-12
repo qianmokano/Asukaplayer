@@ -21,24 +21,25 @@ fun SimpleButton(
     onClick: () -> Unit,
     tag: String? = null,
     icon: ImageVector? = null,
-    tint: Color = Color.White,
+    tint: Color = Color.Unspecified,
     size: Dp = 44.dp,
     iconSize: Dp = 24.dp,
 ) {
     val baseMod = if (tag != null) Modifier.testTag(tag) else Modifier
+    val resolvedTint = if (tint == Color.Unspecified) PlayerUiTokens.buttonContent() else tint
     if (icon != null) {
         FilledTonalIconButton(
             onClick = onClick,
             modifier = baseMod.size(size),
             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                containerColor = PlayerUiTokens.buttonBackground,
-                contentColor = tint,
+                containerColor = PlayerUiTokens.buttonBackground(),
+                contentColor = resolvedTint,
             ),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = tint,
+                tint = resolvedTint,
                 modifier = Modifier.size(iconSize),
             )
         }

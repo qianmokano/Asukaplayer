@@ -2,6 +2,7 @@ package com.asuka.player.renderer.controller
 
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
+import com.asuka.player.contract.LoopMode
 import com.asuka.player.ui.state.PlayerUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -62,6 +63,14 @@ class PlayerUiStateHolder(
         )
     }
 
+    override fun onRepeatModeChanged(repeatMode: Int) {
+        updateFromPlayer()
+    }
+
+    override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+        updateFromPlayer()
+    }
+
     override fun onEvents(player: Player, events: Player.Events) {
         if (events.contains(Player.EVENT_TIMELINE_CHANGED) ||
             events.contains(Player.EVENT_MEDIA_METADATA_CHANGED)
@@ -91,6 +100,8 @@ class PlayerUiStateHolder(
                 isBuffering = player.playbackState == Player.STATE_BUFFERING,
                 positionMs = player.currentPosition,
                 durationMs = if (player.duration > 0) player.duration else 0L,
+                repeatMode = player.repeatMode.toLoopMode(),
+                shuffleEnabled = player.shuffleModeEnabled,
                 errorMessage = if (clearError) null else it.errorMessage,
             )
         }
@@ -120,5 +131,11 @@ class PlayerUiStateHolder(
     private fun stopProgressTicker() {
         tickerJob?.cancel()
         tickerJob = null
+    }
+
+    private fun Int.toLoopMode(): LoopMode = when (this) {
+        Player.REPEAT_MODE_ONE -> LoopMode.ONE
+        Player.REPEAT_MODE_ALL -> LoopMode.ALL
+        else -> LoopMode.OFF
     }
 }

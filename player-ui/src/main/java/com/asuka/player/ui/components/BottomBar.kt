@@ -11,12 +11,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Launch
-import androidx.compose.material.icons.outlined.AspectRatio
-import androidx.compose.material.icons.outlined.PictureInPictureAlt
-import androidx.compose.material.icons.outlined.Repeat
-import androidx.compose.material.icons.outlined.ScreenRotation
-import androidx.compose.material.icons.outlined.Shuffle
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.Headset
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -53,8 +52,7 @@ fun BottomBar(
     onRotate: () -> Unit,
     onPip: () -> Unit,
     onBackground: () -> Unit,
-    onLoop: () -> Unit,
-    onShuffle: () -> Unit,
+    onPlaybackMode: () -> Unit,
 ) {
     var showRemainingTime by remember { mutableStateOf(false) }
     var sliderDragging by remember { mutableStateOf(false) }
@@ -100,7 +98,7 @@ fun BottomBar(
             )
             SimpleButton(
                 label = stringResource(id = R.string.rotate),
-                icon = Icons.Outlined.ScreenRotation,
+                icon = Icons.Rounded.ScreenRotation,
                 onClick = onRotate,
                 tag = "btn_rotate",
                 size = 40.dp,
@@ -143,33 +141,27 @@ fun BottomBar(
         ) {
             SimpleButton(
                 label = stringResource(id = R.string.scale),
-                icon = Icons.Outlined.AspectRatio,
+                icon = Icons.Rounded.AspectRatio,
                 onClick = onScale,
                 tag = "btn_scale",
             )
             SimpleButton(
                 label = stringResource(id = R.string.pip),
-                icon = Icons.Outlined.PictureInPictureAlt,
+                icon = Icons.Rounded.PictureInPictureAlt,
                 onClick = onPip,
                 tag = "btn_pip",
             )
             SimpleButton(
                 label = stringResource(id = R.string.background_short),
-                icon = Icons.AutoMirrored.Outlined.Launch,
+                icon = Icons.Rounded.Headset,
                 onClick = onBackground,
                 tag = "btn_bg",
             )
             SimpleButton(
-                label = stringResource(id = R.string.loop),
-                icon = Icons.Outlined.Repeat,
-                onClick = onLoop,
-                tag = "btn_loop",
-            )
-            SimpleButton(
-                label = stringResource(id = R.string.shuffle),
-                icon = Icons.Outlined.Shuffle,
-                onClick = onShuffle,
-                tag = "btn_shuffle",
+                label = stringResource(id = R.string.playback_mode_short),
+                icon = Icons.Rounded.Tune,
+                onClick = onPlaybackMode,
+                tag = "btn_playback_mode",
             )
         }
     }
