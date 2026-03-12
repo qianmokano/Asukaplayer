@@ -38,3 +38,4 @@ google-services.json
 .codex/
 .claude/
 .github/
+/AGENTS.md
