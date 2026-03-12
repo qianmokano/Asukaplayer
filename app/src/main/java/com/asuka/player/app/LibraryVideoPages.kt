@@ -195,13 +195,14 @@ private fun LibraryVideoListPage(
                                 horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
                             ) {
                                 SettingsNavigationItem(
-                                    icon = Icons.Outlined.VideoLibrary,
-                                    thumbnailUri = item.uri,
-                                    thumbnailId = item.id,
-                                    durationLabel = item.durationLabel,
-                                    title = item.title,
-                                    description = item.folderPath,
-                                    onClick = { onPlay(item) },
+                                icon = Icons.Outlined.VideoLibrary,
+                                thumbnailUri = item.uri,
+                                thumbnailId = item.id,
+                                durationLabel = item.durationLabel,
+                                progressFraction = item.resumeProgressFraction,
+                                title = item.title,
+                                description = item.folderPath,
+                                onClick = { onPlay(item) },
                                 )
                             }
                         }

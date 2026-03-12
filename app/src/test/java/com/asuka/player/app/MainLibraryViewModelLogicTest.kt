@@ -4,6 +4,7 @@ import android.net.Uri
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -118,17 +119,54 @@ class MainLibraryViewModelLogicTest {
         assertEquals(null, state.appendErrorMessage)
     }
 
-    private fun localVideoItem(id: Long, name: String): LocalVideoItem {
+    @Test
+    fun localVideoItem_resumeProgressFraction_isDerivedFromResumePosition() {
+        val item = localVideoItem(
+            id = 1L,
+            name = "resume.mp4",
+            durationMs = 100_000L,
+            resumePositionMs = 25_000L,
+        )
+
+        assertEquals(0.25f, item.resumeProgressFraction)
+    }
+
+    @Test
+    fun localVideoItem_resumeProgressFraction_isNullWithoutValidProgress() {
+        val noResume = localVideoItem(
+            id = 1L,
+            name = "resume.mp4",
+            durationMs = 100_000L,
+            resumePositionMs = 0L,
+        )
+        val noDuration = localVideoItem(
+            id = 2L,
+            name = "resume.mp4",
+            durationMs = 0L,
+            resumePositionMs = 25_000L,
+        )
+
+        assertNull(noResume.resumeProgressFraction)
+        assertNull(noDuration.resumeProgressFraction)
+    }
+
+    private fun localVideoItem(
+        id: Long,
+        name: String,
+        durationMs: Long = 1_000L,
+        resumePositionMs: Long = 0L,
+    ): LocalVideoItem {
         return LocalVideoItem(
             id = id,
             uri = Uri.parse("content://videos/$name"),
             title = name,
-            durationMs = 1_000L,
+            durationMs = durationMs,
             sizeBytes = 2_000L,
             folderName = "Folder",
             folderPath = "/storage/emulated/0/Folder",
             folderId = 42L,
             dateAddedSec = 1L,
+            resumePositionMs = resumePositionMs,
         )
     }
 }

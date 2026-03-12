@@ -25,6 +25,7 @@ class RecentPlaybackDescriptorTest {
             folderPath = "/storage/emulated/0/Movies",
             folderId = 7L,
             dateAddedSec = 10L,
+            resumePositionMs = 13_000L,
         )
 
         val descriptor = RecentPlaybackDescriptor.from(
@@ -38,6 +39,7 @@ class RecentPlaybackDescriptorTest {
         assertEquals(known.uri, descriptor.thumbnailUri)
         assertEquals(known.id, descriptor.thumbnailId)
         assertEquals(known.durationLabel, descriptor.durationLabel)
+        assertEquals(known.resumeProgressFraction, descriptor.progressFraction)
         assertFalse(descriptor.shouldResolveDisplayName)
         assertEquals(
             known.toPlaybackQueueEntry(mediaIdOverride = known.playbackMediaId),
@@ -57,6 +59,7 @@ class RecentPlaybackDescriptorTest {
         assertEquals(Uri.parse(mediaId), descriptor.uri)
         assertEquals(Uri.parse(mediaId), descriptor.thumbnailUri)
         assertNull(descriptor.thumbnailId)
+        assertNull(descriptor.progressFraction)
         assertTrue(descriptor.shouldResolveDisplayName)
         assertTrue(descriptor.isPlayable)
         assertEquals(mediaId, descriptor.description)
@@ -78,6 +81,7 @@ class RecentPlaybackDescriptorTest {
         assertEquals("video.mp4", descriptor.fallbackTitle)
         assertEquals(mediaId, descriptor.description)
         assertNull(descriptor.thumbnailUri)
+        assertNull(descriptor.progressFraction)
         assertFalse(descriptor.shouldResolveDisplayName)
         assertTrue(descriptor.isPlayable)
     }
@@ -94,6 +98,7 @@ class RecentPlaybackDescriptorTest {
         assertEquals("Unavailable", descriptor.description)
         assertNull(descriptor.uri)
         assertNull(descriptor.thumbnailUri)
+        assertNull(descriptor.progressFraction)
         assertFalse(descriptor.shouldResolveDisplayName)
         assertFalse(descriptor.isPlayable)
     }

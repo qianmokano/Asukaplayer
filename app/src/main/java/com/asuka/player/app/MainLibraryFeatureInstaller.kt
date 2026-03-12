@@ -29,7 +29,10 @@ private fun createMediaLibraryRepository(
 ): MediaLibraryRepository {
     return AndroidMediaLibraryRepository(
         videoAccessDataSource = AndroidVideoAccessDataSource(application),
-        localVideoCatalogDataSource = AndroidMediaStoreVideoCatalogDataSource(application),
+        localVideoCatalogDataSource = AndroidMediaStoreVideoCatalogDataSource(
+            context = application,
+            playbackStateRepositoryProvider = bindings.playbackStateRepository,
+        ),
         recentPlaybackDataSource = PlaybackRecentMediaDataSource(
             playbackStateRepositoryProvider = bindings.playbackStateRepository,
             queueHistoryRepositoryProvider = bindings.queueHistoryRepository,

@@ -98,6 +98,7 @@ internal fun RecentPageContent(
                             thumbnailUri = descriptor.thumbnailUri,
                             thumbnailId = descriptor.thumbnailId,
                             durationLabel = descriptor.durationLabel,
+                            progressFraction = descriptor.progressFraction,
                             title = title,
                             description = descriptor.description,
                             enabled = descriptor.isPlayable,
@@ -142,6 +143,7 @@ internal data class RecentPlaybackDescriptor(
     val thumbnailUri: Uri?,
     val thumbnailId: Long?,
     val durationLabel: String?,
+    val progressFraction: Float?,
     val shouldResolveDisplayName: Boolean,
     val isPlayable: Boolean,
 ) {
@@ -160,6 +162,7 @@ internal data class RecentPlaybackDescriptor(
                     thumbnailUri = knownVideo.uri,
                     thumbnailId = knownVideo.id,
                     durationLabel = knownVideo.durationLabel,
+                    progressFraction = knownVideo.resumeProgressFraction,
                     shouldResolveDisplayName = false,
                     isPlayable = true,
                 )
@@ -190,6 +193,7 @@ internal data class RecentPlaybackDescriptor(
                 thumbnailUri = thumbnailUri,
                 thumbnailId = null,
                 durationLabel = null,
+                progressFraction = null,
                 shouldResolveDisplayName = scheme == "content",
                 isPlayable = uri != null,
             )

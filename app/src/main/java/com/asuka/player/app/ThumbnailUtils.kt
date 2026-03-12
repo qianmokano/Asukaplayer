@@ -9,10 +9,12 @@ import android.util.LruCache
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +39,10 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+
+import com.asuka.player.app.VIDEO_ITEM_THUMB_HEIGHT
+import com.asuka.player.app.VIDEO_ITEM_THUMB_WIDTH
+import com.asuka.player.app.VIDEO_PAGE_CORNER_RADIUS
 
 internal object VideoThumbnailCache {
     // Use 1/8 of the available heap rather than a fixed constant so the cache scales
@@ -185,6 +191,7 @@ internal fun VideoThumbOrIcon(
     thumbnailUri: Uri?,
     thumbnailId: Long?,
     durationLabel: String?,
+    progressFraction: Float?,
     selected: Boolean,
 ) {
     val thumb = rememberVideoThumbnail(thumbnailUri, thumbnailId)
@@ -229,11 +236,35 @@ internal fun VideoThumbOrIcon(
                         color = Color.White,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(end = 3.dp, bottom = 3.dp)
+                            .padding(end = 3.dp, bottom = if ((progressFraction ?: 0f) > 0f) 8.dp else 3.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(Color.Black.copy(alpha = 0.58f))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
+                }
+                val clampedProgress = progressFraction?.coerceIn(0f, 1f)?.takeIf { it > 0f }
+                if (clampedProgress != null) {
+                    val playedProgressShape = RoundedCornerShape(
+                        topStart = 0.dp,
+                        bottomStart = 0.dp,
+                        topEnd = 999.dp,
+                        bottomEnd = 999.dp,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.92f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(clampedProgress)
+                                .height(4.dp)
+                                .clip(playedProgressShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
                 }
             }
         }

@@ -76,6 +76,7 @@ internal class AndroidVideoAccessDataSource(
 internal class AndroidMediaStoreVideoCatalogDataSource(
     context: Context,
     database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
+    private val playbackStateRepositoryProvider: (() -> PlaybackStateRepository)? = null,
 ) : LocalVideoCatalogDataSource {
     private val appContext = context.applicationContext
     private val dao = database.indexedVideoDao()
@@ -114,7 +115,10 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
             } else {
                 dao.pagedVideosByFolder(folderId = folderId, limit = request.limit + 1, offset = request.offset)
             }
-            val pageItems = rows.take(request.limit).map(IndexedVideoEntity::toLocalVideoItem)
+            val pageItems = enrichWithResumePositions(
+                items = rows.take(request.limit).map(IndexedVideoEntity::toLocalVideoItem),
+                playbackStateRepositoryProvider = playbackStateRepositoryProvider,
+            )
             MediaLibraryPage(
                 items = pageItems,
                 nextOffset = if (rows.size > request.limit) request.offset + pageItems.size else null,
@@ -128,10 +132,28 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
             indexingCoordinator.ensureInitialized()
             val ids = mediaIds.mapNotNull(::parseMediaStoreId).distinct()
             if (ids.isEmpty()) return@withContext emptyMap()
-            dao.findByIds(ids)
-                .associate { entity ->
-                    entity.toPlaybackMediaId() to entity.toLocalVideoItem()
-                }
+            enrichWithResumePositions(
+                items = dao.findByIds(ids).map(IndexedVideoEntity::toLocalVideoItem),
+                playbackStateRepositoryProvider = playbackStateRepositoryProvider,
+            ).associateBy { item ->
+                item.playbackMediaId
+            }
+        }
+    }
+
+    private suspend fun enrichWithResumePositions(
+        items: List<LocalVideoItem>,
+        playbackStateRepositoryProvider: (() -> PlaybackStateRepository)?,
+    ): List<LocalVideoItem> {
+        if (items.isEmpty() || playbackStateRepositoryProvider == null) return items
+        val playbackStateRepository = playbackStateRepositoryProvider()
+        return items.map { item ->
+            val resumePositionMs = playbackStateRepository.resolveResumePositionMs(item)
+            if (resumePositionMs <= 0L) {
+                item
+            } else {
+                item.copy(resumePositionMs = resumePositionMs)
+            }
         }
     }
 
@@ -194,3 +216,9 @@ private fun IndexedVideoEntity.toLocalVideoItem(): LocalVideoItem {
 }
 
 private fun IndexedVideoEntity.toPlaybackMediaId(): String = "$MEDIA_STORE_ID_PREFIX$mediaStoreId"
+
+internal suspend fun PlaybackStateRepository.resolveResumePositionMs(
+    item: LocalVideoItem,
+): Long {
+    return readResumeState(item.playbackMediaId).positionMs.coerceAtLeast(0L)
+}

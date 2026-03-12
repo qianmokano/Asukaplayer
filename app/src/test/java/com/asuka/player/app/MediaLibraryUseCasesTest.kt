@@ -1,6 +1,8 @@
 package com.asuka.player.app
 
 import android.net.Uri
+import com.asuka.player.contract.PlaybackStore
+import com.asuka.player.contract.PlaybackStateRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -14,6 +16,64 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 @RunWith(RobolectricTestRunner::class)
 class MediaLibraryUseCasesTest {
+
+    @Test
+    fun resolveResumePositionMs_readsStableMediaIdOnly() = runBlocking {
+        val video = localVideoItem(id = 7L, name = "resume.mp4")
+        val playbackStateRepository = PlaybackStateRepository(
+            object : PlaybackStore {
+                override suspend fun recentMediaIds(limit: Int): List<String> = emptyList()
+                override suspend fun loadPosition(mediaId: String): Long? {
+                    return when (mediaId) {
+                        video.playbackMediaId -> 12_345L
+                        else -> null
+                    }
+                }
+                override suspend fun savePosition(mediaId: String, positionMs: Long) = Unit
+                override suspend fun loadPlaybackSpeed(mediaId: String): Float? = null
+                override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) = Unit
+                override suspend fun loadAudioTrackId(mediaId: String): String? = null
+                override suspend fun saveAudioTrackId(mediaId: String, trackId: String) = Unit
+                override suspend fun loadSubtitleTrackId(mediaId: String): String? = null
+                override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) = Unit
+                override suspend fun loadZoom(mediaId: String): Float? = null
+                override suspend fun saveZoom(mediaId: String, zoom: Float) = Unit
+            },
+        )
+
+        val positionMs = playbackStateRepository.resolveResumePositionMs(video)
+
+        assertEquals(12_345L, positionMs)
+    }
+
+    @Test
+    fun resolveResumePositionMs_ignoresLegacyUriKeys() = runBlocking {
+        val video = localVideoItem(id = 8L, name = "legacy.mp4")
+        val playbackStateRepository = PlaybackStateRepository(
+            object : PlaybackStore {
+                override suspend fun recentMediaIds(limit: Int): List<String> = emptyList()
+                override suspend fun loadPosition(mediaId: String): Long? {
+                    return when (mediaId) {
+                        video.uri.toString() -> 99_999L
+                        else -> null
+                    }
+                }
+                override suspend fun savePosition(mediaId: String, positionMs: Long) = Unit
+                override suspend fun loadPlaybackSpeed(mediaId: String): Float? = null
+                override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) = Unit
+                override suspend fun loadAudioTrackId(mediaId: String): String? = null
+                override suspend fun saveAudioTrackId(mediaId: String, trackId: String) = Unit
+                override suspend fun loadSubtitleTrackId(mediaId: String): String? = null
+                override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) = Unit
+                override suspend fun loadZoom(mediaId: String): Float? = null
+                override suspend fun saveZoom(mediaId: String, zoom: Float) = Unit
+            },
+        )
+
+        val positionMs = playbackStateRepository.resolveResumePositionMs(video)
+
+        assertEquals(0L, positionMs)
+    }
 
     @Test
     fun loadVideoPageUseCase_returnsWarmupVideosOnFirstPage() = runBlocking {

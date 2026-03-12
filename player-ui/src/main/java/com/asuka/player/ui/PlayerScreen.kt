@@ -28,8 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.asuka.player.render.api.PlaybackSurfaceTransform
 import com.asuka.player.ui.components.BottomBar
@@ -87,6 +89,7 @@ fun PlayerScreen(
     val deviceController = dependencies.deviceController
     val surfaceRenderer = dependencies.surfaceRenderer
     val scope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     val controlsState = remember(settings.controllerTimeoutSec) {
         ControlsState(scope = scope, autoHideDelay = settings.controllerTimeoutSec.coerceIn(1, 60).seconds)
     }
@@ -160,7 +163,12 @@ fun PlayerScreen(
             playbackSpeedProvider = { playbackSpeedState.value },
             onDoubleTapFeedback = { delta -> tapFeedbackState.show(delta) },
             onLongPressFeedback = { active, speed ->
-                if (active) longPressSpeedState.start(speed) else longPressSpeedState.end()
+                if (active) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    longPressSpeedState.start(speed)
+                } else {
+                    longPressSpeedState.end()
+                }
             },
             onVolumeChanged = deviceController::setVolumePercent,
             onBrightnessChanged = deviceController::setBrightnessPercent,

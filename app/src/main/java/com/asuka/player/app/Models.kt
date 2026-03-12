@@ -49,12 +49,21 @@ internal data class LocalVideoItem(
     val folderPath: String,
     val folderId: Long,
     val dateAddedSec: Long,
+    val resumePositionMs: Long = 0L,
 ) {
     val playbackMediaId: String
         get() = "media-store:$id"
 
     val durationLabel: String
         get() = formatDuration(durationMs)
+
+    val resumeProgressFraction: Float?
+        get() {
+            if (durationMs <= 0L || resumePositionMs <= 0L) return null
+            return (resumePositionMs.toFloat() / durationMs.toFloat())
+                .coerceIn(0f, 1f)
+                .takeIf { it > 0f }
+        }
 
     val sizeLabel: String
         get() = formatSize(sizeBytes)
@@ -66,13 +75,6 @@ internal data class LocalVideoItem(
             mediaId = mediaIdOverride,
             uri = uri.toString(),
         )
-    }
-
-    fun playbackLookupKeys(): Set<String> {
-        return buildSet {
-            add(playbackMediaId)
-            add(uri.toString())
-        }
     }
 }
 

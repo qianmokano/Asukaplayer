@@ -27,6 +27,7 @@ internal fun SettingsNavigationItem(
     thumbnailUri: Uri? = null,
     thumbnailId: Long? = null,
     durationLabel: String? = null,
+    progressFraction: Float? = null,
     title: String,
     description: String,
     enabled: Boolean = true,
@@ -64,6 +65,7 @@ internal fun SettingsNavigationItem(
             thumbnailUri = thumbnailUri,
             thumbnailId = thumbnailId,
             durationLabel = durationLabel,
+            progressFraction = progressFraction,
             selected = selected,
         )
 
