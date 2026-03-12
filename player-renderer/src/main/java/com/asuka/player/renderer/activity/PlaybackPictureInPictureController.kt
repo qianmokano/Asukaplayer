@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.ui.R
@@ -28,15 +29,24 @@ internal class PlaybackPictureInPictureController(
     private val activity: ComponentActivity,
     private val currentPlayerProvider: () -> Player?,
     private val currentControllerProvider: () -> PlaybackController?,
+    private val setPictureInPictureParams: (android.app.PictureInPictureParams) -> Unit = activity::setPictureInPictureParams,
+    private val enterPictureInPicture: (android.app.PictureInPictureParams) -> Boolean = activity::enterPictureInPictureMode,
 ) {
     private var runtimeSettings: PlaybackRuntimeSettings = PlaybackRuntimeSettings()
     private var videoRect: Rect? = null
     private var receiverRegistered = false
     private var attachedPlayer: Player? = null
+    private var stableAspectRatio: PictureInPictureAspectRatio? = null
 
-    private val playStateListener = object : Player.Listener {
+    private val pipPlayerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            updatePictureInPictureParamsIfSupported()
+            updatePictureInPictureParamsIfSupported(syncAspectRatio = false)
+        }
+
+        override fun onVideoSizeChanged(videoSize: VideoSize) {
+            if (refreshStableAspectRatio(videoSize.width, videoSize.height)) {
+                updatePictureInPictureParamsIfSupported(syncAspectRatio = false)
+            }
         }
     }
 
@@ -63,17 +73,27 @@ internal class PlaybackPictureInPictureController(
     fun onPictureInPictureModeChanged(transition: PictureInPictureTransition) {
         if (transition.shouldRegisterReceiver) {
             registerReceiver()
-            attachPlayStateListener()
         } else {
-            detachPlayStateListener()
             unregisterReceiver()
+        }
+        if (transition.shouldAttachPlayStateListener) {
+            attachPlayerListener()
+        } else {
+            detachPlayerListener()
         }
     }
 
     fun updatePictureInPictureParamsIfSupported() {
+        updatePictureInPictureParamsIfSupported(syncAspectRatio = true)
+    }
+
+    private fun updatePictureInPictureParamsIfSupported(syncAspectRatio: Boolean) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (syncAspectRatio) {
+            refreshStableAspectRatio(currentPlayerProvider())
+        }
         runCatching {
-            activity.setPictureInPictureParams(buildPictureInPictureParams())
+            setPictureInPictureParams(buildPictureInPictureParams())
         }
     }
 
@@ -83,23 +103,22 @@ internal class PlaybackPictureInPictureController(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         beforeEnter()
         registerReceiver()
-        attachPlayStateListener()
-        activity.enterPictureInPictureMode(buildPictureInPictureParams())
+        attachPlayerListener()
+        refreshStableAspectRatio(currentPlayerProvider())
+        enterPictureInPicture(buildPictureInPictureParams())
     }
 
     fun release() {
-        detachPlayStateListener()
+        detachPlayerListener()
         unregisterReceiver()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun buildPictureInPictureParams(): android.app.PictureInPictureParams {
         val builder = android.app.PictureInPictureParams.Builder()
-        currentPlayerProvider()?.let { player ->
-            resolveAspectRatio(player.videoSize.width, player.videoSize.height)
-                ?.toRational()
-                ?.let(builder::setAspectRatio)
-        }
+        stableAspectRatio
+            ?.toRational()
+            ?.let(builder::setAspectRatio)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setAutoEnterEnabled(runtimeSettings.autoPip)
             builder.setSeamlessResizeEnabled(true)
@@ -171,17 +190,34 @@ internal class PlaybackPictureInPictureController(
         receiverRegistered = false
     }
 
-    private fun attachPlayStateListener() {
+    private fun attachPlayerListener() {
         val player = currentPlayerProvider() ?: return
         if (attachedPlayer === player) return
-        detachPlayStateListener()
-        player.addListener(playStateListener)
+        detachPlayerListener()
+        refreshStableAspectRatio(player)
+        player.addListener(pipPlayerListener)
         attachedPlayer = player
     }
 
-    private fun detachPlayStateListener() {
-        attachedPlayer?.removeListener(playStateListener)
+    private fun detachPlayerListener() {
+        attachedPlayer?.removeListener(pipPlayerListener)
         attachedPlayer = null
+    }
+
+    private fun refreshStableAspectRatio(player: Player?): Boolean {
+        val videoSize = player?.videoSize ?: return false
+        return refreshStableAspectRatio(videoSize.width, videoSize.height)
+    }
+
+    private fun refreshStableAspectRatio(width: Int, height: Int): Boolean {
+        val next = resolveAspectRatioPreservingPrevious(
+            previous = stableAspectRatio,
+            width = width,
+            height = height,
+        )
+        if (next == stableAspectRatio) return false
+        stableAspectRatio = next
+        return true
     }
 
     companion object {
@@ -204,6 +240,14 @@ internal class PlaybackPictureInPictureController(
                 ratio > 2.39f -> PictureInPictureAspectRatio(239, 100)
                 else -> PictureInPictureAspectRatio(width, height)
             }
+        }
+
+        internal fun resolveAspectRatioPreservingPrevious(
+            previous: PictureInPictureAspectRatio?,
+            width: Int,
+            height: Int,
+        ): PictureInPictureAspectRatio? {
+            return resolveAspectRatio(width, height) ?: previous
         }
     }
 }
