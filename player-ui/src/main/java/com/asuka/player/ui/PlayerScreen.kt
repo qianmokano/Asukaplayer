@@ -314,6 +314,7 @@ fun PlayerScreen(
         )
         if (uiState.isBuffering) CircularProgressIndicator(
             modifier = Modifier.align(Alignment.Center).size(PlayerUiTokens.ButtonSize.playbackPrimary),
+            color = PlayerUiTokens.loadingIndicatorColor(),
         )
         SeekIndicator(modifier = Modifier.align(Alignment.Center), seekState = seekState)
         DoubleTapIndicator(modifier = Modifier.align(Alignment.Center), state = tapFeedbackState)

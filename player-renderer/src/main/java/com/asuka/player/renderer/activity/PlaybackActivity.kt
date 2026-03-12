@@ -27,6 +27,7 @@ import com.asuka.player.ui.PlaybackScreenDependencies
 import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.R
+import com.asuka.player.ui.theme.PlayerUiTokens
 
 /**
  * Minimal playback Activity for M0.
@@ -171,7 +172,9 @@ private fun PlaybackStartupScreen(
         contentAlignment = Alignment.Center,
     ) {
         if (errorMessage.isNullOrBlank()) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(
+                color = PlayerUiTokens.loadingIndicatorColor(),
+            )
             return@Box
         }
 
