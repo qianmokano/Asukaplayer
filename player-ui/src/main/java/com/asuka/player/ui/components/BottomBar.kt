@@ -32,19 +32,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.asuka.player.contract.PlaybackController
+import com.asuka.player.ui.LandscapeCutoutPadding
 import com.asuka.player.ui.R
 import com.asuka.player.ui.theme.PlayerUiTokens
 import com.asuka.player.ui.utils.formatTimeMs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BottomBar(
+internal fun BottomBar(
     modifier: Modifier = Modifier,
     showBackground: Boolean = true,
     controller: PlaybackController,
+    landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     positionMs: Long,
     durationMs: Long,
     onSeekBarDragChange: (Boolean) -> Unit = {},
@@ -54,6 +57,7 @@ fun BottomBar(
     onBackground: () -> Unit,
     onPlaybackMode: () -> Unit,
 ) {
+    val layoutDirection = LocalLayoutDirection.current
     var showRemainingTime by remember { mutableStateOf(false) }
     var sliderDragging by remember { mutableStateOf(false) }
     var sliderValue by remember { mutableFloatStateOf(0f) }
@@ -75,7 +79,12 @@ fun BottomBar(
                 ),
             )
             .navigationBarsPadding()
-            .padding(horizontal = PlayerUiTokens.Spacing.md, vertical = PlayerUiTokens.Spacing.sm),
+            .padding(
+                start = PlayerUiTokens.Spacing.md + landscapeCutoutPadding.start(layoutDirection),
+                top = PlayerUiTokens.Spacing.sm,
+                end = PlayerUiTokens.Spacing.md + landscapeCutoutPadding.end(layoutDirection),
+                bottom = PlayerUiTokens.Spacing.sm,
+            ),
     ) {
         // ── Time row: "00:35 / 03:26" on left, scale button on right ──────────
         Row(

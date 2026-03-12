@@ -90,6 +90,7 @@ fun PlayerScreen(
     val surfaceRenderer = dependencies.surfaceRenderer
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val landscapeCutoutPadding = rememberLandscapeCutoutPadding()
     val controlsState = remember(settings.controllerTimeoutSec) {
         ControlsState(scope = scope, autoHideDelay = settings.controllerTimeoutSec.coerceIn(1, 60).seconds)
     }
@@ -254,6 +255,7 @@ fun PlayerScreen(
                 TopBar(
                     showBackground = !settings.hideButtonsBackground,
                     title = uiState.title,
+                    landscapeCutoutPadding = landscapeCutoutPadding,
                     onBack = onBack,
                     onAudio = { openOverlay(OverlayType.AUDIO) },
                     onSubtitle = { openOverlay(OverlayType.SUBTITLE) },
@@ -269,6 +271,7 @@ fun PlayerScreen(
                 BottomBar(
                     showBackground = !settings.hideButtonsBackground,
                     controller = controller,
+                    landscapeCutoutPadding = landscapeCutoutPadding,
                     positionMs = displayedPositionMs,
                     durationMs = uiState.durationMs,
                     onSeekBarDragChange = controlsState::setInteractionVisibilityHold,
@@ -298,12 +301,14 @@ fun PlayerScreen(
             visible = controlsVisible && !isInPip && !controlsState.locked,
             labelResId = R.string.lock,
             icon = Icons.Rounded.LockOpen,
+            landscapeCutoutPadding = landscapeCutoutPadding,
             onClick = controlsState::lock,
             tag = "btn_lock",
         )
         LockedControlsOverlay(
             visible = controlsState.locked,
             unlockHintVisible = lockedOverlayVisible,
+            landscapeCutoutPadding = landscapeCutoutPadding,
             onTap = { lockedOverlayVisible = !lockedOverlayVisible },
             onUnlock = { controlsState.unlock(); lockedOverlayVisible = false },
         )

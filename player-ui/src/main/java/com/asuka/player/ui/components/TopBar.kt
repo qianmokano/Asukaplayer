@@ -23,17 +23,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asuka.player.ui.LandscapeCutoutPadding
 import com.asuka.player.ui.R
 import com.asuka.player.ui.theme.PlayerUiTokens
 
 @Composable
-fun TopBar(
+internal fun TopBar(
     modifier: Modifier = Modifier,
     showBackground: Boolean = true,
     title: String,
+    landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     onBack: () -> Unit,
     onAudio: () -> Unit,
     onSubtitle: () -> Unit,
@@ -41,6 +44,7 @@ fun TopBar(
     onTitleLongPress: (() -> Unit)? = null,
 ) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val layoutDirection = LocalLayoutDirection.current
     val topInsetModifier = if (isLandscape) Modifier else Modifier.statusBarsPadding()
     Row(
         modifier = modifier
@@ -55,7 +59,12 @@ fun TopBar(
                 ),
             )
             .then(topInsetModifier)
-            .padding(horizontal = PlayerUiTokens.Spacing.sm, vertical = PlayerUiTokens.Spacing.xs),
+            .padding(
+                start = PlayerUiTokens.Spacing.sm + landscapeCutoutPadding.start(layoutDirection),
+                top = PlayerUiTokens.Spacing.xs,
+                end = PlayerUiTokens.Spacing.sm + landscapeCutoutPadding.end(layoutDirection),
+                bottom = PlayerUiTokens.Spacing.xs,
+            ),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
