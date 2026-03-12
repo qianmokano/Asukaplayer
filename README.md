@@ -122,6 +122,7 @@ player-data/      DataStore/Room 持久化实现、媒体库索引库、legacy S
 ## 文档
 
 - [架构说明](docs/ARCHITECTURE.md)
+- [远端媒体源接入研究](docs/CLOUD_DRIVE_INTEGRATION_RESEARCH.md)
 - [测试说明](docs/TESTING.md)
 - [路线与待办](docs/ROADMAP.md)
 - [变更记录](docs/CHANGELOG.md)
