@@ -64,7 +64,7 @@ internal class MainLibraryCatalogStore(
     fun ensureFoldersLoaded() {
         if (!canReadLibrary()) return
         if (_foldersState.value.hasLoadedOnce || _foldersState.value.isLoading) return
-        loadFolders(offset = 0, syncIndex = true, publishFeedback = false)
+        loadInitialFolders()
     }
 
     fun refreshFolders() {
@@ -154,6 +154,7 @@ internal class MainLibraryCatalogStore(
         offset: Int,
         syncIndex: Boolean,
         publishFeedback: Boolean,
+        forceFullRescan: Boolean? = null,
     ) {
         scope.launch {
             val previous = _foldersState.value
@@ -164,6 +165,7 @@ internal class MainLibraryCatalogStore(
                     offset = offset,
                     hasLoadedOnce = previous.hasLoadedOnce,
                     syncIndex = syncIndex,
+                    forceFullRescan = forceFullRescan ?: !previous.hasLoadedOnce,
                 )
             ) {
                 is MediaCatalogOutcome.Success -> {
@@ -178,6 +180,38 @@ internal class MainLibraryCatalogStore(
                 }
                 is MediaCatalogOutcome.Failure -> {
                     handleFolderFailure(outcome.reason, previous, offset) { _foldersState.value = it }
+                }
+            }
+        }
+    }
+
+    private fun loadInitialFolders() {
+        scope.launch {
+            val previous = _foldersState.value
+            _foldersState.value = previous.beginLoad(offset = 0)
+
+            when (
+                val cachedOutcome = loadFolderPageUseCase(
+                    offset = 0,
+                    hasLoadedOnce = previous.hasLoadedOnce,
+                    syncIndex = false,
+                )
+            ) {
+                is MediaCatalogOutcome.Success -> {
+                    val hasCachedResults = cachedOutcome.page.items.isNotEmpty() ||
+                        (cachedOutcome.page.totalCount ?: 0) > 0
+                    if (hasCachedResults) {
+                        _foldersState.value = previous.applyPage(page = cachedOutcome.page, append = false)
+                    }
+                    loadFolders(
+                        offset = 0,
+                        syncIndex = true,
+                        publishFeedback = false,
+                        forceFullRescan = true,
+                    )
+                }
+                is MediaCatalogOutcome.Failure -> {
+                    handleFolderFailure(cachedOutcome.reason, previous, 0) { _foldersState.value = it }
                 }
             }
         }

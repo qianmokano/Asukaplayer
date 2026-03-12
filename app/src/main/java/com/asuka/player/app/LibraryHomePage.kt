@@ -173,22 +173,20 @@ internal fun HomePageContent(
                         items = folders,
                         key = { _, folder -> folder.id },
                     ) { index, folder ->
-                        AnimatedItemEntrance {
-                            GroupedListRow(
-                                index = index,
-                                totalCount = folders.size,
-                            ) {
-                                SettingsNavigationItem(
-                                    icon = Icons.Outlined.FolderOpen,
-                                    title = folder.name,
-                                    description = stringResource(
-                                        id = R.string.folder_meta_no_size,
-                                        folder.videoCount,
-                                        folder.totalDurationLabel,
-                                    ),
-                                    onClick = { onOpenFolder(folder.id) },
-                                )
-                            }
+                        GroupedListRow(
+                            index = index,
+                            totalCount = folders.size,
+                        ) {
+                            SettingsNavigationItem(
+                                icon = Icons.Outlined.FolderOpen,
+                                title = folder.name,
+                                description = stringResource(
+                                    id = R.string.folder_meta_no_size,
+                                    folder.videoCount,
+                                    folder.totalDurationLabel,
+                                ),
+                                onClick = { onOpenFolder(folder.id) },
+                            )
                         }
                     }
                     foldersState.appendErrorMessage?.let { message ->

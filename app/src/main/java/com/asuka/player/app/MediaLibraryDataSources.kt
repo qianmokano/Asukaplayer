@@ -93,7 +93,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
 
     override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
         return withContext(Dispatchers.IO) {
-            indexingCoordinator.ensureInitialized()
+            indexingCoordinator.prepareForQueries()
             val rows = dao.pagedFolders(limit = request.limit + 1, offset = request.offset)
             val pageItems = rows.take(request.limit).map(IndexedFolderSummaryRow::toLocalFolder)
             MediaLibraryPage(
@@ -109,7 +109,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
         folderId: Long?,
     ): MediaLibraryPage<LocalVideoItem> {
         return withContext(Dispatchers.IO) {
-            indexingCoordinator.ensureInitialized()
+            indexingCoordinator.prepareForQueries()
             val rows = if (folderId == null) {
                 dao.pagedVideos(limit = request.limit + 1, offset = request.offset)
             } else {
@@ -129,7 +129,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
 
     override suspend fun resolveMediaIds(mediaIds: List<String>): Map<String, LocalVideoItem> {
         return withContext(Dispatchers.IO) {
-            indexingCoordinator.ensureInitialized()
+            indexingCoordinator.prepareForQueries()
             val ids = mediaIds.mapNotNull(::parseMediaStoreId).distinct()
             if (ids.isEmpty()) return@withContext emptyMap()
             enrichWithResumePositions(

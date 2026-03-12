@@ -21,6 +21,96 @@ import org.robolectric.annotation.Config
 class MainLibraryCatalogStoreTest {
 
     @Test
+    fun ensureFoldersLoaded_showsCachedFolders_beforeBackgroundFullSyncCompletes() = runBlocking {
+        val syncStarted = CompletableDeferred<Boolean>()
+        val releaseSync = CompletableDeferred<Unit>()
+        var synced = false
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = true,
+                    userSelectedPermissionGranted = false,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) {
+                syncStarted.complete(forceFullRescan)
+                releaseSync.await()
+                synced = true
+            }
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                return if (synced) {
+                    MediaLibraryPage(
+                        items = listOf(
+                            folder(id = 1L, name = "Movies", videoCount = 3),
+                            folder(id = 2L, name = "Clips", videoCount = 4),
+                        ),
+                        nextOffset = null,
+                        totalCount = 7,
+                    )
+                } else {
+                    MediaLibraryPage(
+                        items = listOf(folder(id = 1L, name = "Movies", videoCount = 3)),
+                        nextOffset = null,
+                        totalCount = 3,
+                    )
+                }
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null, totalCount = 0)
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return emptyMap()
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(
+                mediaLibraryRepository = repository,
+                minRefreshAnimMs = 0L,
+            ),
+            loadVideoPageUseCase = LoadVideoPageUseCase(
+                mediaLibraryRepository = repository,
+                minRefreshAnimMs = 0L,
+            ),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = {},
+        )
+
+        store.ensureFoldersLoaded()
+
+        waitForCondition {
+            store.foldersState.value.hasLoadedOnce &&
+                store.foldersState.value.items.map(LocalVideoFolder::id) == listOf(1L)
+        }
+        assertEquals(true, syncStarted.await())
+
+        releaseSync.complete(Unit)
+
+        waitForCondition {
+            store.foldersState.value.items.map(LocalVideoFolder::id) == listOf(1L, 2L) &&
+                !store.foldersState.value.isLoading
+        }
+    }
+
+    @Test
     fun refreshFolders_publishesTotalVideoCountFromIndex() = runBlocking {
         val messages = mutableListOf<MainLibraryText>()
         val repository = object : MediaLibraryRepository {

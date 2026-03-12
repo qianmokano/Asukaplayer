@@ -62,15 +62,10 @@ internal class MediaLibraryIndexingCoordinator(
     private var scheduledSyncJob: Job? = null
     private var pendingObservedIds = mutableSetOf<Long>()
     private var pendingRequiresFullReconcile = false
-    @Volatile
-    private var initialized = false
-
     val changes: Flow<Unit> = _changes.asSharedFlow()
 
-    suspend fun ensureInitialized() {
+    fun prepareForQueries() {
         registerObserverIfNeeded()
-        if (initialized) return
-        syncNow(forceFullRescan = false)
     }
 
     suspend fun syncNow(forceFullRescan: Boolean) {
@@ -78,7 +73,6 @@ internal class MediaLibraryIndexingCoordinator(
         val changed = syncMutex.withLock {
             performSync(forceFullRescan = forceFullRescan)
         }
-        initialized = true
         if (changed) {
             _changes.tryEmit(Unit)
         }

@@ -6,6 +6,8 @@ import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
 import android.provider.MediaStore
+import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
+import com.asuka.player.data.IndexedVideoEntity
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.junit.Test
@@ -20,7 +22,40 @@ import org.robolectric.shadows.ShadowContentResolver
 class MediaLibraryDataSourcesTest {
 
     @Test
-    fun loadVideoPage_propagatesSecurityException() {
+    fun loadFolderPage_readsCachedIndexWithoutInitialMediaStoreQuery() {
+        val context = RuntimeEnvironment.getApplication()
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        database.indexedVideoDao().upsertAll(
+            listOf(
+                IndexedVideoEntity(
+                    mediaStoreId = 1L,
+                    uri = "content://media/external/video/media/1",
+                    title = "cached.mp4",
+                    durationMs = 1_000L,
+                    sizeBytes = 2_000L,
+                    folderName = "Movies",
+                    folderPath = "/storage/emulated/0/Movies",
+                    folderId = 7L,
+                    dateAddedSec = 10L,
+                    dateModifiedSec = 10L,
+                ),
+            ),
+        )
+        val dataSource = AndroidMediaStoreVideoCatalogDataSource(
+            context = context,
+            database = database,
+        )
+
+        val result = kotlinx.coroutines.runBlocking {
+            dataSource.loadFolderPage(MediaLibraryPageRequest(offset = 0, limit = 20))
+        }
+
+        assertEquals(listOf("Movies"), result.items.map(LocalVideoFolder::name))
+        assertEquals(1, result.totalCount)
+    }
+
+    @Test
+    fun syncIndex_propagatesSecurityException() {
         registerMediaStoreProvider { _, _, _, _, _ ->
             throw SecurityException("permission denied")
         }
@@ -30,13 +65,13 @@ class MediaLibraryDataSourcesTest {
 
         assertFailsWith<SecurityException> {
             kotlinx.coroutines.runBlocking {
-                dataSource.loadVideoPage(MediaLibraryPageRequest(offset = 0, limit = 20))
+                dataSource.syncIndex(forceFullRescan = false)
             }
         }
     }
 
     @Test
-    fun loadVideoPage_throwsWhenQueryReturnsNullCursor() {
+    fun syncIndex_throwsWhenQueryReturnsNullCursor() {
         registerMediaStoreProvider { _, _, _, _, _ -> null }
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = RuntimeEnvironment.getApplication(),
@@ -44,7 +79,7 @@ class MediaLibraryDataSourcesTest {
 
         val error = assertFailsWith<IllegalStateException> {
             kotlinx.coroutines.runBlocking {
-                dataSource.loadVideoPage(MediaLibraryPageRequest(offset = 0, limit = 20))
+                dataSource.syncIndex(forceFullRescan = false)
             }
         }
 
@@ -52,8 +87,7 @@ class MediaLibraryDataSourcesTest {
     }
 
     @Test
-    fun loadVideoPage_returnsEmptyListWhenCursorHasNoRows() {
-        registerMediaStoreProvider { _, _, _, _, _ -> emptyMediaStoreCursor() }
+    fun loadVideoPage_returnsEmptyListWhenIndexHasNoRows() {
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = RuntimeEnvironment.getApplication(),
         )

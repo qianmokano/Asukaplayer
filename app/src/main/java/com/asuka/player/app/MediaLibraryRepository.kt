@@ -101,11 +101,12 @@ internal class LoadFolderPageUseCase(
         offset: Int,
         hasLoadedOnce: Boolean,
         syncIndex: Boolean,
+        forceFullRescan: Boolean = !hasLoadedOnce,
     ): MediaCatalogOutcome<LocalVideoFolder> {
         val startedAtMs = nowMs()
         return try {
             if (syncIndex) {
-                mediaLibraryRepository.syncIndex(forceFullRescan = !hasLoadedOnce)
+                mediaLibraryRepository.syncIndex(forceFullRescan = forceFullRescan)
             }
             val page = mediaLibraryRepository.loadFolderPage(
                 request = MediaLibraryPageRequest(
