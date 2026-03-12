@@ -64,6 +64,9 @@ interface IndexedVideoDao {
     @Query("SELECT COUNT(*) FROM media_library_video")
     fun count(): Int
 
+    @Query("SELECT COUNT(*) FROM media_library_video WHERE folderId = :folderId")
+    fun countByFolder(folderId: Long): Int
+
     @Query(
         """
         SELECT

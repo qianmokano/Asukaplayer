@@ -168,7 +168,13 @@ internal class MainLibraryCatalogStore(
             ) {
                 is MediaCatalogOutcome.Success -> {
                     _foldersState.value = previous.applyPage(page = outcome.page, append = offset > 0)
-                    publishRefreshMessage(previous.hasLoadedOnce, offset, outcome.page.items.size, publishFeedback)
+                    publishRefreshMessage(
+                        hasLoadedOnce = previous.hasLoadedOnce,
+                        offset = offset,
+                        totalCount = outcome.page.totalCount,
+                        fallbackItemCount = outcome.page.items.size,
+                        publishFeedback = publishFeedback,
+                    )
                 }
                 is MediaCatalogOutcome.Failure -> {
                     handleFolderFailure(outcome.reason, previous, offset) { _foldersState.value = it }
@@ -197,7 +203,13 @@ internal class MainLibraryCatalogStore(
                 is MediaCatalogOutcome.Success -> {
                     _allVideosState.value = previous.applyPage(page = outcome.page, append = offset > 0)
                     warmupThumbnails(outcome.warmupVideos)
-                    publishRefreshMessage(previous.hasLoadedOnce, offset, outcome.page.items.size, publishFeedback)
+                    publishRefreshMessage(
+                        hasLoadedOnce = previous.hasLoadedOnce,
+                        offset = offset,
+                        totalCount = outcome.page.totalCount,
+                        fallbackItemCount = outcome.page.items.size,
+                        publishFeedback = publishFeedback,
+                    )
                 }
                 is MediaCatalogOutcome.Failure -> {
                     handleVideoFailure(outcome.reason, previous, offset) { _allVideosState.value = it }
@@ -231,7 +243,13 @@ internal class MainLibraryCatalogStore(
                     if (!isCurrentFolderRequest(folderId, requestToken)) return@launch
                     _currentFolderVideosState.value = previous.applyPage(page = outcome.page, append = offset > 0)
                     warmupThumbnails(outcome.warmupVideos)
-                    publishRefreshMessage(previous.hasLoadedOnce, offset, outcome.page.items.size, publishFeedback)
+                    publishRefreshMessage(
+                        hasLoadedOnce = previous.hasLoadedOnce,
+                        offset = offset,
+                        totalCount = outcome.page.totalCount,
+                        fallbackItemCount = outcome.page.items.size,
+                        publishFeedback = publishFeedback,
+                    )
                 }
                 is MediaCatalogOutcome.Failure -> {
                     if (!isCurrentFolderRequest(folderId, requestToken)) return@launch
@@ -250,11 +268,12 @@ internal class MainLibraryCatalogStore(
     private fun publishRefreshMessage(
         hasLoadedOnce: Boolean,
         offset: Int,
-        itemCount: Int,
+        totalCount: Int?,
+        fallbackItemCount: Int,
         publishFeedback: Boolean,
     ) {
         if (publishFeedback && offset == 0 && hasLoadedOnce) {
-            publishMessage(MainLibraryText.RefreshDone(itemCount))
+            publishMessage(MainLibraryText.RefreshDone(totalCount ?: fallbackItemCount))
         }
     }
 

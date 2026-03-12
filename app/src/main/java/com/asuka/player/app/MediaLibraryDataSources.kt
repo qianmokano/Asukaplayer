@@ -98,6 +98,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
             MediaLibraryPage(
                 items = pageItems,
                 nextOffset = if (rows.size > request.limit) request.offset + pageItems.size else null,
+                totalCount = dao.count(),
             )
         }
     }
@@ -117,6 +118,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
             MediaLibraryPage(
                 items = pageItems,
                 nextOffset = if (rows.size > request.limit) request.offset + pageItems.size else null,
+                totalCount = if (folderId == null) dao.count() else dao.countByFolder(folderId),
             )
         }
     }

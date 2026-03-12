@@ -25,6 +25,7 @@ internal data class MediaCatalogState<T>(
 internal data class MediaLibraryPage<T>(
     val items: List<T>,
     val nextOffset: Int?,
+    val totalCount: Int? = null,
 )
 
 internal enum class MediaCatalogFailure {

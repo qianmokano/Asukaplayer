@@ -3,6 +3,7 @@ package com.asuka.player.app
 import android.net.Uri
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,76 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 @RunWith(RobolectricTestRunner::class)
 class MainLibraryCatalogStoreTest {
+
+    @Test
+    fun refreshFolders_publishesTotalVideoCountFromIndex() = runBlocking {
+        val messages = mutableListOf<MainLibraryText>()
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = true,
+                    userSelectedPermissionGranted = false,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                return MediaLibraryPage(
+                    items = listOf(
+                        folder(id = 1L, name = "Movies", videoCount = 3),
+                        folder(id = 2L, name = "Clips", videoCount = 4),
+                    ),
+                    nextOffset = null,
+                    totalCount = 42,
+                )
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null, totalCount = 0)
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return emptyMap()
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(
+                mediaLibraryRepository = repository,
+                minRefreshAnimMs = 0L,
+            ),
+            loadVideoPageUseCase = LoadVideoPageUseCase(
+                mediaLibraryRepository = repository,
+                minRefreshAnimMs = 0L,
+            ),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = messages::add,
+        )
+
+        store.ensureFoldersLoaded()
+        waitForCondition { store.foldersState.value.hasLoadedOnce }
+        assertTrue(messages.isEmpty())
+
+        store.refreshFolders()
+        waitForCondition { messages.isNotEmpty() }
+
+        assertEquals(listOf<MainLibraryText>(MainLibraryText.RefreshDone(42)), messages)
+    }
 
     @Test
     fun ensureFolderLoaded_ignoresSupersededFolderResult() = runBlocking {
@@ -132,6 +203,20 @@ class MainLibraryCatalogStoreTest {
             folderPath = "/videos/$folderId",
             folderId = folderId,
             dateAddedSec = 10L,
+        )
+    }
+
+    private fun folder(
+        id: Long,
+        name: String,
+        videoCount: Int,
+    ): LocalVideoFolder {
+        return LocalVideoFolder(
+            id = id,
+            name = name,
+            videoCount = videoCount,
+            totalDurationMs = 1_000L,
+            totalSizeBytes = 2_000L,
         )
     }
 }
