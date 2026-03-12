@@ -38,3 +38,7 @@ google-services.json
 .codex/
 .claude/
 .github/
+
+# Local agent instructions
+/AGENTS.md
+/agents.md
