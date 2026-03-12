@@ -34,10 +34,10 @@ object PlayerUiTokens {
     }
 
     @Composable
-    fun buttonBackground(): Color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
+    fun buttonBackground(): Color = MaterialTheme.colorScheme.onSecondaryContainer
 
     @Composable
-    fun buttonContent(): Color = MaterialTheme.colorScheme.onSecondaryContainer
+    fun buttonContent(): Color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
 
     val panelBackground = Color(0xFF1A1A1A)
 }
