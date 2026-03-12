@@ -23,13 +23,17 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.asuka.player.platform.PlaybackCustomCommands
 import com.asuka.player.platform.PlaybackDependenciesProvider
+import com.asuka.player.platform.PlaybackArtworkBridge
 import com.asuka.player.platform.PlaybackServiceDependencies
 import com.asuka.player.platform.PlaybackStateWriter
 import com.asuka.player.platform.QueueHistoryWriter
 import com.asuka.player.core.R
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 
 @OptIn(UnstableApi::class)
@@ -41,11 +45,13 @@ class PlaybackService : MediaSessionService() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val persistenceDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
     private var writer: PlaybackStateWriter? = null
     private var historyWriter: QueueHistoryWriter? = null
+    private var artworkBridge: PlaybackArtworkBridge? = null
     private val positionCheckpointRunnable = object : Runnable {
         override fun run() {
             writer?.checkpoint(SystemClock.elapsedRealtime())
@@ -109,6 +115,10 @@ class PlaybackService : MediaSessionService() {
             .setAudioAttributes(audioAttributes, true)
             .build()
         player = exoPlayer
+        artworkBridge = PlaybackArtworkBridge(
+            contentResolver = contentResolver,
+            scope = serviceScope,
+        ).also { it.attach(exoPlayer) }
 
         val builder = MediaSession.Builder(this, exoPlayer)
         val activity = buildSessionActivity()
@@ -139,12 +149,15 @@ class PlaybackService : MediaSessionService() {
             }
         }
         runCatching { session?.let { removeSession(it) } }
+        runCatching { artworkBridge?.detach() }
         runCatching { player?.let { writer?.detach(it) } }
         runCatching { historyWriter?.let { player?.removeListener(it) } }
         runCatching { session?.release() }
         runCatching { player?.release() }
         runCatching { writer?.close() }
         runCatching { historyWriter?.close() }
+        serviceScope.cancel()
+        artworkBridge = null
         session = null
         player = null
         writer = null
