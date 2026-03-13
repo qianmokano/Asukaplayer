@@ -27,7 +27,7 @@ class AppSettingsSnapshotJsonCodecTest {
 
         assertEquals("Custom", snapshot.uiSettings.themeMode)
         assertEquals("System", snapshot.uiSettings.themeAppearance)
-        assertEquals(350, snapshot.uiSettings.navDurationMs)
+        assertEquals(300, snapshot.uiSettings.navDurationMs)
         assertEquals(1.5f, snapshot.playerSettings.defaultPlaybackSpeed)
         assertEquals("toggle_play_pause", snapshot.playerSettings.doubleTapAction)
         assertEquals(true, snapshot.playerSettings.autoplay)

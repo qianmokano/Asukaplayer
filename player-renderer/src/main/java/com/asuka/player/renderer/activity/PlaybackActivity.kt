@@ -26,7 +26,7 @@ import com.asuka.player.renderer.components.Media3PlaybackSurfaceRenderer
 import com.asuka.player.ui.PlaybackScreenDependencies
 import com.asuka.player.ui.PlaybackScreenModel
 import com.asuka.player.ui.PlayerScreen
-import com.asuka.player.ui.R
+import com.asuka.player.ui.R as PlayerUiR
 import com.asuka.player.ui.theme.PlayerUiTokens
 
 /**
@@ -188,10 +188,10 @@ private fun PlaybackStartupScreen(
                 color = androidx.compose.ui.graphics.Color.White,
             )
             TextButton(onClick = onRetry) {
-                Text(text = androidx.compose.ui.res.stringResource(id = R.string.retry))
+                Text(text = androidx.compose.ui.res.stringResource(id = PlayerUiR.string.retry))
             }
             TextButton(onClick = onClose) {
-                Text(text = androidx.compose.ui.res.stringResource(id = R.string.close))
+                Text(text = androidx.compose.ui.res.stringResource(id = PlayerUiR.string.close))
             }
         }
     }

@@ -14,6 +14,7 @@ navigation-compose = "2.9.7"
 lifecycle-viewmodel-compose = "2.9.1"
 annotation = "1.9.1"
 materialkolor = "2.0.0"
+compose-materialmotion = "2.0.1"
 datastore = "1.1.3"
 room = "2.8.1"
 junit = "4.13.2"
@@ -48,6 +49,7 @@ coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutin
 coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "coroutines" }
 
 materialkolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialkolor" }
+compose-materialmotion = { group = "io.github.fornewid", name = "material-motion-compose-core", version.ref = "compose-materialmotion" }
 datastore = { group = "androidx.datastore", name = "datastore", version.ref = "datastore" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }

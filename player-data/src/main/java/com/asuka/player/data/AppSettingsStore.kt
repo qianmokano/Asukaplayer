@@ -19,7 +19,7 @@ data class UiSettingsRecord(
     val fontScale: Float = 1.0f,
     val fontScaleEnabled: Boolean = false,
     val customThemes: List<CustomThemeRecord> = emptyList(),
-    val navDurationMs: Int = 350,
+    val navDurationMs: Int = 300,
     val hapticFeedbackEnabled: Boolean = true,
 )
 
@@ -187,7 +187,7 @@ internal object AppSettingsSnapshotJsonCodec {
             fontScale = obj?.optDouble(UiKeys.FONT_SCALE, 1.0)?.toFloat() ?: 1.0f,
             fontScaleEnabled = obj?.optBoolean(UiKeys.FONT_SCALE_ENABLED, false) ?: false,
             customThemes = decodeCustomThemes(obj?.optJSONArray(UiKeys.CUSTOM_THEMES)),
-            navDurationMs = obj?.optInt(UiKeys.NAV_DURATION_MS, 350) ?: 350,
+            navDurationMs = obj?.optInt(UiKeys.NAV_DURATION_MS, 300) ?: 300,
             hapticFeedbackEnabled = obj?.optBoolean(UiKeys.HAPTIC_FEEDBACK_ENABLED, true) ?: true,
         ).normalized()
     }

@@ -28,7 +28,7 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     fontScale = prefs.getFloat(Keys.THEME_FONT_SCALE, 1.0f),
                     fontScaleEnabled = prefs.getBoolean(Keys.THEME_FONT_SCALE_ENABLED, false),
                     customThemes = loadCustomThemes(),
-                    navDurationMs = prefs.getInt(Keys.NAV_DURATION_MS, 350),
+                    navDurationMs = prefs.getInt(Keys.NAV_DURATION_MS, 300),
                     hapticFeedbackEnabled = prefs.getBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, true),
                 ),
                 playerSettings = PlayerSettingsRecord(

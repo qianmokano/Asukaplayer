@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.icons.extended)
+    implementation(libs.compose.materialmotion)
     implementation(libs.materialkolor)
     implementation(libs.room.runtime)
 

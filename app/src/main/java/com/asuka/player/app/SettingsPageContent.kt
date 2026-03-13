@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesomeMotion
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayCircle
@@ -28,7 +27,6 @@ internal fun SettingsPageContent(
     onHapticFeedbackEnabledChange: (Boolean) -> Unit,
     onOpenPlayer: () -> Unit,
     onOpenTheme: () -> Unit,
-    onOpenMotion: () -> Unit,
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -59,14 +57,6 @@ internal fun SettingsPageContent(
                         title = stringResource(R.string.settings_theme_title),
                         description = stringResource(R.string.settings_theme_desc),
                         onClick = onOpenTheme,
-                    )
-                }
-                item {
-                    SettingsNavigationItem(
-                        icon = Icons.Rounded.AutoAwesomeMotion,
-                        title = stringResource(R.string.settings_motion_title),
-                        description = stringResource(R.string.settings_motion_desc),
-                        onClick = onOpenMotion,
                     )
                 }
             }

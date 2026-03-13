@@ -131,7 +131,6 @@ internal fun MainLibraryScreen(
                 onPlayerSettingsChange = { vm.setPlayerSettings(it) },
                 onThemeConfigChange = { vm.setThemeConfig(it) },
                 onCustomThemesChange = { vm.setCustomThemes(it) },
-                onNavDurationChange = { vm.setNavDurationMs(it) },
             )
         }
     }
