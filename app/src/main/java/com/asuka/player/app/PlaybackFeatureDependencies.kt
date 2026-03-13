@@ -1,6 +1,7 @@
 package com.asuka.player.app
 
 import androidx.annotation.DrawableRes
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackUiPersistence
@@ -17,6 +18,8 @@ internal class AppPlaybackActivityDependencies(
         get() = bindings.playbackRuntimeSettingsSource()
     override val playbackUiPersistence: PlaybackUiPersistence
         get() = bindings.playbackUiPersistence()
+    override val playbackPreviewFrameProvider: PlaybackPreviewFrameProvider
+        get() = bindings.playbackPreviewFrameProvider()
     override val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
         get() = bindings.playbackDeviceControllerFactory()
 

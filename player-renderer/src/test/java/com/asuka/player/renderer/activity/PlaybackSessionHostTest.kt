@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.media3.session.MediaController
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.contract.PlaybackDeviceController
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
@@ -78,6 +79,14 @@ class PlaybackSessionHostTest {
                 override suspend fun saveZoom(mediaId: String, zoom: Float) {}
                 override fun readRememberedBrightness(): Float? = null
                 override fun saveRememberedBrightness(brightness: Float) {}
+            }
+            override val playbackPreviewFrameProvider = object : PlaybackPreviewFrameProvider {
+                override suspend fun loadPreviewFrame(
+                    mediaId: String,
+                    positionMs: Long,
+                    maxWidthPx: Int,
+                    maxHeightPx: Int,
+                ) = null
             }
             override val playbackDeviceControllerFactory = PlaybackDeviceControllerFactory { _ ->
                 object : PlaybackDeviceController {

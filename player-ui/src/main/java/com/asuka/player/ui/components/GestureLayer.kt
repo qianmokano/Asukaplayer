@@ -79,23 +79,36 @@ fun GestureLayer(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .pointerInput(coordinator) {
+            .pointerInput(coordinator, dragStartGuard) {
                 var longPressStarted = false
                 detectTapGestures(
-                    onTap = { if (!isTapSuppressed()) coordinator.onTap() },
-                    onDoubleTap = { offset ->
-                        if (!isTapSuppressed()) coordinator.onDoubleTap(offset, size)
+                    onTap = { offset ->
+                        if (!isTapSuppressed() &&
+                            !dragStartGuard.blocksDragStart(offset, size.width, size.height)
+                        ) {
+                            coordinator.onTap()
+                        }
                     },
-                    onLongPress = {
-                        if (!isTapSuppressed()) {
+                    onDoubleTap = { offset ->
+                        if (!isTapSuppressed() &&
+                            !dragStartGuard.blocksDragStart(offset, size.width, size.height)
+                        ) {
+                            coordinator.onDoubleTap(offset, size)
+                        }
+                    },
+                    onLongPress = { offset ->
+                        if (!isTapSuppressed() &&
+                            !dragStartGuard.blocksDragStart(offset, size.width, size.height)
+                        ) {
                             longPressStarted = true
                             coordinator.onLongPressStart()
                         }
                     },
-                    onPress = {
+                    onPress = { offset ->
                         longPressStarted = false
+                        val blocked = dragStartGuard.blocksDragStart(offset, size.width, size.height)
                         tryAwaitRelease()
-                        if (longPressStarted) coordinator.onLongPressEnd()
+                        if (!blocked && longPressStarted) coordinator.onLongPressEnd()
                     },
                 )
             }
@@ -124,9 +137,18 @@ fun GestureLayer(
                     )
                 }
             }
-            .pointerInput(coordinator) {
+            .pointerInput(coordinator, dragStartGuard) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    val firstDown = awaitFirstDown(requireUnconsumed = false)
+                    if (dragStartGuard.blocksDragStart(firstDown.position, size.width, size.height)) {
+                        do {
+                            val event = awaitPointerEvent()
+                            if (!event.changes.any { it.pressed }) {
+                                break
+                            }
+                        } while (true)
+                        return@awaitEachGesture
+                    }
                     var transformStarted = false
                     do {
                         val event = awaitPointerEvent()

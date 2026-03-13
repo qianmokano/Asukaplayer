@@ -23,7 +23,7 @@ import com.asuka.player.ui.LandscapeCutoutPadding
 import com.asuka.player.ui.R
 import com.asuka.player.ui.theme.PlayerUiTokens
 
-private val lockToggleAnchorPadding = 20.dp
+private val lockToggleAnchorPadding = PlayerUiTokens.Spacing.md
 
 @Composable
 internal fun BoxScope.LockToggleAnchor(

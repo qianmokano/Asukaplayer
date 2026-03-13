@@ -1,6 +1,5 @@
 package com.asuka.player.ui.controller
 
-import android.os.SystemClock
 import androidx.annotation.MainThread
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
@@ -64,7 +63,6 @@ class GestureCoordinator(
     private var seekStartX: Float = 0f
     private var lastSeekDeltaMs: Long = 0L
     private var pendingSeekPositionMs: Long? = null
-    private var lastSeekIpcMs: Long = 0L
 
     private var savedSpeed: Float = 1.0f
     private var longPressActive: Boolean = false
@@ -127,7 +125,6 @@ class GestureCoordinator(
         seekStartX = x
         lastSeekDeltaMs = 0L
         pendingSeekPositionMs = null
-        lastSeekIpcMs = 0L
         seekState.start(positionMs)
     }
 
@@ -151,11 +148,6 @@ class GestureCoordinator(
         lastSeekDeltaMs = result.deltaMs
         pendingSeekPositionMs = result.newPositionMs
         seekState.update(result.deltaMs, result.newPositionMs)
-        val nowMs = SystemClock.elapsedRealtime()
-        if (abs(result.deltaMs) >= config.minSeekDeltaMs && (nowMs - lastSeekIpcMs) >= SEEK_THROTTLE_MS) {
-            controller.seekTo(result.newPositionMs)
-            lastSeekIpcMs = nowMs
-        }
     }
 
     fun onHorizontalDragEnd() {
@@ -288,9 +280,5 @@ class GestureCoordinator(
             onZoomEnd(zoomState.scale)
         }
         machine.onEvent(GestureStateMachine.Event.Cancel)
-    }
-
-    private companion object {
-        const val SEEK_THROTTLE_MS = 33L
     }
 }

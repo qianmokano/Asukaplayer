@@ -1,14 +1,15 @@
 package com.asuka.player.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.asuka.player.ui.state.LongPressSpeedState
@@ -21,14 +22,22 @@ fun LongPressSpeedIndicator(
     if (!state.active) return
     Box(
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .testTag("long_press_speed_indicator"),
+            .fillMaxWidth()
+            .offset(y = rememberGestureHudVerticalOffset()),
+            contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = "${state.speed}x",
-            color = Color.White,
-            style = MaterialTheme.typography.labelLarge,
-        )
+        Surface(
+            modifier = Modifier.testTag("long_press_speed_indicator"),
+            shape = MaterialTheme.shapes.large,
+            color = gestureHudSurfaceColor(),
+            contentColor = gestureHudContentColor(),
+            tonalElevation = 6.dp,
+        ) {
+            Text(
+                text = "${state.speed}x",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+        }
     }
 }

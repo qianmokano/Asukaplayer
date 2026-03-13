@@ -10,6 +10,7 @@ data class TrackOption(
 
 data class PlaybackTrackUiState(
     val currentMediaId: String? = null,
+    val currentMediaUri: String? = null,
     val currentSpeed: Float = 1.0f,
     val audioTracks: List<TrackOption> = emptyList(),
     val subtitleTracks: List<TrackOption> = emptyList(),

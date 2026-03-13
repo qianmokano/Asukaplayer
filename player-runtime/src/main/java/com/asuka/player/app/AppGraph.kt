@@ -1,6 +1,7 @@
 package com.asuka.player.runtime
 
 import android.app.Application
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStore
@@ -53,6 +54,8 @@ class AsukaAppGraph(
         get() = playback.playbackSessionPlanner
     val playbackUiPersistence: PlaybackUiPersistence
         get() = playback.playbackUiPersistence
+    val playbackPreviewFrameProvider: PlaybackPreviewFrameProvider
+        get() = playback.playbackPreviewFrameProvider
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
         get() = playback.playbackDeviceControllerFactory
     val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory

@@ -106,6 +106,7 @@ fun PlayerScreen(
     val positionMsState = rememberUpdatedState(uiState.positionMs)
     val durationMsState = rememberUpdatedState(uiState.durationMs)
     val mediaIdState = rememberUpdatedState(trackUiState.currentMediaId)
+    val mediaUriState = rememberUpdatedState(trackUiState.currentMediaUri)
     val playbackSpeedState = rememberUpdatedState(trackUiState.currentSpeed)
     val overlayActions = remember(controller) {
         OverlayActions(
@@ -291,14 +292,20 @@ fun PlayerScreen(
             onTap = { lockedOverlayVisible = !lockedOverlayVisible },
             onUnlock = { controlsState.unlock(); lockedOverlayVisible = false },
         )
-        SeekIndicator(modifier = Modifier.align(Alignment.Center), seekState = seekState)
+        SeekIndicator(
+            modifier = Modifier.align(Alignment.Center),
+            seekState = seekState,
+            mediaId = mediaUriState.value,
+            durationMs = uiState.durationMs,
+            previewFrameProvider = dependencies.previewFrameProvider,
+        )
         DoubleTapIndicator(modifier = Modifier.align(Alignment.Center), state = tapFeedbackState)
         VerticalAdjustIndicator(
             modifier = Modifier.align(Alignment.Center),
             state = volumeBrightnessState,
         )
         ZoomIndicator(modifier = Modifier.align(Alignment.Center), zoomState = zoomState)
-        LongPressSpeedIndicator(modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp), state = longPressSpeedState)
+        LongPressSpeedIndicator(modifier = Modifier.align(Alignment.Center), state = longPressSpeedState)
         OverlayPanel(
             type = overlayType,
             overlayActions = overlayActions,

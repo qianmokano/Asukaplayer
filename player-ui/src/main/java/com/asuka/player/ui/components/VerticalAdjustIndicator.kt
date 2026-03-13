@@ -33,10 +33,6 @@ import com.asuka.player.ui.R
 import com.asuka.player.ui.state.VolumeBrightnessState
 import com.asuka.player.ui.theme.PlayerUiTokens
 
-private val indicatorHeight = 52.dp
-private val portraitIndicatorGapFromPlaybackButton = 96.dp
-private val landscapeIndicatorGapFromPlaybackButton = 22.dp
-
 private data class VerticalAdjustSpec(
     val label: String,
     val icon: ImageVector,
@@ -49,13 +45,7 @@ fun VerticalAdjustIndicator(
 ) {
     val mode = state.activeMode ?: return
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val indicatorGapFromPlaybackButton = if (isLandscape) {
-        landscapeIndicatorGapFromPlaybackButton
-    } else {
-        portraitIndicatorGapFromPlaybackButton
-    }
-    val indicatorVerticalOffset =
-        -((PlayerUiTokens.ButtonSize.playbackPrimary / 2) + indicatorGapFromPlaybackButton + (indicatorHeight / 2))
+    val indicatorVerticalOffset = rememberGestureHudVerticalOffset()
     val value = when (mode) {
         VolumeBrightnessState.Mode.VOLUME -> state.volumePercent
         VolumeBrightnessState.Mode.BRIGHTNESS -> state.brightnessPercent
@@ -71,9 +61,8 @@ fun VerticalAdjustIndicator(
         )
     }
     val progress = value / 100f
-    val colorScheme = MaterialTheme.colorScheme
-    val surfaceColor = colorScheme.primaryContainer.copy(alpha = 0.40f)
-    val contentColor = colorScheme.onPrimaryContainer
+    val surfaceColor = gestureHudSurfaceColor()
+    val contentColor = gestureHudContentColor()
     val meterTrackColor = PlayerUiTokens.buttonBackground()
     Box(
         modifier = modifier

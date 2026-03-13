@@ -2,6 +2,7 @@ package com.asuka.player.ui
 
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.contract.PlaybackDeviceController
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.render.api.PlaybackSurfaceRenderer
@@ -22,6 +23,7 @@ data class PlaybackScreenDependencies(
     val controller: PlaybackController,
     val trackSelectionController: PlaybackTrackSelectionController? = null,
     val playbackPersistence: PlaybackUiPersistence,
+    val previewFrameProvider: PlaybackPreviewFrameProvider? = null,
     val deviceController: PlaybackDeviceController,
     val surfaceRenderer: PlaybackSurfaceRenderer? = null,
 )

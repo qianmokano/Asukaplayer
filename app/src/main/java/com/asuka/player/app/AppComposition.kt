@@ -47,6 +47,7 @@ internal object AppCompositionFactory {
                 playbackSessionPlanner = { graph.playbackSessionPlanner },
                 playbackRuntimeSettingsSource = { graph.playbackRuntimeSettingsSource },
                 playbackUiPersistence = { graph.playbackUiPersistence },
+                playbackPreviewFrameProvider = { graph.playbackPreviewFrameProvider },
                 playbackDeviceControllerFactory = { graph.playbackDeviceControllerFactory },
                 createPlaybackControllerConnector = { context ->
                     graph.playbackControllerConnectorFactory.create(

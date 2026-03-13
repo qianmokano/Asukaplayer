@@ -39,6 +39,7 @@ class PlaybackTrackUiStateHolder(private val player: Player) : Player.Listener {
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         _state.value = _state.value.copy(
             currentMediaId = player.currentMediaItem?.mediaId,
+            currentMediaUri = player.currentMediaItem?.localConfiguration?.uri?.toString(),
             currentSpeed = playbackParameters.speed,
         )
     }
@@ -53,6 +54,7 @@ class PlaybackTrackUiStateHolder(private val player: Player) : Player.Listener {
 
         return PlaybackTrackUiState(
             currentMediaId = player.currentMediaItem?.mediaId,
+            currentMediaUri = player.currentMediaItem?.localConfiguration?.uri?.toString(),
             currentSpeed = player.playbackParameters.speed,
             audioTracks = tracks.filter { it.type == C.TRACK_TYPE_AUDIO }.map(TrackInfoReader.TrackInfo::toTrackOption),
             subtitleTracks = tracks.filter { it.type == C.TRACK_TYPE_TEXT }.map(TrackInfoReader.TrackInfo::toTrackOption),

@@ -2,6 +2,7 @@ package com.asuka.player.app
 
 import android.content.Context
 import androidx.annotation.DrawableRes
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStore
@@ -27,6 +28,7 @@ internal data class PlaybackActivityEntryBindings(
     val playbackSessionPlanner: () -> PlaybackSessionPlanner,
     val playbackRuntimeSettingsSource: () -> PlaybackRuntimeSettingsSource,
     val playbackUiPersistence: () -> PlaybackUiPersistence,
+    val playbackPreviewFrameProvider: () -> PlaybackPreviewFrameProvider,
     val playbackDeviceControllerFactory: () -> PlaybackDeviceControllerFactory,
     val createPlaybackControllerConnector: (Context) -> PlaybackControllerConnector,
 )

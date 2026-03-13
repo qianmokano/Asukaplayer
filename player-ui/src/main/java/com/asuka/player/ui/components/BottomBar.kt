@@ -2,11 +2,13 @@ package com.asuka.player.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.ui.LandscapeCutoutPadding
@@ -47,9 +50,11 @@ import com.asuka.player.ui.utils.formatTimeMs
 
 private val bottomBarButtonSize = 44.dp
 private val bottomBarButtonIconSize = 22.dp
-private val bottomBarPlayButtonSize = 50.dp
-private val bottomBarPlayButtonIconSize = 28.dp
-private val bottomBarVerticalPadding = 6.dp
+private val bottomBarVerticalPadding = 4.dp
+private val bottomBarRowSpacing = 2.dp
+private val bottomBarSliderHeight = 18.dp
+private val bottomBarSliderTrackHeight = 6.dp
+private val bottomBarSliderThumbSize = DpSize(4.dp, 14.dp)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +77,12 @@ internal fun BottomBar(
     var showRemainingTime by remember { mutableStateOf(false) }
     var sliderDragging by remember { mutableStateOf(false) }
     var sliderValue by remember { mutableFloatStateOf(0f) }
+    val sliderInteractionSource = remember { MutableInteractionSource() }
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = Color.White,
+        activeTrackColor = Color.White,
+        inactiveTrackColor = Color.White.copy(alpha = 0.30f),
+    )
     val displayPositionMs = if (sliderDragging) sliderValue.toLong() else positionMs.coerceAtLeast(0L)
     LaunchedEffect(positionMs) {
         if (!sliderDragging) sliderValue = positionMs.toFloat()
@@ -96,6 +107,7 @@ internal fun BottomBar(
                 end = PlayerUiTokens.Spacing.md + landscapeCutoutPadding.end(layoutDirection),
                 bottom = bottomBarVerticalPadding,
             ),
+        verticalArrangement = Arrangement.spacedBy(bottomBarRowSpacing),
     ) {
         // ── Time row: "00:35 / 03:26" ─────────────────────────────────────────
         Row(
@@ -114,7 +126,7 @@ internal fun BottomBar(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
                     .clickable { showRemainingTime = !showRemainingTime }
-                    .padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
+                    .padding(start = 2.dp),
             )
         }
 
@@ -138,12 +150,26 @@ internal fun BottomBar(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 0.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = Color.White.copy(alpha = 0.30f),
-            ),
+                .height(bottomBarSliderHeight),
+            colors = sliderColors,
+            interactionSource = sliderInteractionSource,
+            thumb = {
+                SliderDefaults.Thumb(
+                    interactionSource = sliderInteractionSource,
+                    modifier = Modifier,
+                    colors = sliderColors,
+                    enabled = true,
+                    thumbSize = bottomBarSliderThumbSize,
+                )
+            },
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState = sliderState,
+                    modifier = Modifier.height(bottomBarSliderTrackHeight),
+                    enabled = true,
+                    colors = sliderColors,
+                )
+            },
         )
 
         // ── Action button row ──────────────────────────────────────────────────
@@ -156,25 +182,25 @@ internal fun BottomBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(bottomBarPlayButtonSize + 6.dp),
+                    modifier = Modifier.size(bottomBarButtonSize + 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isBuffering) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .testTag("play_pause_loading_ring"),
-                            color = PlayerUiTokens.loadingIndicatorColor(),
-                            strokeWidth = 3.dp,
-                        )
-                    }
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .testTag("play_pause_loading_ring"),
+                        color = PlayerUiTokens.loadingIndicatorColor(),
+                        strokeWidth = 10.dp,
+                    )
+                }
                     SimpleButton(
                         label = stringResource(id = R.string.play_pause),
                         icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         onClick = controller::togglePlayPause,
                         tag = "btn_play_pause",
-                        size = bottomBarPlayButtonSize,
-                        iconSize = bottomBarPlayButtonIconSize,
+                        size = bottomBarButtonSize,
+                        iconSize = bottomBarButtonIconSize,
                     )
                 }
                 SimpleButton(

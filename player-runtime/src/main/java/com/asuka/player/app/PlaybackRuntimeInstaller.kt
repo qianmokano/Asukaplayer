@@ -3,6 +3,13 @@ package com.asuka.player.runtime
 import android.app.Application
 import android.content.ComponentName
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Bitmap.createScaledBitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.util.LruCache
+import java.io.ByteArrayOutputStream
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStateRepository
 import com.asuka.player.contract.PlaybackStore
@@ -17,9 +24,13 @@ import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import com.asuka.player.core.R as EngineR
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 
 class PlaybackRuntimeFeature(
     application: Application,
@@ -43,6 +54,7 @@ class PlaybackRuntimeFeature(
         playbackBehaviorRepository = playbackBehaviorRepository,
         scope = scope,
     )
+    val playbackPreviewFrameProvider: PlaybackPreviewFrameProvider = MediaMetadataPreviewFrameProvider(appContext)
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory = DefaultPlaybackDeviceControllerFactory
     val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory = Media3PlaybackControllerConnectorFactory
     val playbackLaunchCoordinator: PlaybackLaunchCoordinator by lazy(LazyThreadSafetyMode.NONE) {
@@ -139,4 +151,91 @@ private class DeferredQueueHistoryStore(
     }
 
     override suspend fun items(): List<String> = resolveStore().items()
+}
+
+private class MediaMetadataPreviewFrameProvider(
+    private val context: Context,
+) : PlaybackPreviewFrameProvider {
+    private val cache = object : LruCache<String, ByteArray>(PREVIEW_CACHE_MAX_BYTES) {
+        override fun sizeOf(key: String, value: ByteArray): Int = value.size
+    }
+    private val loadSemaphore = Semaphore(1)
+
+    override suspend fun loadPreviewFrame(
+        mediaId: String,
+        positionMs: Long,
+        maxWidthPx: Int,
+        maxHeightPx: Int,
+    ): ByteArray? {
+        if (mediaId.isBlank() || maxWidthPx <= 0 || maxHeightPx <= 0) return null
+        val bucketedPositionMs = bucketPreviewPosition(positionMs)
+        val cacheKey = "$mediaId@$bucketedPositionMs:${maxWidthPx}x$maxHeightPx"
+        cache.get(cacheKey)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            loadSemaphore.withPermit {
+                cache.get(cacheKey)?.let { return@withPermit it }
+                loadFrame(
+                    mediaId = mediaId,
+                    positionMs = bucketedPositionMs,
+                    maxWidthPx = maxWidthPx,
+                    maxHeightPx = maxHeightPx,
+                )?.also { cache.put(cacheKey, it) }
+            }
+        }
+    }
+
+    private fun loadFrame(
+        mediaId: String,
+        positionMs: Long,
+        maxWidthPx: Int,
+        maxHeightPx: Int,
+    ): ByteArray? {
+        val retriever = MediaMetadataRetriever()
+        return runCatching {
+            val uri = Uri.parse(mediaId)
+            when (uri.scheme?.lowercase()) {
+                "content", "file", "android.resource" -> retriever.setDataSource(context, uri)
+                else -> retriever.setDataSource(mediaId, emptyMap())
+            }
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+                ?.coerceAtLeast(0L)
+                ?: 0L
+            val targetMs = if (durationMs > 0L) {
+                positionMs.coerceIn(0L, durationMs)
+            } else {
+                positionMs.coerceAtLeast(0L)
+            }
+            val frame = retriever.getFrameAtTime(targetMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                ?: retriever.getFrameAtTime(targetMs * 1000L, MediaMetadataRetriever.OPTION_CLOSEST)
+                ?: retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            frame
+                ?.scaleToFit(maxWidthPx, maxHeightPx)
+                ?.toCompressedJpeg()
+        }.getOrNull().also {
+            runCatching { retriever.release() }
+        }
+    }
+
+    private fun Bitmap.scaleToFit(maxWidthPx: Int, maxHeightPx: Int): Bitmap {
+        if (width <= maxWidthPx && height <= maxHeightPx) return this
+        val scale = minOf(maxWidthPx.toFloat() / width.toFloat(), maxHeightPx.toFloat() / height.toFloat())
+        val targetWidth = (width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (height * scale).toInt().coerceAtLeast(1)
+        return createScaledBitmap(this, targetWidth, targetHeight, true)
+    }
+
+    private fun Bitmap.toCompressedJpeg(): ByteArray {
+        val stream = ByteArrayOutputStream()
+        compress(Bitmap.CompressFormat.JPEG, 85, stream)
+        return stream.toByteArray()
+    }
+
+    companion object {
+        private const val PREVIEW_CACHE_MAX_BYTES = 24 * 1024 * 1024
+        private const val PREVIEW_BUCKET_MS = 500L
+
+        private fun bucketPreviewPosition(positionMs: Long): Long =
+            ((positionMs.coerceAtLeast(0L) + PREVIEW_BUCKET_MS / 2L) / PREVIEW_BUCKET_MS) * PREVIEW_BUCKET_MS
+    }
 }

@@ -145,6 +145,7 @@ private fun PlaybackActivityContent(
             controller = controller,
             trackSelectionController = hostState.trackSelectionController,
             playbackPersistence = playbackDependencies.playbackUiPersistence,
+            previewFrameProvider = playbackDependencies.playbackPreviewFrameProvider,
             deviceController = playbackSession.playbackDeviceController,
             surfaceRenderer = Media3PlaybackSurfaceRenderer,
         ),

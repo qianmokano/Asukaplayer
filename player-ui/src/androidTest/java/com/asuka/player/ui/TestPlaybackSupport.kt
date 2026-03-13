@@ -3,6 +3,7 @@ package com.asuka.player.ui
 import com.asuka.player.contract.LoopMode
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.contract.PlaybackDeviceController
+import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.contract.VideoScaleMode
 import com.asuka.player.ui.controller.PlaybackTrackSelectionController
@@ -81,6 +82,15 @@ internal object TestPlaybackTrackSelectionController : PlaybackTrackSelectionCon
     override fun disableSubtitles() {}
 }
 
+internal object TestPlaybackPreviewFrameProvider : PlaybackPreviewFrameProvider {
+    override suspend fun loadPreviewFrame(
+        mediaId: String,
+        positionMs: Long,
+        maxWidthPx: Int,
+        maxHeightPx: Int,
+    ) = null
+}
+
 internal fun testPlaybackScreenModel(
     uiState: PlayerUiState = PlayerUiState(),
 ): PlaybackScreenModel {
@@ -95,6 +105,7 @@ internal fun testPlaybackScreenDependencies(): PlaybackScreenDependencies {
         controller = TestPlaybackController,
         trackSelectionController = TestPlaybackTrackSelectionController,
         playbackPersistence = testPlaybackUiPersistence(),
+        previewFrameProvider = TestPlaybackPreviewFrameProvider,
         deviceController = TestPlaybackDeviceController,
     )
 }
