@@ -40,8 +40,8 @@ internal fun BoxScope.LockToggleAnchor(
         enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
         exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
         modifier = Modifier
-            .align(Alignment.CenterStart)
-            .padding(start = lockToggleAnchorPadding + landscapeCutoutPadding.start(layoutDirection)),
+            .align(Alignment.CenterEnd)
+            .padding(end = lockToggleAnchorPadding + landscapeCutoutPadding.end(layoutDirection)),
     ) {
         SimpleButton(
             label = stringResource(id = labelResId),

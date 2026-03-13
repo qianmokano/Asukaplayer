@@ -21,6 +21,25 @@ class PointerGestureDetector(
     private val volumeProvider: () -> Int,
     private val brightnessProvider: () -> Int,
 ) {
+    data class DragStartGuard(
+        val leftEdgePx: Float = 0f,
+        val rightEdgePx: Float = 0f,
+        val topEdgePx: Float = 0f,
+        val bottomEdgePx: Float = 0f,
+    ) {
+        fun blocksDragStart(startPosition: Offset, width: Int, height: Int): Boolean {
+            if (width <= 0 || height <= 0) return false
+            return startPosition.x <= leftEdgePx ||
+                startPosition.x >= (width - rightEdgePx) ||
+                startPosition.y <= topEdgePx ||
+                startPosition.y >= (height - bottomEdgePx)
+        }
+
+        companion object {
+            val None = DragStartGuard()
+        }
+    }
+
     data class VerticalStart(
         val startY: Float,
         val value: Int,
@@ -39,6 +58,7 @@ class PointerGestureDetector(
         onVerticalStart: (offset: Offset, size: androidx.compose.ui.unit.IntSize) -> Unit,
         onVerticalDrag: (start: VerticalStart, currentY: Float, mode: VolumeBrightnessState.Mode) -> Unit,
         onVerticalEnd: () -> Unit,
+        dragStartGuard: DragStartGuard = DragStartGuard.None,
         onGestureCaptured: () -> Unit = {},
     ) {
         awaitEachGesture {
@@ -63,6 +83,10 @@ class PointerGestureDetector(
                 if (dragKind == null) {
                     val moved = kotlin.math.abs(dx) > touchSlop || kotlin.math.abs(dy) > touchSlop
                     if (!moved) continue
+                    if (dragStartGuard.blocksDragStart(startPosition, size.width, size.height)) {
+                        dragKind = DragKind.BLOCKED
+                        continue
+                    }
                     dragKind = if (kotlin.math.abs(dx) >= kotlin.math.abs(dy)) {
                         DragKind.HORIZONTAL
                     } else {
@@ -97,7 +121,7 @@ class PointerGestureDetector(
                             onVerticalStart(startPosition, size)
                             onVerticalDrag(vStart, change.position.y, mode)
                         }
-                        null -> Unit
+                        DragKind.BLOCKED -> Unit
                     }
                 } else {
                     when (dragKind) {
@@ -107,10 +131,11 @@ class PointerGestureDetector(
                             val mode = verticalMode ?: continue
                             onVerticalDrag(start, change.position.y, mode)
                         }
+                        DragKind.BLOCKED -> Unit
                     }
                 }
 
-                if (change.positionChanged()) {
+                if (dragKind != DragKind.BLOCKED && change.positionChanged()) {
                     change.consume()
                 }
             }
@@ -119,6 +144,7 @@ class PointerGestureDetector(
                     if (horizontalStarted) onHorizontalEnd()
                 }
                 DragKind.VERTICAL -> onVerticalEnd()
+                DragKind.BLOCKED -> Unit
                 null -> Unit
             }
         }
@@ -127,5 +153,6 @@ class PointerGestureDetector(
     private enum class DragKind {
         HORIZONTAL,
         VERTICAL,
+        BLOCKED,
     }
 }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -51,6 +53,50 @@ import com.asuka.player.ui.R
 import com.asuka.player.ui.controller.TrackOption
 
 // ── Audio ──────────────────────────────────────────────────────────────────────
+
+@Composable
+fun SettingsMenuPanel(
+    audioSummary: String,
+    scaleSummary: String,
+    loopSummary: String,
+    shuffleSummary: String,
+    onAudio: () -> Unit,
+    onScale: () -> Unit,
+    onLoopMode: () -> Unit,
+    onShuffleMode: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        SettingsNavigationRow(
+            tag = "settings_menu_audio",
+            title = stringResource(id = R.string.audio_track),
+            summary = audioSummary,
+            onClick = onAudio,
+        )
+        SettingsNavigationRow(
+            tag = "settings_menu_scale",
+            title = stringResource(id = R.string.content_scale),
+            summary = scaleSummary,
+            onClick = onScale,
+        )
+        SettingsNavigationRow(
+            tag = "settings_menu_loop_mode",
+            title = stringResource(id = R.string.loop),
+            summary = loopSummary,
+            onClick = onLoopMode,
+        )
+        SettingsNavigationRow(
+            tag = "settings_menu_shuffle_mode",
+            title = stringResource(id = R.string.shuffle),
+            summary = shuffleSummary,
+            onClick = onShuffleMode,
+        )
+    }
+}
 
 @Composable
 fun AudioSelectorPanel(
@@ -236,73 +282,97 @@ fun ScaleSelectorPanel(
 }
 
 @Composable
-fun PlaybackModePanel(
+fun LoopModePanel(
     currentRepeatMode: LoopMode,
-    shuffleEnabled: Boolean,
     onLoopMode: (LoopMode) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .selectableGroup(),
+    ) {
+        TrackOptionRow(
+            label = stringResource(id = R.string.playback_mode_loop_off),
+            selected = currentRepeatMode == LoopMode.OFF,
+            onClick = { onLoopMode(LoopMode.OFF) },
+        )
+        TrackOptionRow(
+            label = stringResource(id = R.string.playback_mode_loop_one),
+            selected = currentRepeatMode == LoopMode.ONE,
+            onClick = { onLoopMode(LoopMode.ONE) },
+        )
+        TrackOptionRow(
+            label = stringResource(id = R.string.playback_mode_loop_all),
+            selected = currentRepeatMode == LoopMode.ALL,
+            onClick = { onLoopMode(LoopMode.ALL) },
+        )
+    }
+}
+
+@Composable
+fun ShuffleModePanel(
+    shuffleEnabled: Boolean,
     onShuffleEnabled: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .verticalScroll(rememberScrollState())
+            .selectableGroup(),
     ) {
-        PlaybackModeSection(title = stringResource(id = R.string.loop)) {
-            TrackOptionRow(
-                label = stringResource(id = R.string.playback_mode_loop_off),
-                selected = currentRepeatMode == LoopMode.OFF,
-                onClick = { onLoopMode(LoopMode.OFF) },
-            )
-            TrackOptionRow(
-                label = stringResource(id = R.string.playback_mode_loop_one),
-                selected = currentRepeatMode == LoopMode.ONE,
-                onClick = { onLoopMode(LoopMode.ONE) },
-            )
-            TrackOptionRow(
-                label = stringResource(id = R.string.playback_mode_loop_all),
-                selected = currentRepeatMode == LoopMode.ALL,
-                onClick = { onLoopMode(LoopMode.ALL) },
-            )
-        }
-
-        PlaybackModeSection(title = stringResource(id = R.string.shuffle)) {
-            TrackOptionRow(
-                label = stringResource(id = R.string.playback_mode_shuffle_off),
-                selected = !shuffleEnabled,
-                onClick = { onShuffleEnabled(false) },
-            )
-            TrackOptionRow(
-                label = stringResource(id = R.string.playback_mode_shuffle_on),
-                selected = shuffleEnabled,
-                onClick = { onShuffleEnabled(true) },
-            )
-        }
+        TrackOptionRow(
+            label = stringResource(id = R.string.playback_mode_shuffle_off),
+            selected = !shuffleEnabled,
+            onClick = { onShuffleEnabled(false) },
+        )
+        TrackOptionRow(
+            label = stringResource(id = R.string.playback_mode_shuffle_on),
+            selected = shuffleEnabled,
+            onClick = { onShuffleEnabled(true) },
+        )
     }
 }
 
 // ── Shared private components ──────────────────────────────────────────────────
 
 @Composable
-private fun PlaybackModeSection(
+private fun SettingsNavigationRow(
+    tag: String,
     title: String,
-    content: @Composable ColumnScope.() -> Unit,
+    summary: String,
+    onClick: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 12.dp)
+            .testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = title,
-            color = Color.White.copy(alpha = 0.68f),
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-        )
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .selectableGroup(),
-            content = content,
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = summary,
+                color = Color.White.copy(alpha = 0.65f),
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = Icons.Rounded.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.7f),
         )
     }
 }

@@ -27,7 +27,7 @@ class PlayerScreenTest {
                 onBackground = {},
             )
         }
-        composeRule.onNodeWithTag("btn_playback_mode").assertExists()
+        composeRule.onNodeWithTag("btn_settings").assertExists()
     }
 
     @Test
@@ -49,7 +49,7 @@ class PlayerScreenTest {
     }
 
     @Test
-    fun overlayOpens_onPlaybackModeClick() {
+    fun settingsOverlayOpens_onSettingsClick() {
         composeRule.setContent {
             PlayerScreen(
                 model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
@@ -59,7 +59,7 @@ class PlayerScreenTest {
                 onBackground = {},
             )
         }
-        composeRule.onNodeWithTag("btn_playback_mode").assertExists().performClick()
+        composeRule.onNodeWithTag("btn_settings").assertExists().performClick()
         composeRule.waitForIdle()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("overlay_root").fetchSemanticsNodes().isNotEmpty()
@@ -67,7 +67,7 @@ class PlayerScreenTest {
     }
 
     @Test
-    fun middleControls_areVerticallyCenteredInViewport() {
+    fun settingsOverlayNavigates_toLoopModePanel() {
         composeRule.setContent {
             PlayerScreen(
                 model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
@@ -78,9 +78,74 @@ class PlayerScreenTest {
             )
         }
 
-        val rootCenterY = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.center.y
-        val playPauseCenterY = composeRule.onNodeWithTag("btn_play_pause").fetchSemanticsNode().boundsInRoot.center.y
+        composeRule.onNodeWithTag("btn_settings").assertExists().performClick()
+        composeRule.onNodeWithTag("settings_menu_loop_mode").assertExists().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("overlay_root").assertExists()
+    }
 
-        assertTrue(abs(rootCenterY - playPauseCenterY) < 2f)
+    @Test
+    fun bottomBarHostsPlaybackControlsOnLeft() {
+        composeRule.setContent {
+            PlayerScreen(
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
+                onBack = {},
+                onPip = {},
+                onBackground = {},
+            )
+        }
+
+        val rootBounds = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val playPauseCenter = composeRule.onNodeWithTag("btn_play_pause").fetchSemanticsNode().boundsInRoot.center
+        val nextCenter = composeRule.onNodeWithTag("btn_next").fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onNodeWithTag("btn_prev").assertDoesNotExist()
+        assertTrue(playPauseCenter.y > rootBounds.center.y)
+        assertTrue(nextCenter.x > playPauseCenter.x)
+    }
+
+    @Test
+    fun subtitleSpeedAndRotateButtons_areRightAligned_withRotateAtFarRight() {
+        composeRule.setContent {
+            PlayerScreen(
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
+                onBack = {},
+                onPip = {},
+                onBackground = {},
+            )
+        }
+
+        val rootBounds = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val nextCenter = composeRule.onNodeWithTag("btn_next").fetchSemanticsNode().boundsInRoot.center
+        val subsCenter = composeRule.onNodeWithTag("btn_subs").fetchSemanticsNode().boundsInRoot.center
+        val speedCenter = composeRule.onNodeWithTag("btn_speed").fetchSemanticsNode().boundsInRoot.center
+        val rotateCenter = composeRule.onNodeWithTag("btn_rotate").fetchSemanticsNode().boundsInRoot.center
+
+        assertTrue(subsCenter.x > rootBounds.center.x)
+        assertTrue(speedCenter.x > subsCenter.x)
+        assertTrue(rotateCenter.x > speedCenter.x)
+        assertTrue(subsCenter.x > nextCenter.x)
+    }
+
+    @Test
+    fun bufferingShowsLoadingRingAroundPlayPauseButton() {
+        composeRule.setContent {
+            PlayerScreen(
+                model = testPlaybackScreenModel(
+                    uiState = PlayerUiState(
+                        title = "Test",
+                        isBuffering = true,
+                    ),
+                ),
+                dependencies = testPlaybackScreenDependencies(),
+                onBack = {},
+                onPip = {},
+                onBackground = {},
+            )
+        }
+
+        composeRule.onNodeWithTag("play_pause_loading_ring").assertExists()
     }
 }

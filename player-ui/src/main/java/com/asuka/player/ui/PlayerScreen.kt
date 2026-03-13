@@ -11,11 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,12 +22,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.asuka.player.render.api.PlaybackSurfaceTransform
@@ -41,7 +38,6 @@ import com.asuka.player.ui.components.GestureLayer
 import com.asuka.player.ui.components.LockToggleAnchor
 import com.asuka.player.ui.components.LockedControlsOverlay
 import com.asuka.player.ui.components.LongPressSpeedIndicator
-import com.asuka.player.ui.components.MiddleControls
 import com.asuka.player.ui.components.OverlayPanel
 import com.asuka.player.ui.components.OverlayType
 import com.asuka.player.ui.components.SeekIndicator
@@ -209,21 +205,17 @@ fun PlayerScreen(
     val displayedPositionMs = if (seekState.seeking) seekState.previewPositionMs else uiState.positionMs
     val controlsVisible = controlsState.visible && !controlsState.locked
     val visibleError = uiState.errorMessage?.takeIf { it != dismissedErrorMessage }
-    val videoBoundsModifier = remember(onVideoBoundsChanged) {
+    val videoBoundsModifier = Modifier.onGloballyPositioned { coords ->
         if (onVideoBoundsChanged != null) {
-            Modifier.onGloballyPositioned { coords ->
-                val b = coords.boundsInWindow()
-                onVideoBoundsChanged(
-                    android.graphics.Rect(
-                        b.left.toInt(),
-                        b.top.toInt(),
-                        b.right.toInt(),
-                        b.bottom.toInt(),
-                    ),
-                )
-            }
-        } else {
-            Modifier
+            val b = coords.boundsInWindow()
+            onVideoBoundsChanged(
+                android.graphics.Rect(
+                    b.left.toInt(),
+                    b.top.toInt(),
+                    b.right.toInt(),
+                    b.bottom.toInt(),
+                ),
+            )
         }
     }
 
@@ -257,9 +249,9 @@ fun PlayerScreen(
                     title = uiState.title,
                     landscapeCutoutPadding = landscapeCutoutPadding,
                     onBack = onBack,
-                    onAudio = { openOverlay(OverlayType.AUDIO) },
-                    onSubtitle = { openOverlay(OverlayType.SUBTITLE) },
-                    onSpeed = { openOverlay(OverlayType.SPEED) },
+                    onPip = onPip,
+                    onBackground = onBackground,
+                    onSettings = { openOverlay(OverlayType.SETTINGS) },
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
@@ -274,29 +266,16 @@ fun PlayerScreen(
                     landscapeCutoutPadding = landscapeCutoutPadding,
                     positionMs = displayedPositionMs,
                     durationMs = uiState.durationMs,
+                    isPlaying = uiState.isPlaying,
+                    isBuffering = uiState.isBuffering,
                     onSeekBarDragChange = controlsState::setInteractionVisibilityHold,
-                    onScale = { openOverlay(OverlayType.SCALE) },
+                    onNext = { queueActions.next() },
+                    onSpeed = { openOverlay(OverlayType.SPEED) },
+                    onSubtitle = { openOverlay(OverlayType.SUBTITLE) },
                     onRotate = onRotate,
-                    onPip = onPip,
-                    onBackground = onBackground,
-                    onPlaybackMode = { openOverlay(OverlayType.PLAYBACK_MODE) },
                 )
             }
         } }
-        AnimatedVisibility(
-            visible = controlsVisible && !isInPip,
-            enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
-            exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
-            modifier = Modifier.align(Alignment.Center),
-        ) {
-            MiddleControls(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                controller = controller,
-                isPlaying = uiState.isPlaying,
-                onNext = { queueActions.next() },
-                onPrevious = { queueActions.previous() },
-            )
-        }
         LockToggleAnchor(
             visible = controlsVisible && !isInPip && !controlsState.locked,
             labelResId = R.string.lock,
@@ -312,13 +291,12 @@ fun PlayerScreen(
             onTap = { lockedOverlayVisible = !lockedOverlayVisible },
             onUnlock = { controlsState.unlock(); lockedOverlayVisible = false },
         )
-        if (uiState.isBuffering) CircularProgressIndicator(
-            modifier = Modifier.align(Alignment.Center).size(PlayerUiTokens.ButtonSize.playbackPrimary),
-            color = PlayerUiTokens.loadingIndicatorColor(),
-        )
         SeekIndicator(modifier = Modifier.align(Alignment.Center), seekState = seekState)
         DoubleTapIndicator(modifier = Modifier.align(Alignment.Center), state = tapFeedbackState)
-        VerticalAdjustIndicator(modifier = Modifier.align(Alignment.Center), state = volumeBrightnessState)
+        VerticalAdjustIndicator(
+            modifier = Modifier.align(Alignment.Center),
+            state = volumeBrightnessState,
+        )
         ZoomIndicator(modifier = Modifier.align(Alignment.Center), zoomState = zoomState)
         LongPressSpeedIndicator(modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp), state = longPressSpeedState)
         OverlayPanel(
@@ -334,6 +312,7 @@ fun PlayerScreen(
             shuffleEnabled = uiState.shuffleEnabled,
             audioTracks = trackUiState.audioTracks,
             subtitleTracks = trackUiState.subtitleTracks,
+            onOpenType = { overlayType = it },
             onDismiss = { overlayType = null },
         )
         ErrorOverlay(

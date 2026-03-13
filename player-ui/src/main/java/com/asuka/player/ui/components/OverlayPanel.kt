@@ -49,11 +49,13 @@ import com.asuka.player.ui.theme.PlayerUiTokens
 import kotlinx.coroutines.yield
 
 enum class OverlayType {
+    SETTINGS,
     AUDIO,
     SUBTITLE,
     SPEED,
     SCALE,
-    PLAYBACK_MODE,
+    LOOP_MODE,
+    SHUFFLE_MODE,
 }
 
 @Composable
@@ -71,6 +73,7 @@ fun OverlayPanel(
     shuffleEnabled: Boolean,
     audioTracks: List<TrackOption>,
     subtitleTracks: List<TrackOption>,
+    onOpenType: (OverlayType) -> Unit,
     onDismiss: () -> Unit,
 ) {
     // Keep the last non-null type so panel content stays rendered during the exit animation.
@@ -152,11 +155,13 @@ fun OverlayPanel(
                     ) {
                         val displayType = lastType ?: return@Column
                         val title = when (displayType) {
+                            OverlayType.SETTINGS -> stringResource(id = R.string.settings)
                             OverlayType.AUDIO -> stringResource(id = R.string.audio_track)
                             OverlayType.SUBTITLE -> stringResource(id = R.string.subtitle)
                             OverlayType.SPEED -> stringResource(id = R.string.playback_speed)
                             OverlayType.SCALE -> stringResource(id = R.string.content_scale)
-                            OverlayType.PLAYBACK_MODE -> stringResource(id = R.string.playback_mode_title)
+                            OverlayType.LOOP_MODE -> stringResource(id = R.string.loop)
+                            OverlayType.SHUFFLE_MODE -> stringResource(id = R.string.shuffle)
                         }
                         Text(
                             text = title,
@@ -178,6 +183,25 @@ fun OverlayPanel(
                                 label = "panel_content",
                             ) { panel ->
                                 when (panel) {
+                                    OverlayType.SETTINGS -> SettingsMenuPanel(
+                                        audioSummary = audioTracks
+                                            .firstOrNull {
+                                                com.asuka.player.contract.TrackIndexCodec.encode(it.groupIndex, it.trackIndex) == selectedAudio
+                                            }
+                                            ?.label
+                                            ?: stringResource(id = R.string.no_audio_track),
+                                        scaleSummary = currentScaleMode.toLabel(),
+                                        loopSummary = currentRepeatMode.toLoopModeLabel(),
+                                        shuffleSummary = if (shuffleEnabled) {
+                                            stringResource(id = R.string.playback_mode_shuffle_on)
+                                        } else {
+                                            stringResource(id = R.string.playback_mode_shuffle_off)
+                                        },
+                                        onAudio = { onOpenType(OverlayType.AUDIO) },
+                                        onScale = { onOpenType(OverlayType.SCALE) },
+                                        onLoopMode = { onOpenType(OverlayType.LOOP_MODE) },
+                                        onShuffleMode = { onOpenType(OverlayType.SHUFFLE_MODE) },
+                                    )
                                     OverlayType.AUDIO -> AudioSelectorPanel(
                                         audioTracks,
                                         selectedAudio,
@@ -200,10 +224,12 @@ fun OverlayPanel(
                                         overlayActions.setScale(it)
                                         scaleState.updateMode(it)
                                     }
-                                    OverlayType.PLAYBACK_MODE -> PlaybackModePanel(
+                                    OverlayType.LOOP_MODE -> LoopModePanel(
                                         currentRepeatMode = currentRepeatMode,
-                                        shuffleEnabled = shuffleEnabled,
                                         onLoopMode = overlayActions::setLoopMode,
+                                    )
+                                    OverlayType.SHUFFLE_MODE -> ShuffleModePanel(
+                                        shuffleEnabled = shuffleEnabled,
                                         onShuffleEnabled = overlayActions::setShuffleEnabled,
                                     )
                                 }
@@ -215,3 +241,20 @@ fun OverlayPanel(
         }
     }
 }
+
+@Composable
+private fun com.asuka.player.contract.VideoScaleMode.toLabel(): String =
+    when (this) {
+        com.asuka.player.contract.VideoScaleMode.FIT -> stringResource(id = R.string.fit)
+        com.asuka.player.contract.VideoScaleMode.FILL -> stringResource(id = R.string.fill)
+        com.asuka.player.contract.VideoScaleMode.CROP -> stringResource(id = R.string.crop)
+        com.asuka.player.contract.VideoScaleMode.STRETCH -> stringResource(id = R.string.stretch)
+    }
+
+@Composable
+private fun LoopMode.toLoopModeLabel(): String =
+    when (this) {
+        LoopMode.OFF -> stringResource(id = R.string.playback_mode_loop_off)
+        LoopMode.ONE -> stringResource(id = R.string.playback_mode_loop_one)
+        LoopMode.ALL -> stringResource(id = R.string.playback_mode_loop_all)
+    }

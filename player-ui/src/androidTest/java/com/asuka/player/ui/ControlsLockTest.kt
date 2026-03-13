@@ -53,6 +53,24 @@ class ControlsLockTest {
     }
 
     @Test
+    fun lockButton_isAnchoredOnRightSide() {
+        composeRule.setContent {
+            PlayerScreen(
+                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(),
+                onBack = {},
+                onPip = {},
+                onBackground = {},
+            )
+        }
+
+        val rootCenterX = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.center.x
+        val lockCenterX = composeRule.onNodeWithTag("btn_lock").fetchSemanticsNode().boundsInRoot.center.x
+
+        assertTrue(lockCenterX > rootCenterX)
+    }
+
+    @Test
     fun lockedScreenShowsUnlockButtonOnlyAfterTap() {
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {

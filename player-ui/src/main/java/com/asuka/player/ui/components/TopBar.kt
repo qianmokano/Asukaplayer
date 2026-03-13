@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.Headset
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,9 +38,9 @@ internal fun TopBar(
     title: String,
     landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     onBack: () -> Unit,
-    onAudio: () -> Unit,
-    onSubtitle: () -> Unit,
-    onSpeed: () -> Unit,
+    onPip: () -> Unit,
+    onBackground: () -> Unit,
+    onSettings: () -> Unit,
     onTitleLongPress: (() -> Unit)? = null,
 ) {
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -101,22 +101,22 @@ internal fun TopBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SimpleButton(
-                label = stringResource(id = R.string.speed),
-                icon = Icons.Rounded.Speed,
-                onClick = onSpeed,
-                tag = "btn_speed",
+                label = stringResource(id = R.string.pip),
+                icon = Icons.Rounded.PictureInPictureAlt,
+                onClick = onPip,
+                tag = "btn_pip",
             )
             SimpleButton(
-                label = stringResource(id = R.string.audio),
-                icon = Icons.Rounded.GraphicEq,
-                onClick = onAudio,
-                tag = "btn_audio",
+                label = stringResource(id = R.string.background_short),
+                icon = Icons.Rounded.Headset,
+                onClick = onBackground,
+                tag = "btn_bg",
             )
             SimpleButton(
-                label = stringResource(id = R.string.subs),
-                icon = Icons.Rounded.Subtitles,
-                onClick = onSubtitle,
-                tag = "btn_subs",
+                label = stringResource(id = R.string.settings),
+                icon = Icons.Rounded.Settings,
+                onClick = onSettings,
+                tag = "btn_settings",
             )
         }
     }

@@ -1,22 +1,33 @@
 package com.asuka.player.ui.components
 
+import android.content.res.Configuration
 import android.os.SystemClock
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.unit.dp
 import com.asuka.player.ui.controller.GestureCoordinator
 import com.asuka.player.ui.controller.PointerGestureDetector
+import kotlin.math.max
+
+private const val landscapeEdgeGuardMinDp = 32
 
 /**
  * Minimal gesture layer wiring for M1 (tap + double-tap).
@@ -28,6 +39,33 @@ fun GestureLayer(
     coordinator: GestureCoordinator,
     pointerDetector: PointerGestureDetector,
 ) {
+    val configuration = LocalConfiguration.current
+    val layoutDirection = LocalLayoutDirection.current
+    val density = LocalDensity.current
+    val systemGesturePadding = WindowInsets.systemGestures.asPaddingValues()
+    val dragStartGuard = if (configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) {
+        PointerGestureDetector.DragStartGuard.None
+    } else {
+        val minEdgePx = with(density) { landscapeEdgeGuardMinDp.dp.toPx() }
+        PointerGestureDetector.DragStartGuard(
+            leftEdgePx = max(
+                with(density) { systemGesturePadding.calculateLeftPadding(layoutDirection).toPx() },
+                minEdgePx,
+            ),
+            rightEdgePx = max(
+                with(density) { systemGesturePadding.calculateRightPadding(layoutDirection).toPx() },
+                minEdgePx,
+            ),
+            topEdgePx = max(
+                with(density) { systemGesturePadding.calculateTopPadding().toPx() },
+                minEdgePx,
+            ),
+            bottomEdgePx = max(
+                with(density) { systemGesturePadding.calculateBottomPadding().toPx() },
+                minEdgePx,
+            ),
+        )
+    }
     val suppressTapUntilMs = remember { mutableLongStateOf(0L) }
     fun suppressTapWindow() {
         suppressTapUntilMs.longValue = SystemClock.uptimeMillis() + 220L
@@ -81,6 +119,7 @@ fun GestureLayer(
                             )
                         },
                         onVerticalEnd = coordinator::onVerticalDragEnd,
+                        dragStartGuard = dragStartGuard,
                         onGestureCaptured = { suppressTapWindow() },
                     )
                 }
