@@ -1,5 +1,7 @@
 package com.asuka.player.ui.controller
 
+import com.asuka.player.contract.PlaybackTrackSelectionController
+
 data class TrackOption(
     val groupIndex: Int,
     val trackIndex: Int,
@@ -17,5 +19,3 @@ data class PlaybackTrackUiState(
     val selectedAudio: Int? = null,
     val selectedSubtitle: Int? = null,
 )
-
-typealias PlaybackTrackSelectionController = com.asuka.player.platform.PlaybackTrackSelectionController

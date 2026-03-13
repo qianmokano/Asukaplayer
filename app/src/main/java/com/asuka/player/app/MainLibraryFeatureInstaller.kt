@@ -3,9 +3,8 @@ package com.asuka.player.app
 import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.ViewModelProvider
-import com.asuka.player.platform.PlaybackIntentPayload
+import com.asuka.player.contract.PlaybackSessionRequest
 import com.asuka.player.runtime.PlaybackLaunchCoordinator
-import com.asuka.player.runtime.PlaybackLaunchRequest
 
 internal object MainLibraryFeatureInstaller {
     fun install(
@@ -62,15 +61,15 @@ private class AppMainActivityDependencies(
         )
     }
 
-    override fun createPlaybackLaunchRequest(
-        payload: PlaybackIntentPayload,
-    ): PlaybackLaunchRequest {
-        return playbackLaunchCoordinator.createLaunchRequest(payload)
+    override fun preparePlaybackRequest(
+        request: PlaybackSessionRequest,
+    ): PlaybackSessionRequest {
+        return playbackLaunchCoordinator.prepareRequest(request)
     }
 
     override fun createPlaybackIntent(
         context: android.content.Context,
-        request: PlaybackLaunchRequest,
+        request: PlaybackSessionRequest,
     ): Intent {
         return playbackLaunchCoordinator.createPlaybackIntent(
             context = context,

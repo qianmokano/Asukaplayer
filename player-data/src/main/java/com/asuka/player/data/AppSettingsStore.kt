@@ -76,6 +76,7 @@ interface AppSettingsStore {
 
     suspend fun awaitLoaded() = Unit
 
+    // Returns the latest in-memory snapshot without forcing storage initialization.
     fun loadSnapshot(): AppSettingsSnapshot = snapshots.value
     suspend fun saveSnapshot(snapshot: AppSettingsSnapshot)
 

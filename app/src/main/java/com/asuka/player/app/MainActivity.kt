@@ -12,9 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import com.asuka.player.platform.PlaybackIntentPayloadCodec
+import com.asuka.player.contract.PlaybackSessionRequest
+import com.asuka.player.platform.PlaybackSessionRequestCodec
 import com.asuka.player.runtime.IncomingPlaybackIntentReader
-import com.asuka.player.runtime.PlaybackLaunchRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
             setContent {
                 Box(Modifier.fillMaxSize().background(Color.Black))
             }
-            requestPlayback(incomingPlayback.payload)
+            requestPlayback(incomingPlayback.request)
             return
         }
 
@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                 viewModelFactory = mainActivityDependencies.mainLibraryViewModelFactory,
                 onPlay = { selection ->
                     requestPlayback(
-                        PlaybackIntentPayloadCodec.fromQueueEntries(
+                        PlaybackSessionRequestCodec.fromQueueEntries(
                             targetEntry = selection.targetEntry,
                             queueEntries = selection.queueEntries,
                         ),
@@ -59,19 +59,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestPlayback(payload: com.asuka.player.platform.PlaybackIntentPayload) {
+    private fun requestPlayback(request: PlaybackSessionRequest) {
         lifecycleScope.launch {
-            val launchRequest = withContext(Dispatchers.IO) {
-                mainActivityDependencies.createPlaybackLaunchRequest(payload)
+            val preparedRequest = withContext(Dispatchers.IO) {
+                mainActivityDependencies.preparePlaybackRequest(request)
             }
-            startPlayback(launchRequest)
+            startPlayback(preparedRequest)
         }
     }
 
-    private fun startPlayback(launchRequest: PlaybackLaunchRequest) {
+    private fun startPlayback(request: PlaybackSessionRequest) {
         val playbackIntent = mainActivityDependencies.createPlaybackIntent(
             context = this,
-            request = launchRequest,
+            request = request,
         )
         startActivity(playbackIntent)
         if (launchedForDirectPlayback) {

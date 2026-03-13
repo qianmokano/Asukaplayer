@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -34,7 +35,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
@@ -46,6 +46,12 @@ class PlaybackService : MediaSessionService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val persistenceDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val persistenceShutdown = PlaybackPersistenceShutdownCoordinator(
+        timeoutMs = PERSISTENCE_SHUTDOWN_TIMEOUT_MS,
+        onTimeout = {
+            Log.w(TAG, "timed out waiting for playback persistence drain during service shutdown")
+        },
+    )
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
@@ -142,11 +148,10 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         runCatching { mainHandler.removeCallbacks(positionCheckpointRunnable) }
         runCatching {
-            runBlocking(Dispatchers.IO) {
-                writer?.flushCurrentPositionAndAwait()
-                writer?.awaitIdle()
-                historyWriter?.awaitIdle()
-            }
+            persistenceShutdown.drainAndClose(
+                playbackState = writer?.asShutdownHandle(),
+                history = historyWriter?.asShutdownHandle(),
+            )
         }
         runCatching { session?.let { removeSession(it) } }
         runCatching { artworkBridge?.detach() }
@@ -154,8 +159,6 @@ class PlaybackService : MediaSessionService() {
         runCatching { historyWriter?.let { player?.removeListener(it) } }
         runCatching { session?.release() }
         runCatching { player?.release() }
-        runCatching { writer?.close() }
-        runCatching { historyWriter?.close() }
         serviceScope.cancel()
         artworkBridge = null
         session = null
@@ -194,7 +197,9 @@ class PlaybackService : MediaSessionService() {
     }
 
     companion object {
+        private const val TAG = "PlaybackService"
         private const val NOTIFICATION_CHANNEL_ID = "asuka_playback"
         private const val NOTIFICATION_ID = 1001
+        private const val PERSISTENCE_SHUTDOWN_TIMEOUT_MS = 1_000L
     }
 }

@@ -10,14 +10,14 @@
 - render contract 与 render implementation 分层：surface / renderer 契约放在 `player-render-api`；Media3 / Activity / PiP 适配实现放在 `player-renderer`。
 - 单一设置真相源：播放运行时设置统一来自 `PlaybackRuntimeSettingsSource`。
 - 持久化语义显式异步：settings / playback / history 的 I/O contract 使用 `suspend` API 表达完成语义，调用返回即表示写入已完成或抛错。
-- 播放回调不直接写盘：播放状态与历史回写通过串行异步队列排队，service 销毁时再显式 flush / await，避免播放器回调线程同步阻塞。
+- 播放回调不直接写盘：播放状态与历史回写通过串行异步队列排队，service 销毁时只触发有上限的后台 drain / close，避免播放器回调线程或生命周期主路径同步阻塞。
 - UI 依赖 UI 模型：播放页消费 `PlaybackScreenModel` / `PlaybackScreenDependencies`，不直接拼装 Media3 细节。
 - 策略与落盘分离：规划、执行、持久化分别由独立对象负责，减少隐式耦合。
-- 单一播放 payload：启动链路使用统一的 `PlaybackIntentPayload` / codec 表达队列、稳定 mediaId 与起播位置，避免多处重复解析 intent。
+- 单一播放 request：启动链路使用统一的 `PlaybackSessionRequest` / codec 表达原始队列、稳定 mediaId、当前 playback URI 与 request 身份，避免多处重复解析 intent。
 - feature 分层优先：媒体库采用 data source -> repository -> use case -> view model，theme/settings model 保持纯值对象，不携带 Compose 类型。
 - 媒体库先索引后查询：MediaStore 变更先同步到本地索引库，再由 app 层从索引执行分页读取；直接扫描 MediaStore 不再是页面读路径。
 - 旧异步结果不得覆盖新状态：folder 分页、播放启动、seek fallback 这类异步链路都必须带当前 request 身份；过期结果只能丢弃，不能回写。
-- 运行时设置先加载再发布：settings repository 的初始值必须等待 store ready，避免冷启动先按默认设置启动、再被真实值纠正。
+- 运行时设置先发布最佳可用快照：settings repository 冷启动先暴露当前内存快照，再由真实 store 异步接管，避免主线程等待磁盘初始化。
 
 ## 模块边界
 
@@ -34,8 +34,8 @@
 ### `player-contract`
 - 纯 Kotlin 稳定契约与模型
 - `PlayerSettings` / `PlaybackRuntimeSettings`
-- `PlaybackController` / `PlaybackStore` / `QueueHistoryStore`
-- `PlaybackSessionPlanner`、`PlaybackStateRepository`、`QueueHistoryRepository`
+- `PlaybackController` / `PlaybackTrackSelectionController` / `PlaybackStore` / `QueueHistoryStore`
+- `PlaybackSessionRequest` / `PlaybackSessionPlanner` / `PlaybackStateRepository` / `QueueHistoryRepository`
 - `PlaybackQueue` / `PlaybackQueueItem` / `PlaybackQueueEntry`
 - 不直接依赖 Android / Media3 类型
 
@@ -43,7 +43,7 @@
 - Android binding 层
 - `PlaybackActivityDependencies` / `PlaybackServiceDependencies` / `PlaybackDependenciesProvider`
 - `PlaybackControllerConnector` / `PlaybackDeviceControllerFactory`
-- `IntentQueueReader` / `IntentUriRemapper` / `SeekFallbackCopier`
+- `PlaybackSessionRequestCodec` / `IntentQueueReader` / `IntentUriRemapper` / `SeekFallbackCopier`
 - `TrackInfoReader` / `TrackSelectionFacade` / `TrackSelectionStateReader`
 - `PlaybackStateWriter` / `QueueHistoryWriter` / `SerialTaskQueue` / `PlaybackQueue.toMediaItems()`
 
@@ -59,6 +59,7 @@
 - `PlaybackActivity`
 - `PlaybackActivitySession`
 - `PlaybackSessionHost`
+- `PlaybackControllerConnection` / `PlaybackSessionLaunchDriver` / `PlaybackSessionStateFeeds`
 - `PlaybackLaunchOrchestrator`
 - `PlaybackPictureInPictureController` / `PlaybackWindowChromeController`
 - `Media3PlaybackSurfaceRenderer`
@@ -76,9 +77,11 @@
 
 ### `player-ui`
 - `PlayerScreen` 与播放 UI 组件
+- `PlayerScreenEffects` / `PlayerScreenShells`
 - 手势编排、UI 状态、UI 动作翻译层
 - 通过 `player-render-api` 消费 surface render 契约
-- 不直接 import `Media3` / `androidx.activity` / engine 实现
+- 通过 `player-contract` 消费 playback / track-selection port
+- 不直接 import `Media3` / `androidx.activity` / `player-platform` / engine 实现
 
 ### `player-engine`
 - `PlaybackService`
@@ -122,7 +125,7 @@
 
 - `MainActivity`、`PlaybackActivity`、`PlaybackService` 不会直接拿到整张 `AsukaAppGraph`
 - `player-contract` 只知道纯业务模型
-- `player-ui` 只知道 platform 层 connector / dependency 接口，而不知道 engine 里的具体实现
+- `player-ui` 只知道 contract/render-api 层 port，而不知道 platform/engine 里的具体实现
 - 新增 feature 优先扩展 installer / factory，而不是继续膨胀 `Application`
 
 ## 播放链路
@@ -130,12 +133,12 @@
 ### 1. 启动阶段
 
 - `MainActivity` 接收媒体选择或外部 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE`
-- `IncomingPlaybackIntentReader` 用 `PlaybackIntentPayloadCodec.fromExternalIntent()` 把外部 intent 归一成单一 payload
+- `IncomingPlaybackIntentReader` 用 `PlaybackSessionRequestCodec.fromExternalIntent()` 把外部 intent 归一成单一 request
 - `PlaybackLaunchCoordinator` 负责：
-  - 对 payload 当前项做 URI 解析与 seek fallback
-  - 保留 stable mediaId / queue / startIndex 语义
+  - 对 request 当前项做 URI 解析与初始 playback URI 决议
+  - 保留 stable mediaId / 原始 queue / startIndex 语义
   - 生成用于启动 `player-renderer:PlaybackActivity` 的 intent
-- `IntentQueueReader` / `PlaybackSessionCoordinator` 在播放页只读取同一份 payload，不再重新发明队列规则
+- `PlaybackLaunchOrchestrator` / `PlaybackSessionCoordinator` 在播放页只消费同一份 `PlaybackSessionRequest`，不再重复拼装 queue / policy / fallback 语义
 
 说明：
 
@@ -146,10 +149,13 @@
 
 - `player-renderer:PlaybackActivity` 持有 `PlaybackActivitySession`
 - `PlaybackActivitySession` 统一持有 `PlaybackSessionHost`、`PlaybackWindowChromeController`、`PlaybackPictureInPictureController`
-- `PlaybackSessionHost` 通过注入的 `PlaybackControllerConnector` 建立 `MediaController`
+- `PlaybackSessionHost` 现在只保留生命周期主时序
+- `PlaybackControllerConnection` 负责 `MediaController` 建连与 session 协调器装配
+- `PlaybackSessionLaunchDriver` 负责请求落地、seek fallback 触发与过期请求丢弃
+- `PlaybackSessionStateFeeds` 负责把 `PlayerUiStateHolder` / `PlaybackTrackUiStateHolder` 状态喂给 host
 - `PlaybackLaunchOrchestrator` 负责当前 launch intent、seek fallback 与 runtime policy 编排
 - `PlaybackLaunchOrchestrator` 现在为每次播放请求分配 request id；新 intent 会使旧 request、旧 fallback job 和旧启动结果全部失效
-- `PlaybackSessionHost` 维护两类状态：
+- state feed 层维护两类状态：
   - `PlayerUiStateHolder`：播放中的标题、时长、进度、错误、buffering
   - `PlaybackTrackUiStateHolder`：音轨、字幕、当前倍速、当前媒体 ID、选中项
 
@@ -179,6 +185,14 @@
 
 Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 
+`PlayerScreen` 本身也已拆成三类壳层：
+
+- `PlayerScreenLayoutShell`
+- `PlayerScreenGestureShell`
+- `PlayerScreenOverlayShell`
+
+副作用链单独收敛在 `PlayerScreenEffects`，overlay 面板则进一步按 settings / tracks / speed 拆成独立 section 文件。
+
 视频表面本身也不再由 `player-ui` 拥有实现：
 
 - `player-ui` 只消费 `player-render-api` 里的 `PlaybackSurfaceState` / `PlaybackSurfaceRenderer`
@@ -193,7 +207,12 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
   - 把聚合后的状态传给 `MainLibraryNavHost`
 - `MainLibraryUiState` 负责 library feature 入口状态聚合，不再把这部分 remember 逻辑塞进导航装配文件
 - `MainLibraryViewModel` 只负责设置项更新与把 catalog store 暴露给 UI
-- `MainLibraryCatalogStore` 负责 folders / videos / current folder / recent 的分页状态机、观察器触发刷新与分页错误分流
+- `MainLibraryCatalogStore` 现在是门面对象，只保留权限状态、变化观察与对外 API
+- 分页状态机已经拆成四个 slice：
+  - `MainLibraryFoldersSlice`
+  - `MainLibraryAllVideosSlice`
+  - `MainLibraryCurrentFolderSlice`
+  - `MainLibraryRecentSlice`
 - current folder 分页现在使用 request token + cancel stale job，旧 folder 的结果不能再回写当前 folder 页
 - `AndroidVideoAccessDataSource` / `AndroidMediaStoreVideoCatalogDataSource` / `PlaybackRecentMediaDataSource` 提供媒体库底层数据
 - `MediaLibraryIndexingCoordinator` 负责 MediaStore -> 本地索引同步与 `ContentObserver` 驱动的增量收敛
@@ -226,7 +245,7 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 - 播放页启动时读取的是当前值，而不是旧的 intent 快照
 - `hideButtonsBackground` 等默认值与 `PlayerSettings` 保持一致
 - 设置变化通过 flow 持续同步到播放页
-- settings repository 在发布初始值前会先等待 store 完成首轮加载，因此冷启动读取到的是已持久化值，而不是默认快照
+- settings repository 的首个值来自当前内存快照，真实 store 完成初始化后再异步接管；这样既避免主线程阻塞，也避免长期停留在默认值
 - 亮度记忆、缩放/轨道/倍速持久化、音量/亮度控制都不再由 `PlaybackActivity` 私自持有
 
 ## 持久化与恢复
@@ -272,7 +291,7 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 - 写回策略：
   - seek / pause / ended 等事件驱动
   - 播放中低频 checkpoint
-  - service 销毁前 `flush + awaitIdle`
+  - service 销毁时触发有上限的后台 drain / close，而不是在生命周期主路径同步等待
 
 ### UI 进度刷新
 
@@ -290,9 +309,10 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 ## 媒体库索引与增量同步
 
 - 媒体库 UI 读取路径不再直接查询 MediaStore；读取路径改为：
-  - `MediaLibraryIndexingCoordinator` 同步 MediaStore 到 `AsukaMediaLibraryIndexDatabase`
-  - `AndroidMediaStoreVideoCatalogDataSource` 从本地索引库做分页读取
-  - `MainLibraryCatalogStore` 维护 `foldersState` / `allVideosState` / `currentFolderVideosState` / `recentKnownVideos`
+- `MediaLibraryIndexingCoordinator` 同步 MediaStore 到 `AsukaMediaLibraryIndexDatabase`
+- `AndroidMediaStoreVideoCatalogDataSource` 从本地索引库做分页读取
+- `MainLibraryCatalogStore` facade 统一暴露 `foldersState` / `allVideosState` / `currentFolderVideosState` / `recentKnownVideos`
+- 实际状态迁移由四个 media-library slice 分别维护
 - 增量同步优先级：
   - Android R+ 优先使用 `GENERATION_ADDED` / `GENERATION_MODIFIED`
   - 低版本回退到 `DATE_MODIFIED`
@@ -320,6 +340,16 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
   - schema compatibility test
   - store behavior test
 
+## 治理与约束
+
+- `verifyArchitectureBoundaries`
+  - 校验模块依赖、包归属、播放入口 manifest、`player-ui` 对 Media3 / Activity / platform 的零直接依赖
+- `verifySourceFileSizes`
+  - 扫描所有模块 `src/main/java` 根目录，而不是只看少数 feature 目录
+  - page 类文件默认预算 320 行
+  - orchestration / state / implementation 类文件默认预算 280 行，命名覆盖 `ViewModel` / `Coordinator` / `Host` / `Activity` / `Repositories` / `Store` / `Impl` / `Installer` / `Slice` / `Driver` / `Indexing`
+  - baseline 文件只允许描述当前仍存在且仍被扫描的超限文件；失效路径会直接让校验失败
+
 ## 当前推荐阅读顺序
 
 1. `README.md`
@@ -330,13 +360,14 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 6. `app/src/main/java/com/asuka/player/app/AppComposition.kt`
 7. `app/src/main/java/com/asuka/player/app/MainLibraryFeatureInstaller.kt`
 8. `app/src/main/java/com/asuka/player/app/MainLibraryCatalogStore.kt`
-9. `app/src/main/java/com/asuka/player/app/MediaLibraryIndexing.kt`
-10. `player-runtime/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
-11. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackActivitySession.kt`
-12. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackSessionHost.kt`
-13. `player-engine/src/main/java/com/asuka/player/core/impl/Media3PlaybackController.kt`
-14. `player-engine/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
-15. `player-data/src/main/java/com/asuka/player/data/AppSettingsStore.kt`
-16. `player-data/src/main/java/com/asuka/player/data/DataStoreAppSettingsStore.kt`
-17. `player-data/src/main/java/com/asuka/player/data/AsukaPlaybackRoomDatabase.kt`
-18. `player-data/src/main/java/com/asuka/player/data/AsukaMediaLibraryIndexDatabase.kt`
+9. `app/src/main/java/com/asuka/player/app/MainLibraryCatalogSlices.kt`
+10. `app/src/main/java/com/asuka/player/app/MediaLibraryIndexing.kt`
+11. `player-runtime/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
+12. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackActivitySession.kt`
+13. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackSessionHost.kt`
+14. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackControllerConnection.kt`
+15. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackSessionLaunchDriver.kt`
+16. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreen.kt`
+17. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreenShells.kt`
+18. `player-engine/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
+19. `player-data/src/main/java/com/asuka/player/data/AppSettingsStore.kt`

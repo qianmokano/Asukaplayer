@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.media3.session.MediaController
+import com.asuka.player.contract.PlaybackTrackSelectionController
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.contract.PlaybackDeviceController
 import com.asuka.player.contract.PlaybackPreviewFrameProvider
@@ -14,8 +15,8 @@ import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStore
 import com.asuka.player.contract.PlaybackStateRepository
 import com.asuka.player.contract.PlaybackUiPersistence
+import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.ui.R
-import com.asuka.player.ui.controller.PlaybackControllerConnector
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlin.test.Test

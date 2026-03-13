@@ -40,7 +40,6 @@ kotlin {
 
 dependencies {
     implementation(project(":player-contract"))
-    implementation(project(":player-platform"))
     implementation(project(":player-render-api"))
     implementation(project(":player-domain"))
 

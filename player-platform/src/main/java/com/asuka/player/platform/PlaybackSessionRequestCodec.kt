@@ -5,28 +5,17 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import com.asuka.player.contract.PlaybackQueueEntry
+import com.asuka.player.contract.PlaybackSessionRequest
 import java.util.ArrayList
 
-data class PlaybackIntentPayload(
-    val queueEntries: List<PlaybackQueueEntry>,
-    val startIndex: Int,
-) {
-    init {
-        require(queueEntries.isNotEmpty()) { "queueEntries must not be empty" }
-        require(startIndex in queueEntries.indices) { "startIndex must point to a queue entry" }
-    }
-
-    val targetEntry: PlaybackQueueEntry
-        get() = queueEntries[startIndex]
-}
-
-object PlaybackIntentPayloadCodec {
+object PlaybackSessionRequestCodec {
     private const val EXTRA_MEDIA_ID = "com.asuka.player.extra.MEDIA_ID"
     private const val EXTRA_QUEUE_MEDIA_IDS = "com.asuka.player.extra.QUEUE_MEDIA_IDS"
     private const val EXTRA_QUEUE_URIS = "com.asuka.player.extra.QUEUE_URIS"
     private const val EXTRA_START_INDEX = "com.asuka.player.extra.START_INDEX"
+    private const val EXTRA_PLAYBACK_URI = "com.asuka.player.extra.PLAYBACK_URI"
 
-    fun fromExternalIntent(intent: Intent?): PlaybackIntentPayload? {
+    fun fromExternalIntent(intent: Intent?): PlaybackSessionRequest? {
         val sourceIntent = intent ?: return null
         val dataUri = sourceIntent.data?.toString()
         val clipUris = readClipUris(sourceIntent)
@@ -37,31 +26,33 @@ object PlaybackIntentPayloadCodec {
             extraStreamUris.isNotEmpty() -> normalizeQueueUris(targetUri, extraStreamUris)
             else -> listOf(targetUri)
         }
-        return PlaybackIntentPayload(
+        return PlaybackSessionRequest(
             queueEntries = queueUris.map { uri ->
                 PlaybackQueueEntry(mediaId = uri, uri = uri)
             },
             startIndex = queueUris.indexOf(targetUri).coerceAtLeast(0),
+            playbackUri = targetUri,
         )
     }
 
     fun fromSelection(
         targetMediaId: String,
         queueMediaIds: List<String>,
-    ): PlaybackIntentPayload {
+    ): PlaybackSessionRequest {
         val queue = normalizeQueueUris(targetMediaId, queueMediaIds)
-        return PlaybackIntentPayload(
+        return PlaybackSessionRequest(
             queueEntries = queue.map { mediaId ->
                 PlaybackQueueEntry(mediaId = mediaId, uri = mediaId)
             },
             startIndex = queue.indexOf(targetMediaId).coerceAtLeast(0),
+            playbackUri = targetMediaId,
         )
     }
 
     fun fromQueueEntries(
         targetEntry: PlaybackQueueEntry,
         queueEntries: List<PlaybackQueueEntry>,
-    ): PlaybackIntentPayload {
+    ): PlaybackSessionRequest {
         val normalized = queueEntries
             .filter { it.mediaId.isNotBlank() && it.uri.isNotBlank() }
             .distinctBy(PlaybackQueueEntry::mediaId)
@@ -69,14 +60,15 @@ object PlaybackIntentPayloadCodec {
         if (normalized.none { it.mediaId == targetEntry.mediaId }) {
             normalized.add(0, targetEntry)
         }
-        return PlaybackIntentPayload(
+        return PlaybackSessionRequest(
             queueEntries = normalized,
             startIndex = normalized.indexOfFirst { it.mediaId == targetEntry.mediaId }
                 .coerceAtLeast(0),
+            playbackUri = targetEntry.uri,
         )
     }
 
-    fun readPlaybackIntent(intent: Intent?): PlaybackIntentPayload? {
+    fun readPlaybackRequest(intent: Intent?): PlaybackSessionRequest? {
         val sourceIntent = intent ?: return null
         val storedQueueUris = sourceIntent.getStringArrayListExtra(EXTRA_QUEUE_URIS)
             .orEmpty()
@@ -91,7 +83,15 @@ object PlaybackIntentPayloadCodec {
             }
             val requestedStartIndex = sourceIntent.getIntExtra(EXTRA_START_INDEX, 0)
             val startIndex = requestedStartIndex.coerceIn(0, queueEntries.lastIndex)
-            return PlaybackIntentPayload(queueEntries, startIndex)
+            val playbackUri = sourceIntent.getStringExtra(EXTRA_PLAYBACK_URI)
+                ?.takeIf { it.isNotBlank() }
+                ?: sourceIntent.data?.toString()
+                ?: queueEntries[startIndex].uri
+            return PlaybackSessionRequest(
+                queueEntries = queueEntries,
+                startIndex = startIndex,
+                playbackUri = playbackUri,
+            )
         }
 
         val queueUris = readRuntimeQueueUris(sourceIntent)
@@ -119,47 +119,47 @@ object PlaybackIntentPayloadCodec {
             ?: queueEntries.indexOfFirst { it.uri == sourceIntent.data?.toString() }
                 .takeIf { it >= 0 }
             ?: 0
-        return PlaybackIntentPayload(queueEntries, startIndex)
+        val playbackUri = sourceIntent.data?.toString()
+            ?: queueEntries[startIndex].uri
+        return PlaybackSessionRequest(
+            queueEntries = queueEntries,
+            startIndex = startIndex,
+            playbackUri = playbackUri,
+        )
     }
 
-    fun applyPlaybackPayload(
+    fun applyPlaybackRequest(
         intent: Intent,
-        payload: PlaybackIntentPayload,
+        request: PlaybackSessionRequest,
     ) {
-        intent.putExtra(EXTRA_MEDIA_ID, payload.targetEntry.mediaId)
-        intent.putExtra(EXTRA_START_INDEX, payload.startIndex)
+        intent.putExtra(EXTRA_MEDIA_ID, request.targetEntry.mediaId)
+        intent.putExtra(EXTRA_START_INDEX, request.startIndex)
+        intent.putExtra(EXTRA_PLAYBACK_URI, request.playbackUri)
         intent.putStringArrayListExtra(
             EXTRA_QUEUE_MEDIA_IDS,
-            ArrayList(payload.queueEntries.map(PlaybackQueueEntry::mediaId)),
+            ArrayList(request.queueEntries.map(PlaybackQueueEntry::mediaId)),
         )
         intent.putStringArrayListExtra(
             EXTRA_QUEUE_URIS,
-            ArrayList(payload.queueEntries.map(PlaybackQueueEntry::uri)),
+            ArrayList(request.queueEntries.map(PlaybackQueueEntry::uri)),
         )
     }
 
-    fun buildClipData(payload: PlaybackIntentPayload): ClipData {
-        val first = Uri.parse(payload.queueEntries.first().uri)
+    fun buildClipData(request: PlaybackSessionRequest): ClipData {
+        val launchEntries = launchEntries(request)
+        val first = Uri.parse(launchEntries.first().uri)
         return ClipData.newRawUri("queue", first).apply {
-            payload.queueEntries.drop(1).forEach { entry ->
+            launchEntries.drop(1).forEach { entry ->
                 addItem(ClipData.Item(Uri.parse(entry.uri)))
             }
         }
     }
 
-    fun remapUri(
-        payload: PlaybackIntentPayload,
-        originalUri: Uri,
+    fun remapPlaybackUri(
+        request: PlaybackSessionRequest,
         replacementUri: Uri,
-    ): PlaybackIntentPayload {
-        val remappedEntries = payload.queueEntries.map { entry ->
-            if (entry.uri == originalUri.toString()) {
-                entry.copy(uri = replacementUri.toString())
-            } else {
-                entry
-            }
-        }
-        return payload.copy(queueEntries = remappedEntries)
+    ): PlaybackSessionRequest {
+        return request.withPlaybackUri(replacementUri.toString())
     }
 
     fun readRuntimeQueueUris(intent: Intent): List<String> {
@@ -168,6 +168,16 @@ object PlaybackIntentPayloadCodec {
             return normalizeQueueUris(intent.data?.toString(), clipUris)
         }
         return listOfNotNull(intent.data?.toString())
+    }
+
+    private fun launchEntries(request: PlaybackSessionRequest): List<PlaybackQueueEntry> {
+        return request.queueEntries.mapIndexed { index, entry ->
+            if (index == request.startIndex) {
+                entry.copy(uri = request.playbackUri)
+            } else {
+                entry
+            }
+        }
     }
 
     private fun readClipUris(intent: Intent): List<String> {

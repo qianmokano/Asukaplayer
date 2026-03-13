@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.media3.session.MediaController
 import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.PlaybackTrackSelectionController
 import com.google.common.util.concurrent.ListenableFuture
 
 interface PlaybackControllerConnector {

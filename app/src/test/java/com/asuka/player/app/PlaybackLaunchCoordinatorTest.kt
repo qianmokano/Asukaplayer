@@ -4,7 +4,7 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import com.asuka.player.contract.PlaybackQueueEntry
-import com.asuka.player.platform.PlaybackIntentPayloadCodec
+import com.asuka.player.platform.PlaybackSessionRequestCodec
 import com.asuka.player.renderer.activity.PlaybackActivity
 import com.asuka.player.runtime.PlaybackLaunchCoordinator
 import com.asuka.player.runtime.PlaybackUriResolver
@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
 class PlaybackLaunchCoordinatorTest {
 
     @Test
-    fun createLaunchRequest_preservesQueueAndRemapsCurrentItem() {
+    fun prepareRequest_preservesQueueAndRemapsCurrentItem() {
         val current = Uri.parse("content://videos/current.mp4")
         val resolved = Uri.parse("file:///cache/current.mp4")
         val next = Uri.parse("content://videos/next.mp4")
@@ -41,13 +41,12 @@ class PlaybackLaunchCoordinatorTest {
             }
         }
 
-        val request = coordinator.createLaunchRequest(
-            payload = PlaybackIntentPayloadCodec.fromExternalIntent(sourceIntent)!!,
+        val request = coordinator.prepareRequest(
+            request = PlaybackSessionRequestCodec.fromExternalIntent(sourceIntent)!!,
         )
 
-        assertEquals(resolved, request.mediaUri)
-        assertEquals(resolved, request.clipData.getItemAt(0).uri)
-        assertEquals(next, request.clipData.getItemAt(1)?.uri)
+        assertEquals(current.toString(), request.originalUri)
+        assertEquals(resolved.toString(), request.playbackUri)
 
         val playbackIntent = coordinator.createPlaybackIntent(
             context = RuntimeEnvironment.getApplication(),
@@ -69,7 +68,7 @@ class PlaybackLaunchCoordinatorTest {
     }
 
     @Test
-    fun createLaunchRequest_buildsClipDataFromExplicitQueueWhenNoSourceIntent() {
+    fun prepareRequest_buildsClipDataFromExplicitQueueWhenNoSourceIntent() {
         val previous = Uri.parse("content://videos/previous.mp4")
         val current = Uri.parse("content://videos/current.mp4")
         val resolved = Uri.parse("file:///cache/current.mp4")
@@ -80,21 +79,24 @@ class PlaybackLaunchCoordinatorTest {
             },
         )
 
-        val request = coordinator.createLaunchRequest(
-            payload = PlaybackIntentPayloadCodec.fromSelection(
+        val request = coordinator.prepareRequest(
+            request = PlaybackSessionRequestCodec.fromSelection(
                 targetMediaId = current.toString(),
                 queueMediaIds = listOf(previous.toString(), current.toString(), next.toString()),
             ),
         )
 
-        assertEquals(resolved, request.mediaUri)
-        assertEquals(previous, request.clipData.getItemAt(0).uri)
-        assertEquals(resolved, request.clipData.getItemAt(1)?.uri)
-        assertEquals(next, request.clipData.getItemAt(2)?.uri)
+        assertEquals(current.toString(), request.originalUri)
+        assertEquals(resolved.toString(), request.playbackUri)
+
+        val clipData = PlaybackSessionRequestCodec.buildClipData(request)
+        assertEquals(previous, clipData.getItemAt(0).uri)
+        assertEquals(resolved, clipData.getItemAt(1)?.uri)
+        assertEquals(next, clipData.getItemAt(2)?.uri)
     }
 
     @Test
-    fun createLaunchRequest_prependsCurrentItemWhenExplicitQueueDoesNotContainIt() {
+    fun prepareRequest_prependsCurrentItemWhenExplicitQueueDoesNotContainIt() {
         val current = Uri.parse("content://videos/current.mp4")
         val resolved = Uri.parse("file:///cache/current.mp4")
         val next = Uri.parse("content://videos/next.mp4")
@@ -104,19 +106,20 @@ class PlaybackLaunchCoordinatorTest {
             },
         )
 
-        val request = coordinator.createLaunchRequest(
-            payload = PlaybackIntentPayloadCodec.fromSelection(
+        val request = coordinator.prepareRequest(
+            request = PlaybackSessionRequestCodec.fromSelection(
                 targetMediaId = current.toString(),
                 queueMediaIds = listOf(next.toString()),
             ),
         )
 
-        assertEquals(resolved, request.clipData.getItemAt(0)?.uri)
-        assertEquals(next, request.clipData.getItemAt(1)?.uri)
+        val clipData = PlaybackSessionRequestCodec.buildClipData(request)
+        assertEquals(resolved, clipData.getItemAt(0)?.uri)
+        assertEquals(next, clipData.getItemAt(1)?.uri)
     }
 
     @Test
-    fun createLaunchRequest_preservesStableMediaIds_whenQueueEntriesCarryOpaqueIdentity() {
+    fun prepareRequest_preservesStableMediaIds_whenQueueEntriesCarryOpaqueIdentity() {
         val current = PlaybackQueueEntry(
             mediaId = "media-store:1",
             uri = "content://videos/current.mp4",
@@ -131,17 +134,17 @@ class PlaybackLaunchCoordinatorTest {
             },
         )
 
-        val request = coordinator.createLaunchRequest(
-            payload = PlaybackIntentPayloadCodec.fromQueueEntries(
+        val request = coordinator.prepareRequest(
+            request = PlaybackSessionRequestCodec.fromQueueEntries(
                 targetEntry = current,
                 queueEntries = listOf(current, next),
             ),
         )
 
-        assertEquals("media-store:1", request.mediaId)
+        assertEquals("media-store:1", request.targetEntry.mediaId)
         assertEquals(
             listOf("media-store:1", "media-store:2"),
-            request.payload.queueEntries.map(PlaybackQueueEntry::mediaId),
+            request.queueEntries.map(PlaybackQueueEntry::mediaId),
         )
     }
 }

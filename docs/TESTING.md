@@ -7,6 +7,7 @@
 ```bash
 ./gradlew test
 ./gradlew :player-ui:compileDebugAndroidTestKotlin
+./gradlew verifyArchitectureBoundaries verifySourceFileSizes
 ./gradlew help
 ```
 
@@ -17,6 +18,9 @@
 - `:player-ui:compileDebugAndroidTestKotlin`
   - 保证 `player-ui/src/androidTest` 与当前播放页 API 保持同步
   - 不需要设备
+- `./gradlew verifyArchitectureBoundaries verifySourceFileSizes`
+  - 验证模块边界、播放入口约束和文件体量预算
+  - `verifySourceFileSizes` 现在会扫描全部 `src/main/java` 模块根目录，并在 baseline 出现失效路径时直接失败
 - `./gradlew help`
   - 快速验证 `Gradle configuration cache` 是否已经可复用
   - 预期输出包含 `Configuration cache entry reused.`
@@ -48,7 +52,7 @@
 - 外部 `ACTION_SEND`
 - 外部 `ACTION_SEND_MULTIPLE`
 - `ClipData` 多文件启动
-- `PlaybackIntentPayload` 编解码 round-trip
+- `PlaybackSessionRequest` 编解码 round-trip
 - stable mediaId 与 fallback runtime URI 共存
 - seek fallback 后 URI / 队列一致性
 - superseded launch request / seek fallback 不得在新 request 之后落地
@@ -69,8 +73,8 @@
 - `AppSettingsSnapshot` schema compatibility
 - Room-backed playback/history store 的顺序、裁剪和 round-trip
 - playback/history writer 在慢存储场景下不阻塞播放器回调线程
-- `PlaybackService` 销毁前的 flush / await 行为
-- settings repository 初始值必须等待 store ready，不能在冷启动时先发布默认快照
+- `PlaybackService` 启动/销毁生命周期，包括非阻塞 teardown 与后台持久化 drain
+- settings repository 冷启动先发布最佳可用内存快照，随后由真实 store 异步接管
 - `MediaLibraryIndexingCoordinator` 首次索引后使用增量条件（`DATE_MODIFIED` / generation）继续同步
 - 已观察到的删除 URI 优先走定点清理，而不是每次都全量 `_ID` reconcile
 - 已观察到的新增 `_ID` 在旧 `DATE_MODIFIED` 时间戳场景下仍会补 metadata，不会静默漏进索引
@@ -155,7 +159,8 @@
 预期：
 
 - `MainLibraryViewModel` 只做状态编排
-- `MainLibraryCatalogStore` 负责分页状态机和变化刷新
+- `MainLibraryCatalogStore` 作为 facade 暴露状态与入口
+- folders / all videos / current folder / recent 四个 slice 各自维护局部分页状态机
 - `MediaLibraryRepository` / use case 负责媒体库规则
 - 页面读取走本地索引而不是直接走 MediaStore 全量查询
 
@@ -176,11 +181,11 @@
 - PR 默认执行：
   - `./gradlew test`
   - `./gradlew :player-ui:compileDebugAndroidTestKotlin`
+  - `./gradlew verifyArchitectureBoundaries verifySourceFileSizes`
   - `./gradlew help`
 - 可选补充：
   - `./gradlew lintDebug`
-  - `./gradlew verifyArchitectureBoundaries verifySourceFileSizes`
-- 组合根 / payload / persistence contract 发生改动时，优先检查：
+- 组合根 / request / persistence contract 发生改动时，优先检查：
   - `MainActivityDirectPlaybackTest`
   - `PlaybackLaunchCoordinatorTest`
   - `PlaybackLaunchOrchestratorTest`
@@ -191,6 +196,7 @@
   - `PlaybackPersistenceStoresFactoryTest`
   - `PlaybackStateWriterTest`
   - `QueueHistoryWriterTest`
+  - `PlaybackServiceTest`
   - `MediaLibraryIndexingCoordinatorTest`
   - `RecentPlaybackDescriptorTest`
 - 持久化 schema 变更时额外检查：

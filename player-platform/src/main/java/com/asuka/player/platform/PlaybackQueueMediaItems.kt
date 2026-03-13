@@ -4,10 +4,18 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.asuka.player.contract.PlaybackQueue
 
-fun PlaybackQueue.toMediaItems(): List<MediaItem> {
+fun PlaybackQueue.toMediaItems(
+    targetMediaId: String? = null,
+    targetPlaybackUri: String? = null,
+): List<MediaItem> {
     return items.map { item ->
+        val uri = if (item.mediaId == targetMediaId && !targetPlaybackUri.isNullOrBlank()) {
+            targetPlaybackUri
+        } else {
+            item.uri
+        }
         MediaItem.Builder()
-            .setUri(item.uri)
+            .setUri(uri)
             .setMediaId(item.mediaId)
             .setMediaMetadata(
                 MediaMetadata.Builder()

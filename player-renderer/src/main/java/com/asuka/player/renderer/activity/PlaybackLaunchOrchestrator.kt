@@ -5,11 +5,12 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.PlaybackException
-import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
+import com.asuka.player.contract.PlaybackSessionPlan
+import com.asuka.player.contract.PlaybackSessionRequest
 import com.asuka.player.contract.PlaybackStartupPolicy
+import com.asuka.player.platform.PlaybackSessionRequestCodec
 import com.asuka.player.platform.SeekFallbackCopier
-import com.asuka.player.platform.copyIntentWithRemappedUri
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -24,32 +25,33 @@ internal class PlaybackLaunchOrchestrator(
         SeekFallbackCopier(contentResolver, cacheDir).copy(uri, checkSize = true)
     },
 ) {
-    private var currentIntent: Intent? = null
+    private var currentRequest: PlaybackSessionRequest? = null
     private var seekFallbackJob: Job? = null
     private val seekFallbackAttemptedUris = mutableSetOf<String>()
-    private var currentRequestId: Long = 0L
+    private var latestRequestId: Long = 0L
 
     fun updateIntent(
         intent: Intent?,
         supersedeRequest: Boolean = false,
         clearSeekFallbackAttempts: Boolean = false,
     ): Long {
-        currentIntent = intent
-        if (supersedeRequest || (currentRequestId == 0L && intent != null)) {
-            currentRequestId += 1L
+        val parsedRequest = PlaybackSessionRequestCodec.readPlaybackRequest(intent)
+        if (supersedeRequest || (latestRequestId == 0L && parsedRequest != null)) {
+            latestRequestId += 1L
             if (supersedeRequest) {
                 cancelPending()
             }
         }
+        currentRequest = parsedRequest?.withRequestId(latestRequestId)
         if (clearSeekFallbackAttempts) {
             seekFallbackAttemptedUris.clear()
         }
-        return currentRequestId
+        return currentRequest?.requestId ?: 0L
     }
 
-    fun currentIntentData(): Uri? = currentIntent?.data
+    fun currentPlaybackUri(): Uri? = currentRequest?.playbackUri?.let(Uri::parse)
 
-    fun currentRequestId(): Long = currentRequestId
+    fun currentRequestId(): Long = currentRequest?.requestId ?: 0L
 
     fun cancelPending() {
         seekFallbackJob?.cancel()
@@ -58,31 +60,26 @@ internal class PlaybackLaunchOrchestrator(
 
     suspend fun startPlayback(
         requestId: Long,
-        targetUri: Uri?,
-        prepareLaunch: suspend (
-            targetUri: Uri?,
-            launchIntent: Intent?,
-            policy: PlaybackStartupPolicy,
-        ) -> PlaybackLaunchResult?,
-        applyLaunch: (PlaybackLaunchResult, Boolean) -> Unit,
-        applyArtwork: (targetEntry: PlaybackQueueEntry, startIndex: Int, uri: Uri) -> Unit = { _, _, _ -> },
+        prepareLaunch: suspend (PlaybackSessionRequest) -> PlaybackLaunchResult?,
+        applyLaunch: (PlaybackLaunchResult) -> Unit,
+        applyArtwork: (request: PlaybackSessionRequest, startIndex: Int, uri: Uri) -> Unit = { _, _, _ -> },
     ): PlaybackLaunchResult? {
-        if (requestId != currentRequestId) return null
+        val baseRequest = currentRequest ?: return null
+        if (requestId != baseRequest.requestId) return null
         val runtimeSettings = runtimeSettingsSource.current()
-        val result = prepareLaunch(
-            targetUri,
-            currentIntent,
-            PlaybackStartupPolicy(
+        val request = baseRequest.withRuntimePolicy(
+            policy = PlaybackStartupPolicy(
                 resumePlayback = runtimeSettings.resumePlayback,
                 defaultPlaybackSpeed = runtimeSettings.defaultPlaybackSpeed,
                 rememberTrackSelections = runtimeSettings.rememberSelections,
             ),
-        ) ?: return null
-        if (requestId != currentRequestId) return null
-        applyLaunch(result, runtimeSettings.autoplay)
-        if (requestId != currentRequestId) return null
-        val uri = targetUri ?: return result
-        applyArtwork(result.targetEntry, result.plan.queue.startIndex, uri)
+            autoplay = runtimeSettings.autoplay,
+        )
+        val result = prepareLaunch(request) ?: return null
+        if (requestId != currentRequestId()) return null
+        applyLaunch(result)
+        if (requestId != currentRequestId()) return null
+        applyArtwork(result.request, result.plan.queue.startIndex, Uri.parse(result.request.playbackUri))
         return result
     }
 
@@ -90,7 +87,7 @@ internal class PlaybackLaunchOrchestrator(
         requestId: Long,
         currentUri: Uri?,
         isSeekable: Boolean,
-        onFallbackResolved: suspend (Uri) -> Unit,
+        onFallbackResolved: suspend () -> Unit,
     ) {
         if (currentUri == null || isSeekable) return
         trySeekFallback(requestId, currentUri, "not_seekable_ready", onFallbackResolved)
@@ -100,7 +97,7 @@ internal class PlaybackLaunchOrchestrator(
         requestId: Long,
         currentUri: Uri?,
         error: PlaybackException,
-        onFallbackResolved: suspend (Uri) -> Unit,
+        onFallbackResolved: suspend () -> Unit,
     ) {
         if (currentUri == null) return
         trySeekFallback(requestId, currentUri, "player_error_${error.errorCode}", onFallbackResolved)
@@ -110,23 +107,19 @@ internal class PlaybackLaunchOrchestrator(
         requestId: Long,
         currentUri: Uri,
         reason: String,
-        onFallbackResolved: suspend (Uri) -> Unit,
+        onFallbackResolved: suspend () -> Unit,
     ) {
-        if (requestId != currentRequestId) return
+        if (requestId != currentRequestId()) return
         if (currentUri.scheme != "content") return
         val key = currentUri.toString()
         if (!seekFallbackAttemptedUris.add(key)) return
         if (seekFallbackJob?.isActive == true) return
         val job = scope.launch {
             val copiedUri = copyForSeekFallback(currentUri) ?: return@launch
-            if (requestId != currentRequestId) return@launch
+            if (requestId != currentRequestId()) return@launch
             Log.i(TAG, "fallback[$reason] src=${currentUri.authority} dst=${copiedUri.lastPathSegment}")
-            currentIntent = copyIntentWithRemappedUri(
-                intent = currentIntent,
-                originalUri = currentUri,
-                replacementUri = copiedUri,
-            )
-            onFallbackResolved(copiedUri)
+            currentRequest = currentRequest?.withPlaybackUri(copiedUri.toString())
+            onFallbackResolved()
         }
         seekFallbackJob = job
         job.invokeOnCompletion {
@@ -142,6 +135,6 @@ internal class PlaybackLaunchOrchestrator(
 }
 
 internal data class PlaybackLaunchResult(
-    val targetEntry: PlaybackQueueEntry,
-    val plan: com.asuka.player.contract.PlaybackSessionPlan,
+    val request: PlaybackSessionRequest,
+    val plan: PlaybackSessionPlan,
 )

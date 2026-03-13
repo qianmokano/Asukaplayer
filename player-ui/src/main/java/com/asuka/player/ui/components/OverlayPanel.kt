@@ -40,11 +40,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.asuka.player.contract.LoopMode
-import com.asuka.player.ui.controller.OverlayActions
 import com.asuka.player.ui.controller.TrackOption
-import com.asuka.player.ui.state.ScaleState
+import com.asuka.player.ui.controller.OverlayActions
 import com.asuka.player.ui.controller.OverlayTrackActions
 import com.asuka.player.ui.R
+import com.asuka.player.ui.state.ScaleState
 import com.asuka.player.ui.theme.PlayerUiTokens
 import kotlinx.coroutines.yield
 
@@ -190,7 +190,7 @@ fun OverlayPanel(
                                             }
                                             ?.label
                                             ?: stringResource(id = R.string.no_audio_track),
-                                        scaleSummary = currentScaleMode.toLabel(),
+                                        scaleSummary = currentScaleMode.toOverlayLabel(),
                                         loopSummary = currentRepeatMode.toLoopModeLabel(),
                                         shuffleSummary = if (shuffleEnabled) {
                                             stringResource(id = R.string.playback_mode_shuffle_on)
@@ -241,20 +241,3 @@ fun OverlayPanel(
         }
     }
 }
-
-@Composable
-private fun com.asuka.player.contract.VideoScaleMode.toLabel(): String =
-    when (this) {
-        com.asuka.player.contract.VideoScaleMode.FIT -> stringResource(id = R.string.fit)
-        com.asuka.player.contract.VideoScaleMode.FILL -> stringResource(id = R.string.fill)
-        com.asuka.player.contract.VideoScaleMode.CROP -> stringResource(id = R.string.crop)
-        com.asuka.player.contract.VideoScaleMode.STRETCH -> stringResource(id = R.string.stretch)
-    }
-
-@Composable
-private fun LoopMode.toLoopModeLabel(): String =
-    when (this) {
-        LoopMode.OFF -> stringResource(id = R.string.playback_mode_loop_off)
-        LoopMode.ONE -> stringResource(id = R.string.playback_mode_loop_one)
-        LoopMode.ALL -> stringResource(id = R.string.playback_mode_loop_all)
-    }

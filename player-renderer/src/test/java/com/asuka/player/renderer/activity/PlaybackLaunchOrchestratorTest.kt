@@ -3,10 +3,10 @@ package com.asuka.player.renderer.activity
 import android.content.Intent
 import android.net.Uri
 import androidx.media3.common.PlaybackException
-import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlaybackSessionPlan
+import com.asuka.player.contract.PlaybackSessionRequest
 import com.asuka.player.contract.PlaybackStartupPolicy
 import com.asuka.player.contract.PlaybackQueue
 import com.asuka.player.contract.PlayerSettings
@@ -57,22 +57,18 @@ class PlaybackLaunchOrchestratorTest {
             clearSeekFallbackAttempts = true,
         )
 
-        var capturedIntent: Intent? = null
+        var capturedRequest: PlaybackSessionRequest? = null
         var capturedPolicy: PlaybackStartupPolicy? = null
         var artworkMediaId: String? = null
         var applyAutoplay: Boolean? = null
 
         orchestrator.startPlayback(
             requestId = requestId,
-            targetUri = launchIntent.data,
-            prepareLaunch = { _, forwardedIntent, policy ->
-                capturedIntent = forwardedIntent
-                capturedPolicy = policy
+            prepareLaunch = { request ->
+                capturedRequest = request
+                capturedPolicy = request.startupPolicy
                 PlaybackLaunchResult(
-                    targetEntry = PlaybackQueueEntry(
-                        mediaId = "media-store:42",
-                        uri = launchIntent.data.toString(),
-                    ),
+                    request = request,
                     plan = PlaybackSessionPlan(
                         queue = PlaybackQueue(items = emptyList(), startIndex = 0),
                         resumePositionMs = 0L,
@@ -81,12 +77,12 @@ class PlaybackLaunchOrchestratorTest {
                     ),
                 )
             },
-            applyLaunch = { _, autoplay -> applyAutoplay = autoplay },
-            applyArtwork = { targetEntry, _, _ -> artworkMediaId = targetEntry.mediaId },
+            applyLaunch = { result -> applyAutoplay = result.request.autoplay },
+            applyArtwork = { request, _, _ -> artworkMediaId = request.targetEntry.mediaId },
         )
 
         assertFalse(applyAutoplay!!)
-        assertEquals(launchIntent, capturedIntent)
+        assertEquals(launchIntent.data.toString(), capturedRequest?.playbackUri)
         assertEquals(
             PlaybackStartupPolicy(
                 resumePlayback = false,
@@ -95,7 +91,7 @@ class PlaybackLaunchOrchestratorTest {
             ),
             capturedPolicy,
         )
-        assertEquals("media-store:42", artworkMediaId)
+        assertEquals(launchIntent.data.toString(), artworkMediaId)
     }
 
     @Test
@@ -125,7 +121,7 @@ class PlaybackLaunchOrchestratorTest {
         orchestrator.handlePlaybackError(requestId, original, error) { callbackCount += 1 }
 
         assertEquals(1, callbackCount)
-        assertEquals(replacement, orchestrator.currentIntentData())
+        assertEquals(replacement, orchestrator.currentPlaybackUri())
     }
 
     @Test
@@ -154,18 +150,14 @@ class PlaybackLaunchOrchestratorTest {
         var artworkCount = 0
         val result = orchestrator.startPlayback(
             requestId = firstRequestId,
-            targetUri = firstIntent.data,
-            prepareLaunch = { _, _, _ ->
+            prepareLaunch = { request ->
                 orchestrator.updateIntent(
                     intent = secondIntent,
                     supersedeRequest = true,
                     clearSeekFallbackAttempts = true,
                 )
                 PlaybackLaunchResult(
-                    targetEntry = PlaybackQueueEntry(
-                        mediaId = "media-store:1",
-                        uri = firstIntent.data.toString(),
-                    ),
+                    request = request,
                     plan = PlaybackSessionPlan(
                         queue = PlaybackQueue(items = emptyList(), startIndex = 0),
                         resumePositionMs = 0L,
@@ -174,14 +166,14 @@ class PlaybackLaunchOrchestratorTest {
                     ),
                 )
             },
-            applyLaunch = { _, _ -> applyCount += 1 },
+            applyLaunch = { _ -> applyCount += 1 },
             applyArtwork = { _, _, _ -> artworkCount += 1 },
         )
 
         assertEquals(null, result)
         assertEquals(0, applyCount)
         assertEquals(0, artworkCount)
-        assertEquals(secondIntent.data, orchestrator.currentIntentData())
+        assertEquals(secondIntent.data, orchestrator.currentPlaybackUri())
     }
 
     private fun fakeRuntimeSettingsSource(

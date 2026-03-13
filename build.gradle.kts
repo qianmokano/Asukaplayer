@@ -105,11 +105,17 @@ abstract class VerifyArchitectureBoundariesTask : DefaultTask() {
                 message = "player-ui must not depend directly on :player-engine",
             )
         }
+        if ("project(\":player-platform\")" in playerUiBuild) {
+            violations += ArchitectureViolation(
+                file = "player-ui/build.gradle.kts",
+                message = "player-ui must consume playback ports from :player-contract instead of depending on :player-platform",
+            )
+        }
         listOf("libs.media3.session", "libs.media3.common").forEach { token ->
             if (token in playerUiBuild) {
                 violations += ArchitectureViolation(
                     file = "player-ui/build.gradle.kts",
-                    message = "player-ui should consume Media3 session/common via :player-platform rather than declare '$token' directly",
+                    message = "player-ui should stay Media3-free; renderer/platform adapters own '$token'",
                 )
             }
         }
@@ -145,6 +151,12 @@ abstract class VerifyArchitectureBoundariesTask : DefaultTask() {
                     violations += ArchitectureViolation(
                         file = "${file.relativeTo(rootDir).path}:${index + 1}",
                         message = "player-ui main source must not import androidx.activity entrypoint types",
+                    )
+                }
+                if (trimmed.startsWith("import com.asuka.player.platform.")) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-ui main source must depend on contract/render-api/domain ports, not platform adapters",
                     )
                 }
             }
@@ -364,12 +376,16 @@ abstract class VerifySourceFileSizesTask : DefaultTask() {
         }
 
         val pageRegex = Regex(""".*(Page|Pages|Screen|NavHost|Sheet|Dialog)\.kt$""")
-        val orchestrationRegex = Regex(""".*(ViewModel|Coordinator|Host|Activity|Repositories)\.kt$""")
+        val orchestrationRegex = Regex(
+            """.*(ViewModel|Coordinator|Host|Activity|Repositories|Store|Impl|Installer|Slice|Slices|Driver|Indexing)\.kt$""",
+        )
         val violations = mutableListOf<String>()
+        val trackedRelativePaths = mutableSetOf<String>()
 
         explicitBudgetPaths.get().forEach { dir ->
             kotlinFiles(rootDir.resolve(dir)).forEach { file ->
                 val relativePath = file.relativeTo(rootDir).path
+                trackedRelativePaths += relativePath
                 val lineCount = file.readLines().size
                 val budget = baselineLimits[relativePath]
                     ?: when {
@@ -382,6 +398,12 @@ abstract class VerifySourceFileSizesTask : DefaultTask() {
                 }
             }
         }
+
+        baselineLimits.keys
+            .filterNot(trackedRelativePaths::contains)
+            .forEach { stalePath ->
+                violations += "- $stalePath: stale baseline entry points to a missing or untracked file"
+            }
 
         if (violations.isNotEmpty()) {
             throw GradleException(
@@ -399,6 +421,7 @@ abstract class VerifySourceFileSizesTask : DefaultTask() {
 val architectureRootPackageMap = mapOf(
     "app/src/main/java" to "com.asuka.player.app",
     "player-contract/src/main/java" to "com.asuka.player.contract",
+    "player-data/src/main/java" to "com.asuka.player.data",
     "player-platform/src/main/java" to "com.asuka.player.platform",
     "player-render-api/src/main/java" to "com.asuka.player.render.api",
     "player-renderer/src/main/java" to "com.asuka.player.renderer",
@@ -429,11 +452,7 @@ tasks.register<VerifySourceFileSizesTask>("verifySourceFileSizes") {
     description = "Checks file-size budgets for state/orchestration and page-level source files."
     projectRootPath.set(layout.projectDirectory.asFile.absolutePath)
     explicitBudgetPaths.set(
-        listOf(
-            "app/src/main/java/com/asuka/player/app",
-            "player-ui/src/main/java/com/asuka/player/ui",
-            "player-runtime/src/main/java/com/asuka/player/runtime",
-        ),
+        architectureRootPackageMap.keys.toList(),
     )
     trackedFiles.from(
         explicitBudgetPaths.get().map(layout.projectDirectory::dir),

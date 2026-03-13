@@ -30,16 +30,19 @@ fun copyIntentWithRemappedUri(
     replacementUri: Uri,
 ): Intent {
     return (intent?.let(::Intent) ?: Intent()).apply {
-        val payload = PlaybackIntentPayloadCodec.readPlaybackIntent(intent)
-        if (payload != null) {
-            val remappedPayload = PlaybackIntentPayloadCodec.remapUri(
-                payload = payload,
-                originalUri = originalUri,
-                replacementUri = replacementUri,
-            )
-            PlaybackIntentPayloadCodec.applyPlaybackPayload(this, remappedPayload)
-            data = Uri.parse(remappedPayload.targetEntry.uri)
-            clipData = PlaybackIntentPayloadCodec.buildClipData(remappedPayload)
+        val request = PlaybackSessionRequestCodec.readPlaybackRequest(intent)
+        if (request != null) {
+            val remappedRequest = if (request.playbackUri == originalUri.toString()) {
+                PlaybackSessionRequestCodec.remapPlaybackUri(
+                    request = request,
+                    replacementUri = replacementUri,
+                )
+            } else {
+                request
+            }
+            PlaybackSessionRequestCodec.applyPlaybackRequest(this, remappedRequest)
+            data = Uri.parse(remappedRequest.playbackUri)
+            clipData = PlaybackSessionRequestCodec.buildClipData(remappedRequest)
         } else {
             data = replacementUri
             clipData = remapClipDataUri(intent?.clipData, originalUri, replacementUri)

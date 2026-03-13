@@ -3,19 +3,18 @@ package com.asuka.player.app
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModelProvider
-import com.asuka.player.platform.PlaybackIntentPayload
-import com.asuka.player.runtime.PlaybackLaunchRequest
+import com.asuka.player.contract.PlaybackSessionRequest
 
 interface MainActivityDependencies {
     val mainLibraryViewModelFactory: ViewModelProvider.Factory
 
-    fun createPlaybackLaunchRequest(
-        payload: PlaybackIntentPayload,
-    ): PlaybackLaunchRequest
+    fun preparePlaybackRequest(
+        request: PlaybackSessionRequest,
+    ): PlaybackSessionRequest
 
     fun createPlaybackIntent(
         context: Context,
-        request: PlaybackLaunchRequest,
+        request: PlaybackSessionRequest,
     ): Intent
 }
 

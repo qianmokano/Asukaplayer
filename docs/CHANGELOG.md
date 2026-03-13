@@ -45,12 +45,15 @@
   - settings/playback/history store contracts are now `suspend` I/O boundaries instead of synchronous APIs hidden behind dispatcher conventions
   - playback persistence initialization now goes through deferred resolver + suspend factory, so first Room open/import does not leak through synchronous getters
   - app composition root now exports narrow feature binding objects instead of passing `AsukaAppGraph` through installer / entry wrappers
-  - playback launch / queue / identity semantics are unified behind `PlaybackIntentPayloadCodec`; external intake, launch request construction, playback-page decoding, and URI remap now share one model
+  - playback launch / queue / identity semantics are unified behind `PlaybackSessionRequest` + codec; external intake, launch request construction, playback-page decoding, and seek-fallback remap now share one request model
+  - old `PlaybackIntentPayload*` compatibility names were removed; launch code now uses `PlaybackSessionRequest` terminology end-to-end
 - Renderer and boundary cleanup:
   - new `player-render-api` module now owns `PlaybackSurfaceState` / `PlaybackSurfaceRenderer` / `PlaybackSurfaceTransform`
   - new `player-renderer` module now owns `PlaybackActivity`, playback session assembly, PiP/window side effects, Media3 surface adapter, and Media3-facing state holders
-  - `player-ui` no longer imports Media3 or `androidx.activity`; playback UI now consumes only render API contracts
+  - `player-ui` no longer imports Media3, `androidx.activity`, or `player-platform`; playback UI now consumes render API + contract ports only
+  - `PlaybackTrackSelectionController` moved into `player-contract`, leaving platform to supply only adapter implementations
   - root architecture verification now enforces module dependency rules for `player-ui`, `player-platform`, `player-render-api`, `player-renderer`, and playback manifest entrypoints
+  - `player-ui` no longer depends on `:player-platform`; renderer owns connector usage directly
 - Media library indexing and paging:
   - media library reads now go through `AsukaMediaLibraryIndexDatabase` instead of querying MediaStore directly on page reads
   - `MediaLibraryIndexingCoordinator` now maintains the local index and listens to `ContentObserver` changes for automatic incremental refresh
@@ -64,13 +67,19 @@
   - current-folder paging now uses request token + stale-job cancellation, so folder A results cannot overwrite folder B after a fast switch
   - playback launch orchestration now assigns request ids, cancels superseded work, and drops stale launch/fallback results before they reach the player
   - `PlaybackSessionCoordinator` now separates prepare/apply so host-level request validation happens before mutating controller state
+  - `PlaybackSessionHost` was split into controller connection, launch driver, and state-feed collaborators instead of keeping all playback session responsibilities in one class
+  - `MainLibraryCatalogStore` now acts as a facade over four dedicated slices: folders, all videos, current folder, and recent
+  - `PlayerScreen` was split into layout / gesture / overlay shells, and overlay sections were split into dedicated settings / tracks / speed panel files
 - Settings bootstrap:
-  - `AppSettingsStore` now exposes an explicit readiness boundary and settings repositories wait for initial load before publishing first values
-  - cold-start playback/runtime policy now reads persisted settings directly instead of briefly using default snapshot values
+  - `AppSettingsStore` now exposes an explicit readiness boundary while settings repositories start from the best available in-memory snapshot and let the real store asynchronously take over
+  - cold-start playback/runtime policy now starts from the best available in-memory snapshot and lets the real store asynchronously take over, instead of blocking the main path on initialization
 - Playback persistence hot-path cleanup:
   - `PlaybackStateWriter` and `QueueHistoryWriter` now enqueue writes on a serial async queue instead of using `runBlocking` inside player callback paths
-  - `PlaybackService` now flushes and awaits persistence queue drain only during teardown
+  - `PlaybackService` now schedules bounded asynchronous persistence drain during teardown instead of synchronously waiting inside `onDestroy()`
   - remembered brightness writes now run asynchronously from runtime scope instead of blocking lifecycle callbacks
 - Build/test workflow:
   - Gradle configuration cache is now enabled by default and project-owned verification tasks were rewritten to be configuration-cache friendly
+  - `verifySourceFileSizes` now scans every module `src/main/java` root, covers `Store` / `Impl` / `Slice` / `Driver` hotspots, and fails on stale baseline entries
+  - file-size baselines were reduced to only current oversized files; deleted/renamed paths no longer linger in the baseline file
+  - `PlaybackServiceTest` now covers service startup and non-blocking teardown persistence behavior
   - performance-oriented regression tests were added for non-blocking playback persistence callbacks and media-library incremental indexing behavior

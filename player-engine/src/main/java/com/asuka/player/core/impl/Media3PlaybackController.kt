@@ -14,12 +14,12 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.asuka.player.contract.LoopMode
 import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.PlaybackTrackSelectionController
 import com.asuka.player.contract.VideoScaleMode
 import com.asuka.player.platform.DefaultPlaybackTrackSelectionController
 import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.asuka.player.platform.PlaybackCustomCommands
-import com.asuka.player.platform.PlaybackTrackSelectionController
 import com.asuka.player.platform.TrackSelectionFacade
 import com.google.common.util.concurrent.ListenableFuture
 

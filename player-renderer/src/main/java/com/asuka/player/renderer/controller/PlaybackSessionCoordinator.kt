@@ -1,17 +1,15 @@
 package com.asuka.player.renderer.controller
 
-import android.content.Intent
 import android.net.Uri
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.contract.PlaybackSessionPlan
 import com.asuka.player.contract.PlaybackSessionPlanner
-import com.asuka.player.contract.PlaybackStartupPolicy
-import com.asuka.player.platform.PlaybackIntentPayloadCodec
+import com.asuka.player.contract.PlaybackSessionRequest
+import com.asuka.player.contract.PlaybackTrackSelectionController
 import com.asuka.player.platform.toMediaItems
 import com.asuka.player.platform.TrackInfoReader
-import com.asuka.player.ui.controller.PlaybackTrackSelectionController
 import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -49,22 +47,16 @@ class PlaybackSessionCoordinator(
     }
 
     data class StartResult(
-        val targetEntry: PlaybackQueueEntry,
+        val request: PlaybackSessionRequest,
         val plan: PlaybackSessionPlan,
     )
 
     suspend fun prepareStart(
-        targetUri: Uri?,
-        launchIntent: Intent?,
-        policy: PlaybackStartupPolicy,
+        request: PlaybackSessionRequest,
     ): StartResult? {
-        val target = targetUri ?: return null
-        val payload = launchIntent?.let(PlaybackIntentPayloadCodec::readPlaybackIntent)
-        val targetEntry = payload?.targetEntry ?: PlaybackQueueEntry(
-            mediaId = target.toString(),
-            uri = target.toString(),
-        )
-        val launchNeighbors = payload?.queueEntries.orEmpty()
+        val policy = request.startupPolicy ?: return null
+        val targetEntry = request.targetEntry
+        val launchNeighbors = request.queueEntries
         val plan = withContext(Dispatchers.IO) {
             (listOf(targetEntry.uri) + launchNeighbors.map(PlaybackQueueEntry::uri))
                 .distinct()
@@ -80,16 +72,16 @@ class PlaybackSessionCoordinator(
         }
         coroutineContext.ensureActive()
         return StartResult(
-            targetEntry = targetEntry,
+            request = request,
             plan = plan,
         )
     }
 
-    fun applyStart(
-        result: StartResult,
-        autoplay: Boolean,
-    ) {
-        applyPlan(result.plan, autoplay)
+    fun applyStart(result: StartResult) {
+        applyPlan(
+            plan = result.plan,
+            request = result.request,
+        )
     }
 
     override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
@@ -98,17 +90,20 @@ class PlaybackSessionCoordinator(
 
     private fun applyPlan(
         plan: PlaybackSessionPlan,
-        autoplay: Boolean,
+        request: PlaybackSessionRequest,
     ) {
         mediaController.setMediaItems(
-            plan.queue.toMediaItems(),
+            plan.queue.toMediaItems(
+                targetMediaId = request.targetEntry.mediaId,
+                targetPlaybackUri = request.playbackUri,
+            ),
             plan.queue.startIndex,
             plan.resumePositionMs,
         )
         mediaController.setPlaybackSpeed(plan.playbackSpeed)
         mediaController.prepare()
         trackSelectionRestoreController.schedule(plan.trackSelectionRestoreRequest)
-        if (autoplay) {
+        if (request.autoplay == true) {
             mediaController.play()
         } else {
             mediaController.pause()

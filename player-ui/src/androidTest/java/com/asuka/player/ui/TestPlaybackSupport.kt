@@ -4,9 +4,9 @@ import com.asuka.player.contract.LoopMode
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.contract.PlaybackDeviceController
 import com.asuka.player.contract.PlaybackPreviewFrameProvider
+import com.asuka.player.contract.PlaybackTrackSelectionController
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.contract.VideoScaleMode
-import com.asuka.player.ui.controller.PlaybackTrackSelectionController
 import com.asuka.player.ui.controller.PlaybackTrackUiState
 import com.asuka.player.ui.state.PlayerUiState
 

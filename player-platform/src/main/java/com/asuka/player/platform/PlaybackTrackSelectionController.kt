@@ -1,12 +1,7 @@
 package com.asuka.player.platform
 
 import androidx.media3.common.Player
-
-interface PlaybackTrackSelectionController {
-    fun setAudioTrack(groupIndex: Int, trackIndex: Int)
-    fun setSubtitleTrack(groupIndex: Int, trackIndex: Int)
-    fun disableSubtitles()
-}
+import com.asuka.player.contract.PlaybackTrackSelectionController
 
 class DefaultPlaybackTrackSelectionController(player: Player) : PlaybackTrackSelectionController {
     private val trackSelectionFacade = TrackSelectionFacade(player)

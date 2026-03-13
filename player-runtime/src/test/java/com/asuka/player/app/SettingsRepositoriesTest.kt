@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -100,8 +101,8 @@ class SettingsRepositoriesTest {
     }
 
     @Test
-    fun repositories_waitForStoreInitializationBeforePublishingInitialValues() {
-        val store = AwaitableAppSettingsStore(
+    fun repositories_publishBestAvailableSnapshot_withoutBlockingAndAdoptLoadedValues() = runBlocking {
+        val store = DeferredLoadingAppSettingsStore(
             loadedSnapshot = AppSettingsSnapshot(
                 playerSettings = PlayerSettingsRecord(
                     autoplay = false,
@@ -121,7 +122,14 @@ class SettingsRepositoriesTest {
             scope = testScope(),
         )
 
-        assertTrue(store.awaitLoadedCalled)
+        assertFalse(store.awaitLoadedCalled)
+        assertTrue(playerSettingsRepository.settings.value.autoplay)
+        assertEquals(1.0f, playerSettingsRepository.settings.value.defaultPlaybackSpeed)
+        assertTrue(source.current().keepSessionConnectionInBackground)
+
+        store.publishLoaded()
+        yield()
+
         assertFalse(playerSettingsRepository.settings.value.autoplay)
         assertEquals(1.5f, playerSettingsRepository.settings.value.defaultPlaybackSpeed)
         assertFalse(source.current().keepSessionConnectionInBackground)
@@ -138,10 +146,9 @@ class SettingsRepositoriesTest {
     }
 }
 
-private class AwaitableAppSettingsStore(
+private class DeferredLoadingAppSettingsStore(
     private val loadedSnapshot: AppSettingsSnapshot,
 ) : AppSettingsStore {
-    private var loaded = false
     var awaitLoadedCalled: Boolean = false
         private set
 
@@ -149,17 +156,17 @@ private class AwaitableAppSettingsStore(
 
     override suspend fun awaitLoaded() {
         awaitLoadedCalled = true
-        if (loaded) return
-        loaded = true
-        snapshots.value = loadedSnapshot
     }
 
     override fun loadSnapshot(): AppSettingsSnapshot {
-        return if (loaded) loadedSnapshot else AppSettingsSnapshot()
+        return snapshots.value
+    }
+
+    fun publishLoaded() {
+        snapshots.value = loadedSnapshot
     }
 
     override suspend fun saveSnapshot(snapshot: AppSettingsSnapshot) {
-        loaded = true
         snapshots.value = snapshot
     }
 }

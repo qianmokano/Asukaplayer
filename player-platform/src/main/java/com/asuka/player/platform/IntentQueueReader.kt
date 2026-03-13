@@ -2,6 +2,7 @@ package com.asuka.player.platform
 
 import android.content.Intent
 import com.asuka.player.contract.PlaybackQueueEntry
+import com.asuka.player.contract.PlaybackSessionRequest
 
 object IntentQueueReader {
     fun applyPlaybackIdentity(
@@ -9,7 +10,7 @@ object IntentQueueReader {
         mediaId: String,
         queueMediaIds: List<String>,
     ) {
-        val queueUris = PlaybackIntentPayloadCodec.readRuntimeQueueUris(intent)
+        val queueUris = PlaybackSessionRequestCodec.readRuntimeQueueUris(intent)
         if (queueUris.isNotEmpty()) {
             val normalizedMediaIds = queueMediaIds
                 .filter { it.isNotBlank() }
@@ -27,19 +28,20 @@ object IntentQueueReader {
             val startIndex = queueEntries.indexOfFirst { it.mediaId == mediaId }
                 .takeIf { it >= 0 }
                 ?: 0
-            PlaybackIntentPayloadCodec.applyPlaybackPayload(
+            PlaybackSessionRequestCodec.applyPlaybackRequest(
                 intent = intent,
-                payload = PlaybackIntentPayload(
+                request = PlaybackSessionRequest(
                     queueEntries = queueEntries,
                     startIndex = startIndex,
+                    playbackUri = intent.data?.toString() ?: queueEntries[startIndex].uri,
                 ),
             )
             return
         }
 
-        PlaybackIntentPayloadCodec.applyPlaybackPayload(
+        PlaybackSessionRequestCodec.applyPlaybackRequest(
             intent = intent,
-            payload = PlaybackIntentPayloadCodec.fromSelection(
+            request = PlaybackSessionRequestCodec.fromSelection(
                 targetMediaId = mediaId,
                 queueMediaIds = queueMediaIds,
             ),
@@ -47,12 +49,12 @@ object IntentQueueReader {
     }
 
     fun readTargetMediaId(intent: Intent): String? {
-        return PlaybackIntentPayloadCodec.readPlaybackIntent(intent)?.targetEntry?.mediaId
+        return PlaybackSessionRequestCodec.readPlaybackRequest(intent)?.targetEntry?.mediaId
             ?: intent.data?.toString()
     }
 
     fun readEntries(intent: Intent): List<PlaybackQueueEntry> {
-        return PlaybackIntentPayloadCodec.readPlaybackIntent(intent)?.queueEntries.orEmpty()
+        return PlaybackSessionRequestCodec.readPlaybackRequest(intent)?.queueEntries.orEmpty()
     }
 
     fun read(intent: Intent): List<String> {
