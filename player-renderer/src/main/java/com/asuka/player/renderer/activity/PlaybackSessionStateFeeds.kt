@@ -3,9 +3,12 @@ package com.asuka.player.renderer.activity
 import com.asuka.player.renderer.Media3PlaybackSurfaceState
 import com.asuka.player.renderer.controller.PlaybackTrackUiStateHolder
 import com.asuka.player.renderer.controller.PlayerUiStateHolder
+import com.asuka.player.ui.state.PlayerUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -13,6 +16,9 @@ internal class PlaybackSessionStateFeeds(
     private val scope: CoroutineScope,
     private val state: MutableStateFlow<PlaybackHostState>,
 ) {
+    private val _uiState = MutableStateFlow(PlayerUiState())
+    val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+
     private var uiStateHolder: PlayerUiStateHolder? = null
     private var trackUiStateHolder: PlaybackTrackUiStateHolder? = null
     private var uiStateFeedJob: Job? = null
@@ -26,9 +32,7 @@ internal class PlaybackSessionStateFeeds(
             uiStateHolder = holder
             uiStateFeedJob?.cancel()
             uiStateFeedJob = scope.launch {
-                holder.state.collect { uiState ->
-                    state.update { current -> current.copy(uiState = uiState) }
-                }
+                holder.state.collect { uiState -> _uiState.value = uiState }
             }
         }
         if (trackUiStateHolder == null) {
@@ -64,7 +68,7 @@ internal class PlaybackSessionStateFeeds(
         trackUiStateHolder = null
     }
 
-    fun resetToUiStateOnly() {
-        state.value = PlaybackHostState(uiState = state.value.uiState)
+    fun resetToDisconnected() {
+        state.value = PlaybackHostState()
     }
 }

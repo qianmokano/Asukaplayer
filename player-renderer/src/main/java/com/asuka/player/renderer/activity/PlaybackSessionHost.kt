@@ -8,6 +8,7 @@ import com.asuka.player.contract.PlaybackController
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.ui.R
+import com.asuka.player.ui.state.PlayerUiState
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +64,7 @@ internal class PlaybackSessionHost(
     )
 
     val state: StateFlow<PlaybackHostState> = _state
+    val uiState: StateFlow<PlayerUiState> get() = stateFeeds.uiState
     val currentPlayer: Player?
         get() = controllerConnection.currentPlayer()
     val currentController: PlaybackController?
@@ -98,7 +100,7 @@ internal class PlaybackSessionHost(
         if (!retainSession) {
             controllerConnection.releaseAll(launchDriver.playbackListener)
             launchDriver.clearAppliedRequest()
-            stateFeeds.resetToUiStateOnly()
+            stateFeeds.resetToDisconnected()
         }
     }
 
@@ -107,7 +109,7 @@ internal class PlaybackSessionHost(
         stateFeeds.clear()
         controllerConnection.releaseAll(launchDriver.playbackListener)
         launchDriver.clearAppliedRequest()
-        stateFeeds.resetToUiStateOnly()
+        stateFeeds.resetToDisconnected()
     }
 
     private fun connectOrReuseController() {

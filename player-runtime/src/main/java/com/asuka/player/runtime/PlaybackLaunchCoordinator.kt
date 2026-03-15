@@ -70,7 +70,7 @@ class SeekAwarePlaybackUriResolver(
                     false
                 }
             } ?: false
-        } catch (_: Throwable) {
+        } catch (_: Exception) {
             false
         }
     }

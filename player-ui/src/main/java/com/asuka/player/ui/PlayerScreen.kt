@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,13 +34,16 @@ import com.asuka.player.ui.state.LongPressSpeedState
 import com.asuka.player.ui.state.ScaleState
 import com.asuka.player.ui.state.SeekState
 import com.asuka.player.ui.state.TapFeedbackState
+import com.asuka.player.ui.state.PlayerUiState
 import com.asuka.player.ui.state.VolumeBrightnessState
 import com.asuka.player.ui.state.ZoomState
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun PlayerScreen(
     model: PlaybackScreenModel,
+    uiStateFlow: StateFlow<PlayerUiState>,
     dependencies: PlaybackScreenDependencies,
     onVideoBoundsChanged: ((android.graphics.Rect) -> Unit)? = null,
     onBack: () -> Unit,
@@ -47,7 +51,7 @@ fun PlayerScreen(
     onBackground: () -> Unit,
     onRotate: () -> Unit = {},
 ) {
-    val uiState = model.uiState
+    val uiState by uiStateFlow.collectAsState()
     val trackUiState = model.trackUiState
     val settings = model.settings
     val controller = dependencies.controller

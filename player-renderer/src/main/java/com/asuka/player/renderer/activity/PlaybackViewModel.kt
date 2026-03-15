@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.platform.PlaybackActivityDependencies
+import com.asuka.player.ui.state.PlayerUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ internal class PlaybackViewModel(
         ),
     )
     val state: StateFlow<PlaybackHostState> = _state.asStateFlow()
+    val uiState: StateFlow<PlayerUiState> get() = sessionHost.uiState
 
     val activityBehavior = PlaybackActivityBehavior()
 

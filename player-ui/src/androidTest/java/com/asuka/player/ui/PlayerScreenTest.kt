@@ -20,7 +20,8 @@ class PlayerScreenTest {
     fun controlsVisible_onInitialRender() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -34,7 +35,8 @@ class PlayerScreenTest {
     fun overlayOpens_onSpeedClick() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -52,7 +54,8 @@ class PlayerScreenTest {
     fun settingsOverlayOpens_onSettingsClick() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -70,7 +73,8 @@ class PlayerScreenTest {
     fun settingsOverlayNavigates_toLoopModePanel() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -88,7 +92,8 @@ class PlayerScreenTest {
     fun bottomBarHostsPlaybackControlsOnLeft() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -109,7 +114,8 @@ class PlayerScreenTest {
     fun subtitleSpeedAndRotateButtons_areRightAligned_withRotateAtFarRight() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -133,8 +139,9 @@ class PlayerScreenTest {
     fun bufferingShowsLoadingRingAroundPlayPauseButton() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(
-                    uiState = PlayerUiState(
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(
+                    PlayerUiState(
                         title = "Test",
                         isBuffering = true,
                     ),

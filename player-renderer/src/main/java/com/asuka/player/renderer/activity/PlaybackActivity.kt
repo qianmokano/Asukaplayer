@@ -151,7 +151,6 @@ class PlaybackActivity : ComponentActivity() {
         val isControllerConnected by controller.isConnected.collectAsState()
         PlayerScreen(
             model = PlaybackScreenModel(
-                uiState = state.uiState,
                 surfaceState = state.surfaceState,
                 trackUiState = state.trackUiState,
                 settings = state.runtimeSettings,
@@ -159,6 +158,7 @@ class PlaybackActivity : ComponentActivity() {
                 isControllerConnected = isControllerConnected,
                 isPersistenceDegraded = state.isPersistenceDegraded,
             ),
+            uiStateFlow = viewModel.uiState,
             dependencies = PlaybackScreenDependencies(
                 controller = controller,
                 trackSelectionController = state.trackSelectionController,

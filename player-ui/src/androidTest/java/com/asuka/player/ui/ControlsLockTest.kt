@@ -21,7 +21,8 @@ class ControlsLockTest {
     fun lockHidesControls() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -36,7 +37,8 @@ class ControlsLockTest {
     fun lockAndUnlockButtons_shareSameHorizontalAnchor() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -56,7 +58,8 @@ class ControlsLockTest {
     fun lockButton_isAnchoredOnRightSide() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},
@@ -75,7 +78,8 @@ class ControlsLockTest {
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},

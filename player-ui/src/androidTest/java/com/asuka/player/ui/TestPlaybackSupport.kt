@@ -9,6 +9,8 @@ import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.contract.VideoScaleMode
 import com.asuka.player.ui.controller.PlaybackTrackUiState
 import com.asuka.player.ui.state.PlayerUiState
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 internal object TestPlaybackController : PlaybackController {
     override fun prepare() {}
@@ -91,14 +93,15 @@ internal object TestPlaybackPreviewFrameProvider : PlaybackPreviewFrameProvider 
     ) = null
 }
 
-internal fun testPlaybackScreenModel(
-    uiState: PlayerUiState = PlayerUiState(),
-): PlaybackScreenModel {
+internal fun testPlaybackScreenModel(): PlaybackScreenModel {
     return PlaybackScreenModel(
-        uiState = uiState,
         trackUiState = PlaybackTrackUiState(),
     )
 }
+
+internal fun testUiStateFlow(
+    uiState: PlayerUiState = PlayerUiState(),
+): StateFlow<PlayerUiState> = MutableStateFlow(uiState)
 
 internal fun testPlaybackScreenDependencies(): PlaybackScreenDependencies {
     return PlaybackScreenDependencies(

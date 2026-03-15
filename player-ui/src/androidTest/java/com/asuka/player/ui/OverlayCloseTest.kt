@@ -17,7 +17,8 @@ class OverlayCloseTest {
     fun overlayClosesOnDismissClick() {
         composeRule.setContent {
             PlayerScreen(
-                model = testPlaybackScreenModel(uiState = PlayerUiState(title = "Test")),
+                model = testPlaybackScreenModel(),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
                 dependencies = testPlaybackScreenDependencies(),
                 onBack = {},
                 onPip = {},

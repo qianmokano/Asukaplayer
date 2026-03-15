@@ -36,7 +36,7 @@ class SeekFallbackCopier(
                 }
             } ?: return null
             Uri.fromFile(targetFile)
-        } catch (error: Throwable) {
+        } catch (error: Exception) {
             Log.w("AsukaSeekFallback", "copy failed for uri=$uri", error)
             null
         }
@@ -49,7 +49,7 @@ class SeekFallbackCopier(
                     val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
                     if (idx >= 0 && cursor.moveToFirst()) cursor.getLong(idx) else -1L
                 } ?: -1L
-        } catch (_: Throwable) {
+        } catch (_: Exception) {
             -1L
         }
     }
@@ -61,7 +61,7 @@ class SeekFallbackCopier(
                     val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (nameIdx >= 0 && cursor.moveToFirst()) cursor.getString(nameIdx) else null
                 }
-        } catch (_: Throwable) {
+        } catch (_: Exception) {
             null
         }
     }

@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.util.Size
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -170,33 +169,10 @@ class PlaybackArtworkBridge(
         private val contentResolver: ContentResolver,
     ) {
         suspend fun loadArtworkBytes(uri: Uri): ByteArray? {
-            val bitmap = loadArtworkBitmap(uri) ?: return null
+            val bitmap = loadArtworkBitmap(contentResolver, uri) ?: return null
             return ByteArrayOutputStream().use { output ->
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output)
                 output.toByteArray()
-            }
-        }
-
-        private fun loadArtworkBitmap(uri: Uri): android.graphics.Bitmap? {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q && uri.scheme == "content") {
-                runCatching {
-                    return contentResolver.loadThumbnail(uri, Size(512, 512), null)
-                }
-            }
-            val retriever = android.media.MediaMetadataRetriever()
-            return try {
-                if (uri.scheme == "file") {
-                    val path = uri.path ?: return null
-                    retriever.setDataSource(path)
-                } else {
-                    val pfd = runCatching { contentResolver.openFileDescriptor(uri, "r") }.getOrNull() ?: return null
-                    pfd.use { retriever.setDataSource(it.fileDescriptor) }
-                }
-                retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-            } catch (_: Throwable) {
-                null
-            } finally {
-                runCatching { retriever.release() }
             }
         }
     }

@@ -6,7 +6,7 @@ internal fun readAppVersion(context: Context): String {
     return try {
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         packageInfo.versionName ?: "unknown"
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         "unknown"
     }
 }

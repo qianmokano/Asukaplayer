@@ -395,7 +395,7 @@ private fun warmupInitialThumbnails(
             loadVideoPageUseCase.warmupInitialThumbnails(videos)
         } catch (error: CancellationException) {
             throw error
-        } catch (_: Throwable) {
+        } catch (_: Exception) {
             // Warmup is best-effort and should never interfere with the page result.
         }
     }
