@@ -80,7 +80,8 @@ internal fun BoxScope.PlayerScreenGestureShell(
             surfaceState = playbackSurface,
             transform = PlaybackSurfaceTransform(
                 zoomScale = zoomState.scale,
-                panOffset = zoomState.panOffset,
+                panOffsetX = zoomState.panOffset.x,
+                panOffsetY = zoomState.panOffset.y,
                 videoScaleMode = scaleState.mode,
             ),
         )

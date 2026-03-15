@@ -57,8 +57,8 @@ internal object Media3PlaybackSurfaceRenderer : PlaybackSurfaceRenderer {
                     .graphicsLayer {
                         scaleX = transform.zoomScale
                         scaleY = transform.zoomScale
-                        translationX = transform.panOffset.x
-                        translationY = transform.panOffset.y
+                        translationX = transform.panOffsetX
+                        translationY = transform.panOffsetY
                     }
             } else {
                 modifier
@@ -66,8 +66,8 @@ internal object Media3PlaybackSurfaceRenderer : PlaybackSurfaceRenderer {
                     .graphicsLayer {
                         scaleX = transform.zoomScale
                         scaleY = transform.zoomScale
-                        translationX = transform.panOffset.x
-                        translationY = transform.panOffset.y
+                        translationX = transform.panOffsetX
+                        translationY = transform.panOffsetY
                         alpha = 0f
                     }
             },
