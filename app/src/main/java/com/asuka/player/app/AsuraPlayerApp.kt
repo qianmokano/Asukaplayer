@@ -2,6 +2,7 @@ package com.asuka.player.app
 
 import android.app.Application
 import android.content.ComponentName
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -63,5 +64,9 @@ class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, Playback
 
     override fun onCreate() {
         super.onCreate()
+        // Set once at process start so the DayNight XML theme resolves correctly
+        // for the initial window background. All runtime theming is handled in
+        // Compose via AsukaTheme; no further setDefaultNightMode calls are needed.
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
     }
 }
