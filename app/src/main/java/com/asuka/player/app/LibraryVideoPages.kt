@@ -180,21 +180,18 @@ private fun LibraryVideoListPage(
                         }
                     }
                     item {
-                        AnimatedItemEntrance {
-                            SectionTitle(text = sectionTitle)
-                        }
+                        SectionTitle(text = sectionTitle)
                     }
                     itemsIndexed(
                         items = videos,
                         key = { _, item -> item.id },
                     ) { index, item ->
-                        AnimatedItemEntrance {
-                            GroupedListRow(
-                                index = index,
-                                totalCount = videos.size,
-                                horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
-                            ) {
-                                SettingsNavigationItem(
+                        GroupedListRow(
+                            index = index,
+                            totalCount = videos.size,
+                            horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
+                        ) {
+                            SettingsNavigationItem(
                                 icon = Icons.Outlined.VideoLibrary,
                                 thumbnailUri = item.uri,
                                 thumbnailId = item.id,
@@ -203,8 +200,7 @@ private fun LibraryVideoListPage(
                                 title = item.title,
                                 description = item.folderPath,
                                 onClick = { onPlay(item) },
-                                )
-                            }
+                            )
                         }
                     }
                     state.appendErrorMessage?.let { message ->

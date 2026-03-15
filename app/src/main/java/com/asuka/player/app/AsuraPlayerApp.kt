@@ -15,6 +15,7 @@ import com.asuka.player.platform.PlaybackServiceDependencies
 import com.asuka.player.renderer.activity.PlaybackThemeProvider
 import com.asuka.player.runtime.AsukaAppGraph
 import com.asuka.player.runtime.PlaybackPlatformBindings
+import com.asuka.player.runtime.ThemeAppearanceMode
 import com.asuka.player.engine.R as EngineR
 
 class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, PlaybackDependenciesProvider, PlaybackThemeProvider {
@@ -55,7 +56,8 @@ class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, Playback
     @Composable
     override fun ProvidePlaybackTheme(content: @Composable () -> Unit) {
         val uiSettings by graph.settings.uiSettingsRepository.settings.collectAsState()
-        AsukaTheme(themeConfig = uiSettings.themeConfig) {
+        val playbackThemeConfig = uiSettings.themeConfig.copy(appearance = ThemeAppearanceMode.Light)
+        AsukaTheme(themeConfig = playbackThemeConfig) {
             CompositionLocalProvider(LocalHapticsEnabled provides uiSettings.hapticFeedbackEnabled) {
                 content()
             }

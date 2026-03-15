@@ -3,10 +3,10 @@ package com.asuka.player.app
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 internal class MainLibraryFoldersSlice(
@@ -215,11 +215,8 @@ internal class MainLibraryAllVideosSlice(
 }
 
 internal class MainLibraryCurrentFolderSlice(
-    private val loadVideoPageUseCase: LoadVideoPageUseCase,
-    private val scope: CoroutineScope,
-    private val canReadLibrary: () -> Boolean,
-    private val handlePermissionDenied: () -> Boolean,
-    private val publishMessage: (MainLibraryText) -> Unit,
+    allVideosSource: StateFlow<MediaCatalogState<LocalVideoItem>>,
+    scope: CoroutineScope,
 ) {
     private val _currentFolderId = MutableStateFlow<Long?>(null)
     val currentFolderId: StateFlow<Long?> = _currentFolderId.asStateFlow()
@@ -227,114 +224,45 @@ internal class MainLibraryCurrentFolderSlice(
     private val _state = MutableStateFlow(MediaCatalogState<LocalVideoItem>())
     val state: StateFlow<MediaCatalogState<LocalVideoItem>> = _state.asStateFlow()
 
-    private var currentFolderLoadJob: Job? = null
-    private var currentFolderRequestToken: Long = 0L
+    init {
+        scope.launch {
+            combine(_currentFolderId, allVideosSource) { folderId, sourceState ->
+                if (folderId == null) {
+                    MediaCatalogState(hasMore = false)
+                } else {
+                    val folderItems = sourceState.items.filter { it.folderId == folderId }
+                    MediaCatalogState(
+                        items = folderItems,
+                        status = sourceState.status,
+                        hasLoadedOnce = sourceState.hasLoadedOnce,
+                        hasMore = false,
+                        nextOffset = folderItems.size,
+                        errorMessage = sourceState.errorMessage,
+                    )
+                }
+            }.collect { _state.value = it }
+        }
+    }
 
     fun ensureLoaded(folderId: Long) {
-        if (!canReadLibrary()) return
-        selectFolder(folderId)
-        val current = state.value
-        if (current.hasLoadedOnce || current.isLoading) return
-        load(folderId = folderId, offset = 0, syncIndex = true, publishFeedback = false)
+        _currentFolderId.value = folderId
     }
 
     fun refresh(folderId: Long) {
-        if (!canReadLibrary()) return
-        selectFolder(folderId)
-        if (state.value.isLoading) return
-        load(folderId = folderId, offset = 0, syncIndex = true, publishFeedback = true)
+        _currentFolderId.value = folderId
     }
 
     fun loadMore(folderId: Long) {
-        val current = state.value
-        if (!canReadLibrary() || currentFolderId.value != folderId) return
-        if (current.isLoading || current.isAppending || !current.hasMore) return
-        load(folderId = folderId, offset = current.nextOffset, syncIndex = false, publishFeedback = false)
+        // No-op: all items already available via filter
     }
 
     fun refreshLoadedFromIndex() {
-        val folderId = currentFolderId.value ?: return
-        val current = state.value
-        if (current.hasLoadedOnce && !current.isLoading && !current.isAppending) {
-            load(folderId = folderId, offset = 0, syncIndex = false, publishFeedback = false)
-        }
+        // No-op: allVideosSource updates trigger recomputation automatically
     }
 
     fun resetForPermissionLoss() {
-        currentFolderLoadJob?.cancel()
-        currentFolderLoadJob = null
         _currentFolderId.value = null
         _state.value = MediaCatalogState(hasMore = false)
-    }
-
-    private fun selectFolder(folderId: Long) {
-        if (currentFolderId.value != folderId) {
-            currentFolderLoadJob?.cancel()
-            currentFolderLoadJob = null
-            _currentFolderId.value = folderId
-            _state.value = MediaCatalogState()
-        }
-    }
-
-    private fun load(
-        folderId: Long,
-        offset: Int,
-        syncIndex: Boolean,
-        publishFeedback: Boolean,
-    ) {
-        val requestToken = nextRequestToken()
-        currentFolderLoadJob?.cancel()
-        val job = scope.launch {
-            val previous = state.value
-            if (!isCurrentRequest(folderId, requestToken)) return@launch
-            _state.value = previous.beginLoad(offset)
-
-            when (
-                val outcome = loadVideoPageUseCase(
-                    offset = offset,
-                    folderId = folderId,
-                    hasLoadedOnce = previous.hasLoadedOnce,
-                    syncIndex = syncIndex,
-                )
-            ) {
-                is MediaCatalogOutcome.Success -> {
-                    if (!isCurrentRequest(folderId, requestToken)) return@launch
-                    _state.value = previous.applyPage(page = outcome.page, append = offset > 0)
-                    warmupInitialThumbnails(scope, loadVideoPageUseCase, outcome.warmupVideos)
-                    publishRefreshMessage(
-                        hasLoadedOnce = previous.hasLoadedOnce,
-                        offset = offset,
-                        totalCount = outcome.page.totalCount,
-                        fallbackItemCount = outcome.page.items.size,
-                        publishFeedback = publishFeedback,
-                        publishMessage = publishMessage,
-                    )
-                }
-
-                is MediaCatalogOutcome.Failure -> {
-                    if (!isCurrentRequest(folderId, requestToken)) return@launch
-                    if (outcome.reason == MediaCatalogFailure.PermissionDenied && handlePermissionDenied()) {
-                        return@launch
-                    }
-                    _state.value = previous.applyFailure(offset = offset, message = outcome.reason.toText())
-                }
-            }
-        }
-        currentFolderLoadJob = job
-        job.invokeOnCompletion {
-            if (currentFolderLoadJob === job) {
-                currentFolderLoadJob = null
-            }
-        }
-    }
-
-    private fun nextRequestToken(): Long {
-        currentFolderRequestToken += 1L
-        return currentFolderRequestToken
-    }
-
-    private fun isCurrentRequest(folderId: Long, requestToken: Long): Boolean {
-        return currentFolderId.value == folderId && currentFolderRequestToken == requestToken
     }
 }
 
@@ -384,7 +312,7 @@ private fun publishRefreshMessage(
     }
 }
 
-private fun warmupInitialThumbnails(
+internal fun warmupInitialThumbnails(
     scope: CoroutineScope,
     loadVideoPageUseCase: LoadVideoPageUseCase,
     videos: List<LocalVideoItem>,

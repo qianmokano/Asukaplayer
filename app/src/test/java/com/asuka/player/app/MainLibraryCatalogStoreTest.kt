@@ -3,8 +3,8 @@ package com.asuka.player.app
 import android.net.Uri
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -181,9 +181,9 @@ class MainLibraryCatalogStoreTest {
     }
 
     @Test
-    fun ensureFolderLoaded_ignoresSupersededFolderResult() = runBlocking {
-        val firstFolderStarted = CompletableDeferred<Unit>()
-        val releaseFirstFolder = CompletableDeferred<Unit>()
+    fun ensureFolderLoaded_reportsLoadingUntilPreloadCompletes() = runBlocking {
+        val preloadStarted = CompletableDeferred<Unit>()
+        val releasePreload = CompletableDeferred<Unit>()
         val repository = object : MediaLibraryRepository {
             override val changes: Flow<Unit> = emptyFlow()
 
@@ -204,27 +204,13 @@ class MainLibraryCatalogStoreTest {
                 request: MediaLibraryPageRequest,
                 folderId: Long?,
             ): MediaLibraryPage<LocalVideoItem> {
-                return when (folderId) {
-                    1L -> {
-                        firstFolderStarted.complete(Unit)
-                        try {
-                            releaseFirstFolder.await()
-                        } catch (_: CancellationException) {
-                            // Simulate a non-cooperative dependency that still returns stale data.
-                        }
-                        MediaLibraryPage(
-                            items = listOf(video(id = 1L, folderId = 1L, title = "Folder A")),
-                            nextOffset = null,
-                        )
-                    }
-
-                    2L -> MediaLibraryPage(
-                        items = listOf(video(id = 2L, folderId = 2L, title = "Folder B")),
-                        nextOffset = null,
-                    )
-
-                    else -> MediaLibraryPage(items = emptyList(), nextOffset = null)
-                }
+                assertEquals(null, folderId)
+                preloadStarted.complete(Unit)
+                releasePreload.await()
+                return MediaLibraryPage(
+                    items = listOf(video(id = 1L, folderId = 1L, title = "Folder A")),
+                    nextOffset = null,
+                )
             }
 
             override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
@@ -252,26 +238,125 @@ class MainLibraryCatalogStoreTest {
         )
 
         store.ensureFolderLoaded(1L)
-        firstFolderStarted.await()
-        store.ensureFolderLoaded(2L)
+        preloadStarted.await()
 
         waitForCondition {
-            store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(2L)
+            store.currentFolderId.value == 1L &&
+                store.currentFolderVideosState.value.isLoading &&
+                !store.currentFolderVideosState.value.hasLoadedOnce &&
+                store.currentFolderVideosState.value.items.isEmpty()
         }
 
-        releaseFirstFolder.complete(Unit)
+        releasePreload.complete(Unit)
 
         waitForCondition {
-            store.currentFolderId.value == 2L &&
-                store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(2L)
+            store.currentFolderVideosState.value.hasLoadedOnce &&
+                !store.currentFolderVideosState.value.isLoading &&
+                store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L)
         }
 
-        assertEquals(2L, store.currentFolderId.value)
-        assertEquals(listOf(2L), store.currentFolderVideosState.value.items.map(LocalVideoItem::id))
+        assertEquals(1L, store.currentFolderId.value)
+        assertEquals(listOf(1L), store.currentFolderVideosState.value.items.map(LocalVideoItem::id))
+    }
+
+    @Test
+    fun refreshFolder_failureKeepsPreviousSnapshotAndExposesError() = runBlocking {
+        var failRefresh = false
+        val messages = mutableListOf<MainLibraryText>()
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = true,
+                    userSelectedPermissionGranted = false,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null)
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                assertEquals(null, folderId)
+                return when {
+                    !failRefresh && request.offset == 0 -> MediaLibraryPage(
+                        items = listOf(video(id = 1L, folderId = 1L, title = "Folder A1")),
+                        nextOffset = 1,
+                    )
+
+                    !failRefresh && request.offset == 1 -> MediaLibraryPage(
+                        items = listOf(video(id = 2L, folderId = 1L, title = "Folder A2")),
+                        nextOffset = null,
+                    )
+
+                    failRefresh && request.offset == 0 -> MediaLibraryPage(
+                        items = listOf(video(id = 1L, folderId = 1L, title = "Folder A1 refreshed")),
+                        nextOffset = 1,
+                    )
+
+                    else -> throw IllegalStateException("provider unavailable")
+                }
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return emptyMap()
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadVideoPageUseCase = LoadVideoPageUseCase(
+                mediaLibraryRepository = repository,
+                minRefreshAnimMs = 0L,
+            ),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = messages::add,
+        )
+
+        store.ensureFolderLoaded(1L)
+        waitForCondition {
+            store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L, 2L)
+        }
+
+        failRefresh = true
+        store.refreshFolder(1L)
+
+        waitForCondition {
+            store.currentFolderVideosState.value.isLoading &&
+                store.currentFolderVideosState.value.hasLoadedOnce &&
+                store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L, 2L)
+        }
+
+        waitForCondition {
+            store.currentFolderVideosState.value.errorMessage == MainLibraryText.MediaLibraryProviderUnavailable
+        }
+
+        assertFalse(store.currentFolderVideosState.value.isLoading)
+        assertEquals(listOf(1L, 2L), store.currentFolderVideosState.value.items.map(LocalVideoItem::id))
+        assertEquals(
+            MainLibraryText.MediaLibraryProviderUnavailable,
+            store.currentFolderVideosState.value.errorMessage,
+        )
+        assertTrue(messages.isEmpty())
     }
 
     private fun waitForCondition(predicate: () -> Boolean) {
-        repeat(50) {
+        repeat(200) {
             if (predicate()) return
             Thread.sleep(10)
         }

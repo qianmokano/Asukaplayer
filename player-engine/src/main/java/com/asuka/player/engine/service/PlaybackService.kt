@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -126,6 +127,13 @@ class PlaybackService : MediaSessionService() {
             builder.setSessionActivity(activity)
         }
         session = builder.setCallback(sessionCallback).build().also { addSession(it) }
+
+        exoPlayer.pauseAtEndOfMediaItems = true
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onRepeatModeChanged(repeatMode: Int) {
+                exoPlayer.pauseAtEndOfMediaItems = repeatMode == Player.REPEAT_MODE_OFF
+            }
+        })
 
         w.attach(exoPlayer)
         exoPlayer.addListener(hw)
