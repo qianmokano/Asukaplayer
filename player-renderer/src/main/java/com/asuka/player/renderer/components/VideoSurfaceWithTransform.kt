@@ -41,7 +41,10 @@ internal object Media3PlaybackSurfaceRenderer : PlaybackSurfaceRenderer {
                 null
             }
         }
-        val hasStableSourceSize = measuredSourceSize != null
+        // coverSurface is true during media transitions before the new video size is known.
+        // Without this check, the old video's size would be used for aspect ratio calculation,
+        // causing a brief flash of incorrect proportions when switching videos.
+        val hasStableSourceSize = measuredSourceSize != null && !presentationState.coverSurface
 
         PlayerSurface(
             player = player,
