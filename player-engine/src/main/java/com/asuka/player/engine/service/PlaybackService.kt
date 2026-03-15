@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -140,18 +141,25 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         runCatching { mainHandler.removeCallbacks(positionCheckpointRunnable) }
+            .onFailure { Log.w(TAG, "removeCallbacks failed", it) }
         runCatching {
             persistenceShutdown.drainAndClose(
                 playbackState = writer?.asShutdownHandle(),
                 history = historyWriter?.asShutdownHandle(),
             )
-        }
+        }.onFailure { Log.w(TAG, "drainAndClose failed", it) }
         runCatching { session?.let { removeSession(it) } }
+            .onFailure { Log.w(TAG, "removeSession failed", it) }
         runCatching { artworkBridge?.detach() }
+            .onFailure { Log.w(TAG, "artworkBridge detach failed", it) }
         runCatching { player?.let { writer?.detach(it) } }
+            .onFailure { Log.w(TAG, "writer detach failed", it) }
         runCatching { historyWriter?.let { player?.removeListener(it) } }
+            .onFailure { Log.w(TAG, "historyWriter removeListener failed", it) }
         runCatching { session?.release() }
+            .onFailure { Log.w(TAG, "session release failed", it) }
         runCatching { player?.release() }
+            .onFailure { Log.w(TAG, "player release failed", it) }
         serviceScope.cancel()
         artworkBridge = null
         session = null
@@ -190,6 +198,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     companion object {
+        private const val TAG = "PlaybackService"
         private const val NOTIFICATION_CHANNEL_ID = "asuka_playback"
         private const val NOTIFICATION_ID = 1001
     }

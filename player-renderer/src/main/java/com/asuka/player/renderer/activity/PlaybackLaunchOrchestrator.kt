@@ -12,6 +12,7 @@ import com.asuka.player.contract.PlaybackStartupPolicy
 import com.asuka.player.platform.PlaybackSessionRequestCodec
 import com.asuka.player.platform.SeekFallbackCopier
 import java.io.File
+import java.util.Collections
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -25,9 +26,11 @@ internal class PlaybackLaunchOrchestrator(
         SeekFallbackCopier(contentResolver, cacheDir).copy(uri, checkSize = true)
     },
 ) {
+    @Volatile
     private var currentRequest: PlaybackSessionRequest? = null
     private var seekFallbackJob: Job? = null
-    private val seekFallbackAttemptedUris = mutableSetOf<String>()
+    private val seekFallbackAttemptedUris = Collections.synchronizedSet(mutableSetOf<String>())
+    @Volatile
     private var latestRequestId: Long = 0L
 
     fun updateIntent(
