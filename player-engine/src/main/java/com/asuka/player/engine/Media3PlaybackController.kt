@@ -45,6 +45,10 @@ class Media3PlaybackController(
         controller.addListener(connectionListener)
     }
 
+    override fun release() {
+        controller.removeListener(connectionListener)
+    }
+
     private inline fun ifConnected(block: () -> Unit) {
         if (controller.isConnected) block()
     }

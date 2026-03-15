@@ -70,7 +70,7 @@ fun PlayerScreen(
     val tapFeedbackState = remember { TapFeedbackState() }
     val longPressSpeedState = remember { LongPressSpeedState() }
     var overlayType by remember { mutableStateOf<OverlayType?>(null) }
-    var dismissedErrorMessage by remember { mutableStateOf<String?>(null) }
+    var errorDismissed by remember { mutableStateOf(false) }
     var lockedOverlayVisible by remember { mutableStateOf(false) }
 
     val positionMsState = rememberUpdatedState(uiState.positionMs)
@@ -143,8 +143,7 @@ fun PlayerScreen(
         uiIsPlaying = uiState.isPlaying,
         controlsState = controlsState,
         overlayType = overlayType,
-        dismissedErrorMessage = dismissedErrorMessage,
-        onDismissedErrorReset = { dismissedErrorMessage = null },
+        onErrorDismissedReset = { errorDismissed = false },
         seekState = seekState,
         tapFeedbackState = tapFeedbackState,
         longPressSpeedState = longPressSpeedState,
@@ -161,7 +160,7 @@ fun PlayerScreen(
     }
     val displayedPositionMs = if (seekState.seeking) seekState.previewPositionMs else uiState.positionMs
     val controlsVisible = controlsState.visible && !controlsState.locked
-    val visibleError = uiState.errorMessage?.takeIf { it != dismissedErrorMessage }
+    val visibleError = if (errorDismissed) null else uiState.errorMessage
     val landscapeCutoutPadding = rememberLandscapeCutoutPadding()
     val videoBoundsModifier = Modifier.onGloballyPositioned { coords ->
         if (onVideoBoundsChanged == null) return@onGloballyPositioned
@@ -237,12 +236,12 @@ fun PlayerScreen(
             onDismissOverlay = { overlayType = null },
             visibleError = visibleError,
             onRetry = {
-                dismissedErrorMessage = null
+                errorDismissed = false
                 controller.prepare()
                 controller.play()
             },
             onNext = { queueActions.next() },
-            onDismissError = { dismissedErrorMessage = uiState.errorMessage },
+            onDismissError = { errorDismissed = true },
         )
         if (!model.isControllerConnected && !model.isInPip) {
             androidx.compose.foundation.layout.Box(

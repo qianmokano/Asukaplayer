@@ -82,6 +82,7 @@ internal class PlaybackControllerConnection(
     fun releaseAll(playbackListener: Player.Listener) {
         clearRetainedSession(playbackListener)
         mediaController?.pause()
+        playbackController?.release()
         controllerProvider.release()
         mediaController = null
         playbackController = null

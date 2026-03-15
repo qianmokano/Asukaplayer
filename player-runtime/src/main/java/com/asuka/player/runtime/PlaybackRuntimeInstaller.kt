@@ -1,7 +1,6 @@
 package com.asuka.player.runtime
 
 import android.app.Application
-import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Bitmap.createScaledBitmap
@@ -21,11 +20,8 @@ import com.asuka.player.data.InMemoryPlaybackStore
 import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.data.PlaybackPersistenceStores
 import com.asuka.player.data.PlaybackPersistenceStoresFactory
-import com.asuka.player.engine.Media3PlaybackControllerConnectorFactory
-import com.asuka.player.engine.service.PlaybackService
 import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
-import com.asuka.player.engine.R as EngineR
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +38,8 @@ class PlaybackRuntimeFeature(
     application: Application,
     playbackBehaviorRepository: PlaybackBehaviorRepository,
     scope: CoroutineScope,
+    controllerConnectorFactory: PlaybackControllerConnectorFactory,
+    val playbackPlatformBindings: PlaybackPlatformBindings,
 ) {
     private val appContext = application.applicationContext
     private val persistenceResolver = PlaybackPersistenceResolver(appContext)
@@ -62,7 +60,7 @@ class PlaybackRuntimeFeature(
     )
     val playbackPreviewFrameProvider: PlaybackPreviewFrameProvider = MediaMetadataPreviewFrameProvider(appContext)
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory = DefaultPlaybackDeviceControllerFactory
-    val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory = Media3PlaybackControllerConnectorFactory
+    val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory = controllerConnectorFactory
     val playbackLaunchCoordinator: PlaybackLaunchCoordinator by lazy(LazyThreadSafetyMode.NONE) {
         val uriResolver = SeekAwarePlaybackUriResolver(
             contentResolver = appContext.contentResolver,
@@ -70,10 +68,6 @@ class PlaybackRuntimeFeature(
         )
         PlaybackLaunchCoordinator(uriResolver)
     }
-    val playbackPlatformBindings: PlaybackPlatformBindings = PlaybackPlatformBindings(
-        playbackServiceComponent = ComponentName(appContext, PlaybackService::class.java),
-        notificationSmallIconResId = EngineR.drawable.ic_stat_playback,
-    )
     val persistenceDegraded: StateFlow<Boolean> = persistenceResolver.degraded
 
     init {

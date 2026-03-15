@@ -416,16 +416,16 @@ abstract class VerifyArchitectureBoundariesTask : DefaultTask() {
             }
         }
 
-        // player-runtime: depends on :player-contract, :player-platform, :player-engine, :player-data.
+        // player-runtime: depends on :player-contract, :player-platform, :player-data.
         val runtimeBuild = rootDir.resolve("player-runtime/build.gradle.kts").readText()
         listOf(
             "project(\":player-ui\")", "project(\":player-renderer\")", "project(\":app\")",
-            "project(\":player-render-api\")", "project(\":player-domain\")",
+            "project(\":player-render-api\")", "project(\":player-domain\")", "project(\":player-engine\")",
         ).forEach { token ->
             if (token in runtimeBuild) {
                 violations += ArchitectureViolation(
                     file = "player-runtime/build.gradle.kts",
-                    message = "player-runtime must not depend on UI/renderer/app layers; found forbidden token '$token'",
+                    message = "player-runtime must not depend on UI/renderer/app/engine layers; found forbidden token '$token'",
                 )
             }
         }
@@ -434,11 +434,12 @@ abstract class VerifyArchitectureBoundariesTask : DefaultTask() {
                 val trimmed = line.trim()
                 if (trimmed.startsWith("import com.asuka.player.ui.") ||
                     trimmed.startsWith("import com.asuka.player.renderer.") ||
-                    trimmed.startsWith("import com.asuka.player.app.")
+                    trimmed.startsWith("import com.asuka.player.app.") ||
+                    trimmed.startsWith("import com.asuka.player.engine.")
                 ) {
                     violations += ArchitectureViolation(
                         file = "${file.relativeTo(rootDir).path}:${index + 1}",
-                        message = "player-runtime must not import UI, renderer, or app types",
+                        message = "player-runtime must not import UI, renderer, app, or engine types",
                     )
                 }
             }

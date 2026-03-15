@@ -32,13 +32,11 @@ kotlin {
 dependencies {
     implementation(project(":player-contract"))
     implementation(project(":player-platform"))
-    implementation(project(":player-engine"))
     implementation(project(":player-data"))
 
     implementation(libs.coroutines.core)
 
     testImplementation(project(":player-platform"))
-    testImplementation(project(":player-engine"))
     testImplementation(project(":player-data"))
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.junit)

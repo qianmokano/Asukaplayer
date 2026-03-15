@@ -47,6 +47,7 @@ android {
 
 dependencies {
     implementation(project(":player-data"))
+    implementation(project(":player-engine"))
     implementation(project(":player-platform"))
     implementation(project(":player-renderer"))
     implementation(project(":player-runtime"))

@@ -27,6 +27,7 @@ interface PlaybackController {
     fun skipToPrevious()
     fun getRepeatMode(): LoopMode
     fun isShuffleEnabled(): Boolean
+    fun release() {}
 }
 
 enum class VideoScaleMode {

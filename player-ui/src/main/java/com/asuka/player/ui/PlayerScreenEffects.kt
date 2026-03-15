@@ -26,8 +26,7 @@ internal fun PlayerScreenEffects(
     uiIsPlaying: Boolean,
     controlsState: ControlsState,
     overlayType: OverlayType?,
-    dismissedErrorMessage: String?,
-    onDismissedErrorReset: () -> Unit,
+    onErrorDismissedReset: () -> Unit,
     seekState: SeekState,
     tapFeedbackState: TapFeedbackState,
     longPressSpeedState: LongPressSpeedState,
@@ -62,9 +61,7 @@ internal fun PlayerScreenEffects(
         }
     }
     LaunchedEffect(uiErrorMessage) {
-        if (uiErrorMessage != dismissedErrorMessage) {
-            onDismissedErrorReset()
-        }
+        onErrorDismissedReset()
     }
     LaunchedEffect(controlsState.locked) {
         onLockedOverlayVisibleChange(controlsState.locked)
