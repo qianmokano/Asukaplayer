@@ -33,7 +33,7 @@
 
 ### `player-contract`
 - 纯 Kotlin 稳定契约与模型
-- `PlayerSettings` / `PlaybackRuntimeSettings`
+- `PlayerSettings`
 - `PlaybackController` / `PlaybackTrackSelectionController` / `PlaybackStore` / `QueueHistoryStore`
 - `PlaybackSessionRequest` / `PlaybackSessionPlanner` / `PlaybackStateRepository` / `QueueHistoryRepository`
 - `PlaybackQueue` / `PlaybackQueueItem` / `PlaybackQueueEntry`
@@ -57,7 +57,7 @@
 ### `player-renderer`
 - 播放入口与 render implementation
 - `PlaybackActivity`
-- `PlaybackActivitySession`
+- `PlaybackViewModel`
 - `PlaybackSessionHost`
 - `PlaybackControllerConnection` / `PlaybackSessionLaunchDriver` / `PlaybackSessionStateFeeds`
 - `PlaybackLaunchOrchestrator`
@@ -147,8 +147,9 @@
 
 ### 2. 会话连接阶段
 
-- `player-renderer:PlaybackActivity` 持有 `PlaybackActivitySession`
-- `PlaybackActivitySession` 统一持有 `PlaybackSessionHost`、`PlaybackWindowChromeController`、`PlaybackPictureInPictureController`
+- `player-renderer:PlaybackActivity` 通过 `viewModels` 持有 `PlaybackViewModel`
+- `PlaybackViewModel` 作为 `AndroidViewModel`，持有 `PlaybackSessionHost`、`PlaybackActivityBehavior` 和播放 host 状态，跨 configuration change 存活
+- `PlaybackActivity` 直接持有 `PlaybackWindowChromeController`、`PlaybackPictureInPictureController`，在各生命周期回调里协调 PiP / 窗口 / 亮度
 - `PlaybackSessionHost` 现在只保留生命周期主时序
 - `PlaybackControllerConnection` 负责 `MediaController` 建连与 session 协调器装配
 - `PlaybackSessionLaunchDriver` 负责请求落地、seek fallback 触发与过期请求丢弃
@@ -353,21 +354,21 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 ## 当前推荐阅读顺序
 
 1. `README.md`
-2. `player-runtime/src/main/java/com/asuka/player/app/AppGraph.kt`
+2. `player-runtime/src/main/java/com/asuka/player/runtime/AppGraph.kt`
 3. `app/src/main/java/com/asuka/player/app/AsuraPlayerApp.kt`
-4. `player-runtime/src/main/java/com/asuka/player/app/SettingsRuntimeInstaller.kt`
-5. `player-runtime/src/main/java/com/asuka/player/app/PlaybackRuntimeInstaller.kt`
+4. `player-runtime/src/main/java/com/asuka/player/runtime/SettingsRuntimeInstaller.kt`
+5. `player-runtime/src/main/java/com/asuka/player/runtime/PlaybackRuntimeInstaller.kt`
 6. `app/src/main/java/com/asuka/player/app/AppComposition.kt`
 7. `app/src/main/java/com/asuka/player/app/MainLibraryFeatureInstaller.kt`
 8. `app/src/main/java/com/asuka/player/app/MainLibraryCatalogStore.kt`
 9. `app/src/main/java/com/asuka/player/app/MainLibraryCatalogSlices.kt`
 10. `app/src/main/java/com/asuka/player/app/MediaLibraryIndexing.kt`
-11. `player-runtime/src/main/java/com/asuka/player/app/PlaybackLaunchCoordinator.kt`
-12. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackActivitySession.kt`
+11. `player-runtime/src/main/java/com/asuka/player/runtime/PlaybackLaunchCoordinator.kt`
+12. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackViewModel.kt`
 13. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackSessionHost.kt`
 14. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackControllerConnection.kt`
 15. `player-renderer/src/main/java/com/asuka/player/renderer/activity/PlaybackSessionLaunchDriver.kt`
 16. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreen.kt`
 17. `player-ui/src/main/java/com/asuka/player/ui/PlayerScreenShells.kt`
-18. `player-engine/src/main/java/com/asuka/player/core/service/PlaybackService.kt`
+18. `player-engine/src/main/java/com/asuka/player/engine/service/PlaybackService.kt`
 19. `player-data/src/main/java/com/asuka/player/data/AppSettingsStore.kt`

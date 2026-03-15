@@ -47,7 +47,7 @@ player-data/      DataStore/Room 持久化实现、媒体库索引库、legacy S
 2. `AsuraPlayerApp` 持有窄依赖 container，`MainActivity` / `PlaybackActivity` / `PlaybackService` 在各自入口内从 `Application` 读取依赖，不再依赖静态 registry。
 3. `IncomingPlaybackIntentReader` + `PlaybackSessionRequestCodec` 负责把 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` / `ClipData` 归一成单一 `PlaybackSessionRequest`；`PlaybackLaunchCoordinator` 只负责把当前项解析为实际 playback URI 并生成启动 intent。
 4. 媒体库现在先同步到本地索引库，再由 `MediaLibraryRepository` + use case 提供分页 folders/videos/recent lookup；`ContentObserver` 负责增量触发同步。
-5. `player-renderer` 持有 `PlaybackActivity` / `PlaybackActivitySession` / `PlaybackSessionHost`，其中 host 已拆成 controller connection、launch driver、state feeds 三个协作者；renderer 负责 `MediaController` 建连、seek fallback、PiP、window side effects 和 surface render adapter，再把窄 UI 模型交给 `player-ui/PlayerScreen`。
+5. `player-renderer` 持有 `PlaybackActivity` / `PlaybackViewModel` / `PlaybackSessionHost`，其中 `PlaybackViewModel` 作为 `AndroidViewModel` 持有 session host 和 host 状态，跨 configuration change 存活；host 已拆成 controller connection、launch driver、state feeds 三个协作者；renderer 负责 `MediaController` 建连、seek fallback、PiP、window side effects 和 surface render adapter，再把窄 UI 模型交给 `player-ui/PlayerScreen`。
 6. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复；`PlaybackStateWriter` / `QueueHistoryWriter` 现在位于 `player-platform`，由 engine service 消费。
 7. `AsukaAppGraph` 内部已经拆成 `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 两个 runtime feature installer；app 侧则通过 `MainLibraryFeatureInstaller` / `PlaybackFeatureEntryPointFactory` 组装具体入口依赖。
 8. settings 默认走 `DataStoreAppSettingsStore`；playback state / queue history 默认走 Room-backed store；媒体库元数据默认走本地 Room 索引，并在应用运行中持续增量同步。

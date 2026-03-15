@@ -83,3 +83,13 @@
   - file-size baselines were reduced to only current oversized files; deleted/renamed paths no longer linger in the baseline file
   - `PlaybackServiceTest` now covers service startup and non-blocking teardown persistence behavior
   - performance-oriented regression tests were added for non-blocking playback persistence callbacks and media-library incremental indexing behavior
+- Package and DI cleanup:
+  - `player-contract` package renamed from `com.asuka.player.core` to `com.asuka.player.contract`; `PlaybackRuntimeSettings` removed, only `PlayerSettings` remains
+  - `player-engine` package renamed from `com.asuka.player.core.impl` / `core.service` to `com.asuka.player.engine` / `engine.service`
+  - `player-runtime` package renamed from `com.asuka.player.app` to `com.asuka.player.runtime`
+  - `PlaybackActivitySession` removed; `PlaybackActivity` now uses `PlaybackViewModel` (`AndroidViewModel`) to hold `PlaybackSessionHost`, `PlaybackActivityBehavior`, and playback host state
+  - `AppEntryPointBindings` removed; app composition simplified
+  - `PlaybackScreenModel` now includes `isControllerConnected` and `isPersistenceDegraded` fields
+  - contract-level tests (`PlaybackSessionPlannerTest`, `QueueBuilderTest`, `QueuePlannerTest`, `TrackIndexCodecTest`, `TrackSelectionStateReaderTest`) moved from `player-engine` to `player-contract`
+  - new test coverage: `Media3PlaybackControllerTest`, `PlaybackSessionRequestCodecTest`, `SerialTaskQueueTest`, `GestureCoordinatorTest` expanded
+  - `kotlinx-coroutines-test` added to test dependencies

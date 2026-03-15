@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Asuka Player is a clean-room Android local video player rewrite built with Jetpack Compose and Media3/ExoPlayer. The project is organized as a multi-module Gradle project with strict separation of concerns across 5 modules.
+Asuka Player is a clean-room Android local video player rewrite built with Jetpack Compose and Media3/ExoPlayer. The project is organized as a multi-module Gradle project with strict separation of concerns across 9 modules.
 
 ## Build & Development Commands
 
@@ -19,7 +19,7 @@ Asuka Player is a clean-room Android local video player rewrite built with Jetpa
 ./gradlew :player-ui:compileDebugAndroidTestKotlin
 
 # Run a single test class
-./gradlew :player-engine:testDebugUnitTest --tests "com.asuka.player.core.PlaybackSessionPlannerTest"
+./gradlew :player-contract:testDebugUnitTest --tests "com.asuka.player.contract.PlaybackSessionPlannerTest"
 
 # Lint
 ./gradlew lintDebug
@@ -38,16 +38,20 @@ Asuka Player is a clean-room Android local video player rewrite built with Jetpa
 
 ```
 app/                  → Library browsing, settings, file picker; launches PlaybackActivity
-player-ui/            → Compose playback UI, gesture orchestration, session coordination, launch/window controllers
-player-contract/      → Stable playback contracts/models and planning chain
-player-engine/        → Media3/ExoPlayer integration, MediaSessionService, engine/runtime implementation
+player-contract/      → Stable playback contracts/models and planning chain (package: contract)
+player-platform/      → Android / Media3 binding API, intent/seek fallback, async writer
+player-render-api/    → Playback surface / renderer neutral contracts
+player-renderer/      → PlaybackActivity, session assembly, PiP, Media3 surface adapter
+player-runtime/       → Settings repositories, runtime graph, launch coordination (package: runtime)
+player-ui/            → Compose playback UI, gesture orchestration, UI state translation
+player-engine/        → PlaybackService, Media3 controller/connector (package: engine)
 player-domain/        → Pure JVM algorithms (no Android deps) — gesture math & state machines
-player-data/          → Persistence abstractions and SharedPreferences-backed stores
+player-data/          → DataStore/Room persistence, media library index, legacy migration
 ```
 
-Dependency direction: `app` → `player-runtime` / `player-ui`; `player-runtime` → `player-contract` / `player-engine` / `player-data`; `player-ui` → `player-contract` / `player-engine` / `player-domain`
+Dependency direction: `app` → `player-runtime` / `player-platform` / `player-renderer` / `player-data`; `player-renderer` → `player-render-api` / `player-ui` / `player-platform` / `player-contract`; `player-ui` → `player-render-api` / `player-contract` / `player-domain`; `player-runtime` → `player-contract` / `player-platform` / `player-engine` / `player-data`; `player-engine` → `player-contract` / `player-platform`
 
-`player-domain` is a pure JVM library. `player-contract`, `player-data`, `player-engine`, `app`, and `player-ui` all have JVM/Robolectric test coverage.
+`player-domain` is a pure JVM library. `player-contract`, `player-data`, `player-engine`, `player-platform`, `player-renderer`, `app`, and `player-ui` all have JVM/Robolectric test coverage.
 
 ## Key Architecture Decisions
 
@@ -63,10 +67,11 @@ Dependency direction: `app` → `player-runtime` / `player-ui`; `player-runtime`
 **Playback launch and control flow:**
 1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI and forward/remap explicit `ClipData` queues.
 2. `PlaybackActivity` connects to `PlaybackService` (a `MediaSessionService`) via `MediaController`.
-3. `PlaybackLaunchOrchestrator` handles runtime policy, current launch intent, seek fallback, and artwork restore.
-4. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
-5. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
-6. `PlaybackSessionHost` translates Media3 state into `PlaybackScreenModel` / `PlaybackScreenDependencies`; `PlayerScreen` consumes those UI-facing contracts rather than raw wiring helpers.
+3. `PlaybackViewModel` holds `PlaybackSessionHost`, `PlaybackActivityBehavior`, and playback host state; survives configuration changes via `AndroidViewModel`.
+4. `PlaybackLaunchOrchestrator` handles runtime policy, current launch intent, seek fallback, and artwork restore.
+5. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
+6. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
+7. `PlaybackSessionHost` translates Media3 state into `PlaybackScreenModel` / `PlaybackScreenDependencies`; `PlayerScreen` consumes those UI-facing contracts rather than raw wiring helpers.
 
 **State persistence:** `PlaybackStateWriter` writes position/speed/stable track IDs to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
 
@@ -78,24 +83,24 @@ Dependency direction: `app` → `player-runtime` / `player-ui`; `player-runtime`
 
 | File | Purpose |
 |------|---------|
-| `app/…/AppGraph.kt` | Application dependency graph and playback runtime composition root |
-| `app/…/PlaybackLaunchCoordinator.kt` | Playback intent assembly and URI/ClipData forwarding |
+| `player-runtime/…/runtime/AppGraph.kt` | Application dependency graph and playback runtime composition root |
+| `player-runtime/…/runtime/PlaybackLaunchCoordinator.kt` | Playback intent assembly and URI/ClipData forwarding |
 | `app/…/MainActivity.kt` | Library activity shell + launches playback |
 | `app/…/MainLibraryScreen.kt` | Library Compose UI |
-| `player-ui/…/PlaybackActivity.kt` | Playback screen host |
-| `player-ui/…/PlaybackSessionHost.kt` | MediaController/session lifecycle host for playback |
+| `player-renderer/…/activity/PlaybackActivity.kt` | Playback screen host |
+| `player-renderer/…/activity/PlaybackViewModel.kt` | Playback ViewModel holding session host and host state |
+| `player-renderer/…/activity/PlaybackSessionHost.kt` | MediaController/session lifecycle host for playback |
 | `player-ui/…/PlayerScreenContract.kt` | UI-facing playback model and dependency contract |
 | `player-ui/…/PlayerScreen.kt` | Root Compose composable for player |
-| `player-ui/…/controller/PlaybackSessionCoordinator.kt` | Applies planned queue/resume state to `MediaController` |
-| `player-ui/…/controller/BackgroundPlaybackPolicy.kt` | Background/PiP retention policy |
+| `player-renderer/…/activity/PlaybackSessionCoordinator.kt` | Applies planned queue/resume state to `MediaController` |
+| `player-renderer/…/activity/PlaybackActivityBehavior.kt` | Background/PiP retention policy |
 | `player-ui/…/controller/GestureCoordinator.kt` | Gesture orchestration |
-| `player-ui/…/controller/PlayerUiStateHolder.kt` | Playback title/progress/error/buffering state |
-| `player-ui/…/controller/PlaybackTrackUiStateHolder.kt` | Track/speed/media state translated for UI |
-| `player-contract/…/PlaybackController.kt` | Abstract playback interface |
-| `player-contract/…/PlaybackSessionPlanner.kt` | Queue + resume + track-restore planning |
-| `player-contract/…/PlaybackCoreGraph.kt` | Runtime dependency contract exposed from the app graph |
-| `player-engine/…/impl/Media3PlaybackController.kt` | ExoPlayer/Media3 implementation |
-| `player-engine/…/service/PlaybackService.kt` | MediaSessionService |
+| `player-renderer/…/activity/PlayerUiStateHolder.kt` | Playback title/progress/error/buffering state |
+| `player-renderer/…/activity/PlaybackTrackUiStateHolder.kt` | Track/speed/media state translated for UI |
+| `player-contract/…/contract/PlaybackController.kt` | Abstract playback interface |
+| `player-contract/…/contract/PlaybackSessionPlanner.kt` | Queue + resume + track-restore planning |
+| `player-engine/…/engine/Media3PlaybackController.kt` | ExoPlayer/Media3 implementation |
+| `player-engine/…/engine/service/PlaybackService.kt` | MediaSessionService |
 | `player-domain/…/GestureAlgorithms.kt` | Pure gesture math |
 | `player-domain/…/GestureStateMachine.kt` | Gesture state machine |
 | `player-data/…/PlaybackStore.kt` | Persistence interface and related stores |
@@ -114,7 +119,7 @@ Dependency direction: `app` → `player-runtime` / `player-ui`; `player-runtime`
 - `./gradlew test` is the current baseline local verification command and covers all JVM unit test suites in the repo.
 - `./gradlew :player-ui:compileDebugAndroidTestKotlin` is the no-device AndroidTest API compatibility check for the playback UI.
 - `player-domain` tests are plain JVM tests; `player-data` uses Robolectric-backed unit tests for Android persistence code.
-- `app`, `player-engine`, and `player-ui` use JUnit/Robolectric for launch/session/controller logic.
+- `app`, `player-engine`, `player-renderer`, and `player-ui` use JUnit/Robolectric for launch/session/controller logic.
 - Instrumented tests remain available through `:player-ui:connectedAndroidTest` and still require a device/emulator.
 - Test output (pass/fail/skip events) is configured in the root `build.gradle.kts`.
 - Current testing guidance is in `docs/TESTING.md`.
