@@ -71,6 +71,11 @@ internal fun MainLibraryScreen(
     var networkStreamUrl by rememberSaveable { mutableStateOf("") }
     var showOpenNetworkStreamDialog by rememberSaveable { mutableStateOf(false) }
 
+    // Navigation state is hoisted here (outside AsukaTheme) so that theme
+    // recomposition cannot discard it.
+    var backStack by rememberSaveable { mutableStateOf(listOf(ROUTE_HOME)) }
+    var navigatingForward by rememberSaveable { mutableStateOf(true) }
+
     val screenState = rememberMainLibraryUiState(
         appVersion,
         uiSettings,
@@ -102,6 +107,10 @@ internal fun MainLibraryScreen(
 
             MainLibraryNavHost(
                 state = screenState,
+                backStack = backStack,
+                navigatingForward = navigatingForward,
+                onBackStackChange = { backStack = it },
+                onNavigatingForwardChange = { navigatingForward = it },
                 onPlay = onPlay,
                 onRequestPermission = { permissionLauncher.launch(videoPermissionsForRuntime()) },
                 onOpenLocalVideo = { documentPicker.launch(arrayOf("video/*")) },

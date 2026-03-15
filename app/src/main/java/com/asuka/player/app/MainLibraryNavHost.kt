@@ -12,12 +12,8 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -33,6 +29,10 @@ import soup.compose.material.motion.animation.rememberSlideDistance
 @Composable
 internal fun MainLibraryNavHost(
     state: MainLibraryUiState,
+    backStack: List<String>,
+    navigatingForward: Boolean,
+    onBackStackChange: (List<String>) -> Unit,
+    onNavigatingForwardChange: (Boolean) -> Unit,
     onPlay: (PlaybackSelection) -> Unit,
     onRequestPermission: () -> Unit,
     onOpenLocalVideo: () -> Unit,
@@ -52,8 +52,6 @@ internal fun MainLibraryNavHost(
     onThemeConfigChange: (ThemeConfig) -> Unit,
     onCustomThemesChange: (List<CustomThemeEntry>) -> Unit,
 ) {
-    var backStack by rememberSaveable { mutableStateOf(listOf(ROUTE_HOME)) }
-    var navigatingForward by rememberSaveable { mutableStateOf(true) }
     val currentRoute = backStack.lastOrNull() ?: ROUTE_HOME
     val currentFolderId = parseFolderId(currentRoute)
     val saveableStateHolder = rememberSaveableStateHolder()
@@ -70,8 +68,8 @@ internal fun MainLibraryNavHost(
     }
     val navigateTo: (String, Boolean) -> Unit = fun(route: String, launchSingleTop: Boolean) {
         if (launchSingleTop && currentRoute == route) return
-        navigatingForward = true
-        backStack = backStack + route
+        onNavigatingForwardChange(true)
+        onBackStackChange(backStack + route)
     }
     val speedDialActions = listOf(
         SpeedDialAction(
@@ -97,8 +95,8 @@ internal fun MainLibraryNavHost(
     )
     val navigateBack: () -> Unit = {
         if (backStack.size > 1) {
-            navigatingForward = false
-            backStack = backStack.dropLast(1)
+            onNavigatingForwardChange(false)
+            onBackStackChange(backStack.dropLast(1))
         }
     }
 
