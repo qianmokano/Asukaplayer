@@ -333,6 +333,117 @@ abstract class VerifyArchitectureBoundariesTask : DefaultTask() {
             }
         }
 
+        // player-domain: pure JVM, zero dependencies.
+        val domainBuild = rootDir.resolve("player-domain/build.gradle.kts").readText()
+        listOf("android.application", "android.library").forEach { token ->
+            if (token in domainBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-domain/build.gradle.kts",
+                    message = "player-domain must stay pure JVM; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-domain/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import android.") || trimmed.startsWith("import androidx.")) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-domain must not import Android or AndroidX types",
+                    )
+                }
+            }
+        }
+
+        // player-engine: depends on :player-contract, :player-platform only.
+        val engineBuild = rootDir.resolve("player-engine/build.gradle.kts").readText()
+        listOf(
+            "project(\":player-ui\")", "project(\":player-renderer\")", "project(\":app\")",
+            "project(\":player-runtime\")", "project(\":player-render-api\")", "project(\":player-domain\")",
+        ).forEach { token ->
+            if (token in engineBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-engine/build.gradle.kts",
+                    message = "player-engine must not depend on UI/renderer/app/runtime layers; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-engine/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import com.asuka.player.ui.") ||
+                    trimmed.startsWith("import com.asuka.player.renderer.") ||
+                    trimmed.startsWith("import com.asuka.player.app.") ||
+                    trimmed.startsWith("import com.asuka.player.runtime.")
+                ) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-engine must not import UI, renderer, app, or runtime types",
+                    )
+                }
+            }
+        }
+
+        // player-data: depends on :player-contract only.
+        val dataBuild = rootDir.resolve("player-data/build.gradle.kts").readText()
+        listOf(
+            "project(\":player-ui\")", "project(\":player-renderer\")", "project(\":app\")",
+            "project(\":player-runtime\")", "project(\":player-engine\")", "project(\":player-platform\")",
+            "project(\":player-render-api\")", "project(\":player-domain\")",
+        ).forEach { token ->
+            if (token in dataBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-data/build.gradle.kts",
+                    message = "player-data must not depend on UI/renderer/app/runtime/engine/platform layers; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-data/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import com.asuka.player.ui.") ||
+                    trimmed.startsWith("import com.asuka.player.renderer.") ||
+                    trimmed.startsWith("import com.asuka.player.app.") ||
+                    trimmed.startsWith("import com.asuka.player.runtime.") ||
+                    trimmed.startsWith("import com.asuka.player.engine.") ||
+                    trimmed.startsWith("import com.asuka.player.platform.")
+                ) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-data must not import engine, platform, UI, renderer, app, or runtime types",
+                    )
+                }
+            }
+        }
+
+        // player-runtime: depends on :player-contract, :player-platform, :player-engine, :player-data.
+        val runtimeBuild = rootDir.resolve("player-runtime/build.gradle.kts").readText()
+        listOf(
+            "project(\":player-ui\")", "project(\":player-renderer\")", "project(\":app\")",
+            "project(\":player-render-api\")", "project(\":player-domain\")",
+        ).forEach { token ->
+            if (token in runtimeBuild) {
+                violations += ArchitectureViolation(
+                    file = "player-runtime/build.gradle.kts",
+                    message = "player-runtime must not depend on UI/renderer/app layers; found forbidden token '$token'",
+                )
+            }
+        }
+        kotlinFiles(rootDir.resolve("player-runtime/src/main/java")).forEach { file ->
+            file.readLines().forEachIndexed { index, line ->
+                val trimmed = line.trim()
+                if (trimmed.startsWith("import com.asuka.player.ui.") ||
+                    trimmed.startsWith("import com.asuka.player.renderer.") ||
+                    trimmed.startsWith("import com.asuka.player.app.")
+                ) {
+                    violations += ArchitectureViolation(
+                        file = "${file.relativeTo(rootDir).path}:${index + 1}",
+                        message = "player-runtime must not import UI, renderer, or app types",
+                    )
+                }
+            }
+        }
+
         if (violations.isNotEmpty()) {
             val report = violations.joinToString("\n") { "- ${it.file}: ${it.message}" }
             throw GradleException("Architecture boundary violations found:\n$report")
@@ -422,6 +533,7 @@ val architectureRootPackageMap = mapOf(
     "app/src/main/java" to "com.asuka.player.app",
     "player-contract/src/main/java" to "com.asuka.player.contract",
     "player-data/src/main/java" to "com.asuka.player.data",
+    "player-domain/src/main/java" to "com.asuka.player.domain",
     "player-platform/src/main/java" to "com.asuka.player.platform",
     "player-render-api/src/main/java" to "com.asuka.player.render.api",
     "player-renderer/src/main/java" to "com.asuka.player.renderer",
@@ -442,6 +554,10 @@ tasks.register<VerifyArchitectureBoundariesTask>("verifyArchitectureBoundaries")
         layout.projectDirectory.file("player-render-api/build.gradle.kts"),
         layout.projectDirectory.file("player-renderer/build.gradle.kts"),
         layout.projectDirectory.file("player-contract/build.gradle.kts"),
+        layout.projectDirectory.file("player-engine/build.gradle.kts"),
+        layout.projectDirectory.file("player-data/build.gradle.kts"),
+        layout.projectDirectory.file("player-domain/build.gradle.kts"),
+        layout.projectDirectory.file("player-runtime/build.gradle.kts"),
         layout.projectDirectory.file("app/build.gradle.kts"),
         layout.projectDirectory.file("app/src/main/AndroidManifest.xml"),
     )

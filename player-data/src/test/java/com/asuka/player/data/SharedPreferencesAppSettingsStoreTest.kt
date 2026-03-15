@@ -65,8 +65,8 @@ class SharedPreferencesAppSettingsStoreTest {
         store.savePlayerSettings(playerRecord)
         store.savePlaybackBehavior(behaviorRecord)
 
-        assertEquals(uiRecord, store.loadUiSettings())
-        assertEquals(playerRecord, store.loadPlayerSettings())
-        assertEquals(behaviorRecord, store.loadPlaybackBehavior())
+        assertEquals(uiRecord, store.loadSnapshot().uiSettings)
+        assertEquals(playerRecord, store.loadSnapshot().playerSettings)
+        assertEquals(behaviorRecord, store.loadSnapshot().playbackBehavior)
     }
 }

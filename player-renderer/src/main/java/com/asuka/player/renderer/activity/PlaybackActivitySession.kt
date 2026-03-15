@@ -7,7 +7,7 @@ import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.LifecycleCoroutineScope
 import com.asuka.player.contract.PlaybackDeviceController
-import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.platform.PlaybackActivityDependencies
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,8 +18,9 @@ import kotlinx.coroutines.launch
 
 internal data class PlaybackActivityUiState(
     val hostState: PlaybackHostState = PlaybackHostState(),
-    val runtimeSettings: PlaybackRuntimeSettings = PlaybackRuntimeSettings(),
+    val runtimeSettings: PlayerSettings = PlayerSettings(),
     val isInPictureInPicture: Boolean = false,
+    val isPersistenceDegraded: Boolean = false,
 )
 
 internal class PlaybackActivitySession(
@@ -73,6 +74,11 @@ internal class PlaybackActivitySession(
         }
         scope.launch {
             dependencies.playbackRuntimeSettingsSource.settings.collect(::updateRuntimeSettings)
+        }
+        scope.launch {
+            dependencies.persistenceDegraded.collect { degraded ->
+                _uiState.update { it.copy(isPersistenceDegraded = degraded) }
+            }
         }
     }
 
@@ -153,7 +159,7 @@ internal class PlaybackActivitySession(
         )
     }
 
-    private fun updateRuntimeSettings(settings: PlaybackRuntimeSettings) {
+    private fun updateRuntimeSettings(settings: PlayerSettings) {
         _uiState.update { current -> current.copy(runtimeSettings = settings) }
         activityBehavior.onRuntimeSettingsChanged(settings)
         pictureInPictureController.updateRuntimeSettings(settings)

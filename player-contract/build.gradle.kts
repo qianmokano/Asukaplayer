@@ -10,4 +10,5 @@ dependencies {
     implementation(libs.coroutines.core)
 
     testImplementation(libs.kotlin.test)
+    testImplementation(libs.coroutines.core)
 }

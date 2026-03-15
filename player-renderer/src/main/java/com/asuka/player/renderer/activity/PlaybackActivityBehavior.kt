@@ -1,6 +1,6 @@
 package com.asuka.player.renderer.activity
 
-import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.renderer.controller.BackgroundPlaybackPolicy
 
 internal data class PictureInPictureTransition(
@@ -11,17 +11,17 @@ internal data class PictureInPictureTransition(
 
 internal class PlaybackActivityBehavior(
     private val backgroundPolicy: BackgroundPlaybackPolicy = BackgroundPlaybackPolicy(),
-    initialSettings: PlaybackRuntimeSettings = PlaybackRuntimeSettings(),
+    initialSettings: PlayerSettings = PlayerSettings(),
 ) {
-    private var runtimeSettings: PlaybackRuntimeSettings = initialSettings
+    private var runtimeSettings: PlayerSettings = initialSettings
 
     init {
         syncPolicy()
     }
 
-    fun currentSettings(): PlaybackRuntimeSettings = runtimeSettings
+    fun currentSettings(): PlayerSettings = runtimeSettings
 
-    fun onRuntimeSettingsChanged(settings: PlaybackRuntimeSettings) {
+    fun onRuntimeSettingsChanged(settings: PlayerSettings) {
         runtimeSettings = settings
         syncPolicy()
     }

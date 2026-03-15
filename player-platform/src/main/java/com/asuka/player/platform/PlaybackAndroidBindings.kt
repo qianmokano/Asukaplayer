@@ -8,6 +8,8 @@ import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStore
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.contract.QueueHistoryStore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 interface PlaybackActivityDependencies {
     val playbackSessionPlanner: PlaybackSessionPlanner
@@ -15,6 +17,8 @@ interface PlaybackActivityDependencies {
     val playbackUiPersistence: PlaybackUiPersistence
     val playbackPreviewFrameProvider: PlaybackPreviewFrameProvider
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
+    val persistenceDegraded: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
 
     fun createPlaybackControllerConnector(context: Context): PlaybackControllerConnector
 }

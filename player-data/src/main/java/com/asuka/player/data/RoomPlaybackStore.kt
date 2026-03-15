@@ -2,6 +2,8 @@ package com.asuka.player.data
 
 import com.asuka.player.contract.PlaybackStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class RoomPlaybackStore(
@@ -9,20 +11,20 @@ class RoomPlaybackStore(
     private val maxEntries: Int = 200,
     private val nowMs: () -> Long = System::currentTimeMillis,
 ) : PlaybackStore {
-    private val lock = Any()
+    private val mutex = Mutex()
 
     override suspend fun recentMediaIds(limit: Int): List<String> {
         return withContext(Dispatchers.IO) {
-            synchronized(lock) {
+            mutex.withLock {
                 val safeLimit = limit.coerceAtLeast(0)
-                if (safeLimit == 0) return@synchronized emptyList()
+                if (safeLimit == 0) return@withLock emptyList()
                 playbackStateDao.recentMediaIds(safeLimit)
             }
         }
     }
 
     override suspend fun loadPosition(mediaId: String): Long? = withContext(Dispatchers.IO) {
-        synchronized(lock) {
+        mutex.withLock {
             playbackStateDao.findByMediaId(mediaId)?.positionMs
         }
     }
@@ -34,7 +36,7 @@ class RoomPlaybackStore(
     }
 
     override suspend fun loadPlaybackSpeed(mediaId: String): Float? = withContext(Dispatchers.IO) {
-        synchronized(lock) {
+        mutex.withLock {
             playbackStateDao.findByMediaId(mediaId)?.playbackSpeed
         }
     }
@@ -46,7 +48,7 @@ class RoomPlaybackStore(
     }
 
     override suspend fun loadAudioTrackId(mediaId: String): String? = withContext(Dispatchers.IO) {
-        synchronized(lock) {
+        mutex.withLock {
             playbackStateDao.findByMediaId(mediaId)?.audioTrackId
         }
     }
@@ -58,7 +60,7 @@ class RoomPlaybackStore(
     }
 
     override suspend fun loadSubtitleTrackId(mediaId: String): String? = withContext(Dispatchers.IO) {
-        synchronized(lock) {
+        mutex.withLock {
             playbackStateDao.findByMediaId(mediaId)?.subtitleTrackId
         }
     }
@@ -70,7 +72,7 @@ class RoomPlaybackStore(
     }
 
     override suspend fun loadZoom(mediaId: String): Float? = withContext(Dispatchers.IO) {
-        synchronized(lock) {
+        mutex.withLock {
             playbackStateDao.findByMediaId(mediaId)?.zoom
         }
     }
@@ -86,15 +88,19 @@ class RoomPlaybackStore(
         change: (PlaybackStateEntity) -> PlaybackStateEntity,
     ) {
         withContext(Dispatchers.IO) {
-            synchronized(lock) {
-                val current = playbackStateDao.findByMediaId(mediaId) ?: PlaybackStateEntity(mediaId = mediaId)
+            mutex.withLock {
+                val current = playbackStateDao.findByMediaId(mediaId)
+                val isNewEntry = current == null
+                val base = current ?: PlaybackStateEntity(mediaId = mediaId)
                 playbackStateDao.upsert(
-                    change(current).copy(
+                    change(base).copy(
                         mediaId = mediaId,
                         lastTouchedAt = nowMs(),
                     ),
                 )
-                playbackStateDao.pruneToMaxEntries(maxEntries)
+                if (isNewEntry) {
+                    playbackStateDao.pruneToMaxEntries(maxEntries)
+                }
             }
         }
     }

@@ -12,6 +12,7 @@ import com.asuka.player.contract.QueueHistoryRepository
 import com.asuka.player.contract.QueueHistoryStore
 import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
+import kotlinx.coroutines.flow.StateFlow
 import com.asuka.player.runtime.PlaybackLaunchCoordinator
 import com.asuka.player.runtime.PlayerSettingsRepository
 import com.asuka.player.runtime.UiSettingsRepository
@@ -30,6 +31,7 @@ internal data class PlaybackActivityEntryBindings(
     val playbackUiPersistence: () -> PlaybackUiPersistence,
     val playbackPreviewFrameProvider: () -> PlaybackPreviewFrameProvider,
     val playbackDeviceControllerFactory: () -> PlaybackDeviceControllerFactory,
+    val persistenceDegraded: () -> StateFlow<Boolean>,
     val createPlaybackControllerConnector: (Context) -> PlaybackControllerConnector,
 )
 

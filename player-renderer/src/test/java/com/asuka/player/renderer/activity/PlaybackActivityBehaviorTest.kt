@@ -1,7 +1,6 @@
 package com.asuka.player.renderer.activity
 
 import com.asuka.player.contract.PlayerSettings
-import com.asuka.player.contract.PlaybackRuntimeSettings
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -11,10 +10,8 @@ class PlaybackActivityBehaviorTest {
     @Test
     fun pictureInPictureTransition_updatesRetentionAndReceiverFlags() {
         val behavior = PlaybackActivityBehavior(
-            initialSettings = PlaybackRuntimeSettings(
-                playerSettings = PlayerSettings(
-                    autoBackgroundPlay = false,
-                ),
+            initialSettings = PlayerSettings(
+                autoBackgroundPlay = false,
                 keepSessionConnectionInBackground = false,
             ),
         )
@@ -35,10 +32,8 @@ class PlaybackActivityBehaviorTest {
     @Test
     fun backgroundPlaybackRequest_isClearedOnStart() {
         val behavior = PlaybackActivityBehavior(
-            initialSettings = PlaybackRuntimeSettings(
-                playerSettings = PlayerSettings(
-                    autoBackgroundPlay = false,
-                ),
+            initialSettings = PlayerSettings(
+                autoBackgroundPlay = false,
                 keepSessionConnectionInBackground = false,
             ),
         )
@@ -53,12 +48,10 @@ class PlaybackActivityBehaviorTest {
     @Test
     fun runtimeSettingsChanges_updateBehaviorFlags() {
         val behavior = PlaybackActivityBehavior(
-            initialSettings = PlaybackRuntimeSettings(
-                playerSettings = PlayerSettings(
-                    autoPip = false,
-                    rememberBrightness = false,
-                    autoBackgroundPlay = false,
-                ),
+            initialSettings = PlayerSettings(
+                autoPip = false,
+                rememberBrightness = false,
+                autoBackgroundPlay = false,
                 keepSessionConnectionInBackground = false,
             ),
         )
@@ -68,12 +61,10 @@ class PlaybackActivityBehaviorTest {
         assertFalse(behavior.shouldRetainSessionOnStop())
 
         behavior.onRuntimeSettingsChanged(
-            PlaybackRuntimeSettings(
-                playerSettings = PlayerSettings(
-                    autoPip = true,
-                    rememberBrightness = true,
-                    autoBackgroundPlay = true,
-                ),
+            PlayerSettings(
+                autoPip = true,
+                rememberBrightness = true,
+                autoBackgroundPlay = true,
                 keepSessionConnectionInBackground = true,
             ),
         )
@@ -86,10 +77,8 @@ class PlaybackActivityBehaviorTest {
     @Test
     fun backgroundPlaybackToggle_controlsRetentionEvenWhenConnectionRetentionDefaultsOn() {
         val behavior = PlaybackActivityBehavior(
-            initialSettings = PlaybackRuntimeSettings(
-                playerSettings = PlayerSettings(
-                    autoBackgroundPlay = false,
-                ),
+            initialSettings = PlayerSettings(
+                autoBackgroundPlay = false,
                 keepSessionConnectionInBackground = true,
             ),
         )

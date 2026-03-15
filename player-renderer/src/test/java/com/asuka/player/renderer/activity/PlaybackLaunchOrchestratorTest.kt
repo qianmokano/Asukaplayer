@@ -3,7 +3,6 @@ package com.asuka.player.renderer.activity
 import android.content.Intent
 import android.net.Uri
 import androidx.media3.common.PlaybackException
-import com.asuka.player.contract.PlaybackRuntimeSettings
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlaybackSessionPlan
 import com.asuka.player.contract.PlaybackSessionRequest
@@ -35,13 +34,11 @@ class PlaybackLaunchOrchestratorTest {
             data = Uri.parse("content://videos/current.mp4")
         }
         val runtimeSettingsSource = fakeRuntimeSettingsSource(
-            PlaybackRuntimeSettings(
-                playerSettings = PlayerSettings(
-                    autoplay = false,
-                    resumePlayback = false,
-                    defaultPlaybackSpeed = 1.25f,
-                    rememberSelections = false,
-                ),
+            PlayerSettings(
+                autoplay = false,
+                resumePlayback = false,
+                defaultPlaybackSpeed = 1.25f,
+                rememberSelections = false,
             ),
         )
         val orchestrator = PlaybackLaunchOrchestrator(
@@ -103,7 +100,7 @@ class PlaybackLaunchOrchestratorTest {
             contentResolver = context.contentResolver,
             cacheDir = context.cacheDir,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            runtimeSettingsSource = fakeRuntimeSettingsSource(PlaybackRuntimeSettings()),
+            runtimeSettingsSource = fakeRuntimeSettingsSource(PlayerSettings()),
             copyForSeekFallback = { replacement },
         )
         val requestId = orchestrator.updateIntent(
@@ -137,7 +134,7 @@ class PlaybackLaunchOrchestratorTest {
             contentResolver = context.contentResolver,
             cacheDir = context.cacheDir,
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
-            runtimeSettingsSource = fakeRuntimeSettingsSource(PlaybackRuntimeSettings()),
+            runtimeSettingsSource = fakeRuntimeSettingsSource(PlayerSettings()),
             copyForSeekFallback = { null },
         )
         val firstRequestId = orchestrator.updateIntent(
@@ -177,7 +174,7 @@ class PlaybackLaunchOrchestratorTest {
     }
 
     private fun fakeRuntimeSettingsSource(
-        initialValue: PlaybackRuntimeSettings,
+        initialValue: PlayerSettings,
     ): PlaybackRuntimeSettingsSource {
         return object : PlaybackRuntimeSettingsSource {
             override val settings = MutableStateFlow(initialValue)

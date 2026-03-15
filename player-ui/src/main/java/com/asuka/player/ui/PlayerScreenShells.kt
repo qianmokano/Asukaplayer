@@ -123,7 +123,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
 internal fun PlayerScreenLayoutShell(
     controlsVisible: Boolean,
     isInPip: Boolean,
-    settings: com.asuka.player.contract.PlaybackRuntimeSettings,
+    settings: com.asuka.player.contract.PlayerSettings,
     uiState: PlayerUiState,
     controller: PlaybackController,
     landscapeCutoutPadding: LandscapeCutoutPadding,

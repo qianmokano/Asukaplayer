@@ -133,6 +133,7 @@ private fun PlaybackActivityContent(
         )
         return
     }
+    val isControllerConnected by controller.isConnected.collectAsState()
     PlayerScreen(
         model = PlaybackScreenModel(
             uiState = hostState.uiState,
@@ -140,6 +141,8 @@ private fun PlaybackActivityContent(
             trackUiState = hostState.trackUiState,
             settings = sessionState.runtimeSettings,
             isInPip = sessionState.isInPictureInPicture,
+            isControllerConnected = isControllerConnected,
+            isPersistenceDegraded = sessionState.isPersistenceDegraded,
         ),
         dependencies = PlaybackScreenDependencies(
             controller = controller,

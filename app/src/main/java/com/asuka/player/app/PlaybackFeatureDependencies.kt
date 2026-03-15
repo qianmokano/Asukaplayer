@@ -8,6 +8,7 @@ import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import com.asuka.player.platform.PlaybackServiceDependencies
+import kotlinx.coroutines.flow.StateFlow
 
 internal class AppPlaybackActivityDependencies(
     private val bindings: PlaybackActivityEntryBindings,
@@ -22,6 +23,8 @@ internal class AppPlaybackActivityDependencies(
         get() = bindings.playbackPreviewFrameProvider()
     override val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory
         get() = bindings.playbackDeviceControllerFactory()
+    override val persistenceDegraded: StateFlow<Boolean>
+        get() = bindings.persistenceDegraded()
 
     override fun createPlaybackControllerConnector(context: android.content.Context) =
         bindings.createPlaybackControllerConnector(context)

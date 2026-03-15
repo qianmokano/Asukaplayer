@@ -54,6 +54,15 @@ class DataStoreAppSettingsStore(
         }
     }
 
+    override suspend fun updateSnapshot(transform: (AppSettingsSnapshot) -> AppSettingsSnapshot) {
+        writeMutex.withLock {
+            val current = _snapshots.value
+            val transformed = transform(current).normalized()
+            val persisted = dataStore.updateData { transformed }.normalized()
+            _snapshots.value = persisted
+        }
+    }
+
     override suspend fun awaitLoaded() {
         initialLoad.await()
     }

@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import com.asuka.player.contract.PlaybackController
-import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.ui.R
 
 internal data class PictureInPictureAspectRatio(
@@ -42,7 +42,7 @@ internal class PlaybackPictureInPictureController(
         }
     },
 ) {
-    private var runtimeSettings: PlaybackRuntimeSettings = PlaybackRuntimeSettings()
+    private var runtimeSettings: PlayerSettings = PlayerSettings()
     private var videoRect: Rect? = null
     private var receiverRegistered = false
     private var attachedPlayer: Player? = null
@@ -72,7 +72,7 @@ internal class PlaybackPictureInPictureController(
         }
     }
 
-    fun updateRuntimeSettings(settings: PlaybackRuntimeSettings) {
+    fun updateRuntimeSettings(settings: PlayerSettings) {
         runtimeSettings = settings
     }
 

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.asuka.player.core"
+    namespace = "com.asuka.player.engine"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
@@ -43,4 +43,5 @@ dependencies {
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+    testImplementation(libs.coroutines.test)
 }

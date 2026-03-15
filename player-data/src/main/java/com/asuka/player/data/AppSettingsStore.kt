@@ -80,19 +80,18 @@ interface AppSettingsStore {
     fun loadSnapshot(): AppSettingsSnapshot = snapshots.value
     suspend fun saveSnapshot(snapshot: AppSettingsSnapshot)
 
-    fun loadUiSettings(): UiSettingsRecord = loadSnapshot().uiSettings
+    suspend fun updateSnapshot(transform: (AppSettingsSnapshot) -> AppSettingsSnapshot) {
+        saveSnapshot(transform(loadSnapshot()))
+    }
+
     suspend fun saveUiSettings(record: UiSettingsRecord) {
-        saveSnapshot(loadSnapshot().copy(uiSettings = record).normalized())
+        updateSnapshot { it.copy(uiSettings = record).normalized() }
     }
-
-    fun loadPlayerSettings(): PlayerSettingsRecord = loadSnapshot().playerSettings
     suspend fun savePlayerSettings(record: PlayerSettingsRecord) {
-        saveSnapshot(loadSnapshot().copy(playerSettings = record).normalized())
+        updateSnapshot { it.copy(playerSettings = record).normalized() }
     }
-
-    fun loadPlaybackBehavior(): PlaybackBehaviorRecord = loadSnapshot().playbackBehavior
     suspend fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
-        saveSnapshot(loadSnapshot().copy(playbackBehavior = record).normalized())
+        updateSnapshot { it.copy(playbackBehavior = record).normalized() }
     }
 }
 

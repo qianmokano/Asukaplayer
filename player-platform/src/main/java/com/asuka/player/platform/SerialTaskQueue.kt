@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
@@ -19,9 +20,10 @@ internal class SerialTaskQueue(
     private val channel = Channel<QueueEntry>(capacity = Channel.UNLIMITED)
     @Volatile
     private var closed = false
+    private val consumerJob: Job
 
     init {
-        scope.launch {
+        consumerJob = scope.launch {
             for (entry in channel) {
                 when (entry) {
                     is QueueEntry.Task -> execute(entry)
@@ -67,16 +69,17 @@ internal class SerialTaskQueue(
         if (closed) return
         closed = true
         channel.close()
-        scope.cancel()
+        consumerJob.invokeOnCompletion { scope.cancel() }
     }
 
     private suspend fun execute(entry: QueueEntry.Task) {
-        runCatching {
-            entry.block()
-        }.onFailure { error ->
-            Log.e(tag, "queued task failed", error)
-        }
-        entry.completion?.complete(Unit)
+        val result = runCatching { entry.block() }
+        result.onFailure { error -> Log.e(tag, "queued task failed", error) }
+        val completion = entry.completion ?: return
+        result.fold(
+            onSuccess = { completion.complete(Unit) },
+            onFailure = { completion.completeExceptionally(it) },
+        )
     }
 
     private sealed interface QueueEntry {

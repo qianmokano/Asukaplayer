@@ -9,7 +9,7 @@ import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.contract.PlaybackDeviceController
 import com.asuka.player.contract.PlaybackPreviewFrameProvider
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
-import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.contract.PlaybackRuntimeSettingsSource
 import com.asuka.player.contract.PlaybackSessionPlanner
 import com.asuka.player.contract.PlaybackStore
@@ -73,7 +73,7 @@ class PlaybackSessionHostTest {
             private val playbackStateRepository = PlaybackStateRepository(playbackStore)
             override val playbackSessionPlanner = PlaybackSessionPlanner(playbackStateRepository)
             override val playbackRuntimeSettingsSource = object : PlaybackRuntimeSettingsSource {
-                override val settings = MutableStateFlow(PlaybackRuntimeSettings())
+                override val settings = MutableStateFlow(PlayerSettings())
             }
             override val playbackUiPersistence = object : PlaybackUiPersistence {
                 override suspend fun readZoom(mediaId: String): Float? = null

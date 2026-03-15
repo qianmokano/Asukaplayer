@@ -9,7 +9,7 @@ import android.view.Window
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.asuka.player.contract.PlaybackRuntimeSettings
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.contract.PlaybackUiPersistence
 
 internal class PlaybackWindowChromeController(
@@ -39,7 +39,7 @@ internal class PlaybackWindowChromeController(
         }
     }
 
-    fun applyRememberedBrightnessIfNeeded(settings: PlaybackRuntimeSettings) {
+    fun applyRememberedBrightnessIfNeeded(settings: PlayerSettings) {
         if (!settings.rememberBrightness) return
         val remembered = playbackUiPersistence.readRememberedBrightness() ?: return
         val attrs = window.attributes
@@ -47,7 +47,7 @@ internal class PlaybackWindowChromeController(
         window.attributes = attrs
     }
 
-    fun saveRememberedBrightnessIfNeeded(settings: PlaybackRuntimeSettings) {
+    fun saveRememberedBrightnessIfNeeded(settings: PlayerSettings) {
         if (!settings.rememberBrightness) return
         val brightness = window.attributes.screenBrightness
         if (brightness >= 0f) {
