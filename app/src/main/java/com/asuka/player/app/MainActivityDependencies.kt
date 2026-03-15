@@ -1,5 +1,6 @@
 package com.asuka.player.app
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModelProvider
@@ -20,4 +21,14 @@ interface MainActivityDependencies {
 
 interface MainActivityDependenciesProvider {
     val mainActivityDependencies: MainActivityDependencies
+
+    companion object {
+        fun from(application: Application): MainActivityDependenciesProvider {
+            return application as? MainActivityDependenciesProvider
+                ?: error(
+                    "${application::class.java.name} does not implement MainActivityDependenciesProvider. " +
+                        "Ensure your Application class implements MainActivityDependenciesProvider.",
+                )
+        }
+    }
 }

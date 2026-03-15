@@ -38,8 +38,7 @@ import kotlinx.coroutines.cancel
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     private val playbackDependencies: PlaybackServiceDependencies by lazy(LazyThreadSafetyMode.NONE) {
-        (application as? PlaybackDependenciesProvider)?.playbackServiceDependencies
-            ?: error("Application does not provide PlaybackServiceDependencies.")
+        PlaybackDependenciesProvider.from(application).playbackServiceDependencies
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())

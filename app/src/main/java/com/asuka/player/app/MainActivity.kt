@@ -21,8 +21,7 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val mainActivityDependencies: MainActivityDependencies by lazy(LazyThreadSafetyMode.NONE) {
-        (application as? MainActivityDependenciesProvider)?.mainActivityDependencies
-            ?: error("Application does not provide MainActivityDependencies.")
+        MainActivityDependenciesProvider.from(application).mainActivityDependencies
     }
 
     private var launchedForDirectPlayback = false

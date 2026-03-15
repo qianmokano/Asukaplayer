@@ -1,5 +1,6 @@
 package com.asuka.player.platform
 
+import android.app.Application
 import android.content.Context
 import androidx.annotation.DrawableRes
 import com.asuka.player.contract.PlaybackPreviewFrameProvider
@@ -35,4 +36,14 @@ interface PlaybackServiceDependencies {
 interface PlaybackDependenciesProvider {
     val playbackActivityDependencies: PlaybackActivityDependencies
     val playbackServiceDependencies: PlaybackServiceDependencies
+
+    companion object {
+        fun from(application: Application): PlaybackDependenciesProvider {
+            return application as? PlaybackDependenciesProvider
+                ?: error(
+                    "${application::class.java.name} does not implement PlaybackDependenciesProvider. " +
+                        "Ensure your Application class implements PlaybackDependenciesProvider.",
+                )
+        }
+    }
 }

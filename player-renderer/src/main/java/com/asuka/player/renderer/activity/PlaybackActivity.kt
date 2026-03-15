@@ -33,8 +33,7 @@ import com.asuka.player.ui.theme.PlayerUiTokens
 
 class PlaybackActivity : ComponentActivity() {
     private val playbackDependencies: PlaybackActivityDependencies by lazy(LazyThreadSafetyMode.NONE) {
-        (application as? PlaybackDependenciesProvider)?.playbackActivityDependencies
-            ?: error("Application does not provide PlaybackActivityDependencies.")
+        PlaybackDependenciesProvider.from(application).playbackActivityDependencies
     }
 
     private val viewModel: PlaybackViewModel by viewModels {
