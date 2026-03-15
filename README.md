@@ -39,24 +39,24 @@ player-domain/    纯 JVM 算法与状态机
 player-data/      DataStore/Room 持久化实现、媒体库索引库、legacy SharedPreferences 迁移源、schema/compat 测试
 ```
 
-依赖方向：`app` → `player-runtime` / `player-platform` / `player-renderer` / `player-data`；`player-renderer` → `player-render-api` / `player-ui` / `player-platform` / `player-contract`；`player-ui` → `player-render-api` / `player-contract` / `player-domain`；`player-runtime` → `player-contract` / `player-platform` / `player-engine` / `player-data`；`player-engine` → `player-contract` / `player-platform`；`player-data` → `player-contract`
+依赖方向：`app` → `player-runtime` / `player-platform` / `player-renderer` / `player-data` / `player-engine`；`player-renderer` → `player-render-api` / `player-ui` / `player-platform` / `player-contract`；`player-ui` → `player-render-api` / `player-contract` / `player-domain`；`player-runtime` → `player-contract` / `player-platform` / `player-data`；`player-engine` → `player-contract` / `player-platform`；`player-data` → `player-contract`
 
 ## 关键架构
 
-1. `AsuraPlayerApp` 现在只做 composition root：构建 `AsukaAppGraph`，再委托 `AppCompositionFactory` 产出 `MainActivityDependencies`、platform 层的 `PlaybackActivityDependencies` / `PlaybackServiceDependencies`。
-2. `AsuraPlayerApp` 持有窄依赖 container，`MainActivity` / `PlaybackActivity` / `PlaybackService` 在各自入口内从 `Application` 读取依赖，不再依赖静态 registry。
+1. `AsuraPlayerApp` 是唯一组合根：构建 `AsukaAppGraph`（注入 engine 绑定），再委托 `AppComposition` 使用内联匿名对象产出 `MainActivityDependencies`、platform 层的 `PlaybackActivityDependencies` / `PlaybackServiceDependencies`。
+2. `MainActivity` / `PlaybackActivity` / `PlaybackService` 通过 `Provider.from(application)` 集中式查找读取窄依赖，架构边界检查在构建期验证 Application 实现了所需 provider 接口。
 3. `IncomingPlaybackIntentReader` + `PlaybackSessionRequestCodec` 负责把 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` / `ClipData` 归一成单一 `PlaybackSessionRequest`；`PlaybackLaunchCoordinator` 只负责把当前项解析为实际 playback URI 并生成启动 intent。
 4. 媒体库现在先同步到本地索引库，再由 `MediaLibraryRepository` + use case 提供分页 folders/videos/recent lookup；`ContentObserver` 负责增量触发同步。
-5. `player-renderer` 持有 `PlaybackActivity` / `PlaybackViewModel` / `PlaybackSessionHost`，其中 `PlaybackViewModel` 作为 `AndroidViewModel` 持有 session host 和 host 状态，跨 configuration change 存活；host 已拆成 controller connection、launch driver、state feeds 三个协作者；renderer 负责 `MediaController` 建连、seek fallback、PiP、window side effects 和 surface render adapter，再把窄 UI 模型交给 `player-ui/PlayerScreen`。
-6. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复；`PlaybackStateWriter` / `QueueHistoryWriter` 现在位于 `player-platform`，由 engine service 消费。
-7. `AsukaAppGraph` 内部已经拆成 `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 两个 runtime feature installer；app 侧则通过 `MainLibraryFeatureInstaller` / `PlaybackFeatureEntryPointFactory` 组装具体入口依赖。
+5. `player-renderer` 持有 `PlaybackActivity` / `PlaybackViewModel` / `PlaybackSessionHost`，其中 `PlaybackViewModel` 作为 `AndroidViewModel` 持有 session host 和 host 状态，跨 configuration change 存活；host 已拆成 controller connection、launch driver、state feeds 三个协作者；`PlaybackHostState`（低频）和 `PlayerUiState`（20Hz 进度）分离为独立 `StateFlow`，`PlayerScreen` 内部收集高频流以避免 Activity 级重组。
+6. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复；`PlaybackStateWriter` / `QueueHistoryWriter` 现在位于 `player-platform`，由 engine service 消费；`PlaybackController.release()` 负责清理 listener。
+7. `AsukaAppGraph` 内部已经拆成 `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 两个 runtime feature installer；engine 具体实现（`Media3PlaybackControllerConnectorFactory`、`PlaybackService` 组件名、通知图标）通过 `AsukaAppGraph` 构造器注入，`player-runtime` 不编译时依赖 `player-engine`。
 8. settings 默认走 `DataStoreAppSettingsStore`；playback state / queue history 默认走 Room-backed store；媒体库元数据默认走本地 Room 索引，并在应用运行中持续增量同步。
 
 ## 当前代码组织
 
 - 组合根与装配已经进一步瘦身：
   - `AsuraPlayerApp` 只持有 `graph` 和 `appComposition`
-  - `AppCompositionFactory` 负责把 app 层入口依赖组装成 `AppComposition`
+  - `AppComposition` 使用内联匿名对象将 graph 映射为窄依赖接口，不再通过单独的映射类
   - `MainLibraryFeatureInstaller` 负责媒体库 feature 的 repository / use case / view model factory 装配
   - `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 负责 runtime graph 内部 feature 构造
 - 媒体库与设置页已经拆成 feature-oriented 文件：
@@ -92,7 +92,7 @@ player-data/      DataStore/Room 持久化实现、媒体库索引库、legacy S
 - 媒体库列表使用本地 Room 索引库，应用通过增量同步维护索引，再从索引做分页查询。
 - legacy `SharedPreferencesAppSettingsStore`、`SharedPreferencesPlaybackStore`、`SharedPreferencesQueueHistoryStore` 保留为迁移源和兼容测试目标，不再是默认运行路径。
 - migration 和 schema compatibility 已有自动化覆盖，新增字段优先改 snapshot / entity / migration，而不是到处补 key 与默认值。
-- playback/history 回写已经走串行异步任务队列；service 销毁时只触发有上限的后台 drain/close，不在生命周期主路径同步等待慢 I/O。
+- playback/history 回写已经走串行异步任务队列；service 销毁时触发非阻塞 flush + close（队列消费者在自有 IO scope 上处理剩余项），不阻塞主线程。
 
 ## 本地验证
 
