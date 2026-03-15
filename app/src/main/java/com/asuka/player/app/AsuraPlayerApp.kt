@@ -22,7 +22,7 @@ class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, Playback
         graphFactory(this)
     }
     private val appComposition: AppComposition by lazy(LazyThreadSafetyMode.NONE) {
-        AppCompositionFactory.create(
+        AppComposition(
             application = this,
             graph = graph,
         )
@@ -39,7 +39,7 @@ class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, Playback
 
     @Composable
     override fun ProvidePlaybackTheme(content: @Composable () -> Unit) {
-        val uiSettings by graph.uiSettingsRepository.settings.collectAsState()
+        val uiSettings by graph.settings.uiSettingsRepository.settings.collectAsState()
         AsukaTheme(themeConfig = uiSettings.themeConfig) {
             CompositionLocalProvider(LocalHapticsEnabled provides uiSettings.hapticFeedbackEnabled) {
                 content()

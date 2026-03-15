@@ -81,19 +81,6 @@ class PlaybackRuntimeFeature(
     }
 }
 
-object PlaybackRuntimeInstaller {
-    fun install(
-        application: Application,
-        playbackBehaviorRepository: PlaybackBehaviorRepository,
-        scope: CoroutineScope,
-    ): PlaybackRuntimeFeature {
-        return PlaybackRuntimeFeature(
-            application = application,
-            playbackBehaviorRepository = playbackBehaviorRepository,
-            scope = scope,
-        )
-    }
-}
 
 private class PlaybackPersistenceResolver(
     private val context: Context,

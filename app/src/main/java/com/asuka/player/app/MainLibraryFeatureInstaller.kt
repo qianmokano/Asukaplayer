@@ -4,53 +4,39 @@ import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.ViewModelProvider
 import com.asuka.player.contract.PlaybackSessionRequest
-import com.asuka.player.runtime.PlaybackLaunchCoordinator
-
-internal object MainLibraryFeatureInstaller {
-    fun install(
-        application: Application,
-        bindings: MainLibraryFeatureBindings,
-        playbackActivityClass: Class<*>,
-    ): MainActivityDependencies {
-        return AppMainActivityDependencies(
-            application = application,
-            bindings = bindings,
-            playbackLaunchCoordinator = bindings.playbackLaunchCoordinator(),
-            playbackActivityClass = playbackActivityClass,
-        )
-    }
-
-}
+import com.asuka.player.runtime.AsukaAppGraph
 
 private fun createMediaLibraryRepository(
     application: Application,
-    bindings: MainLibraryFeatureBindings,
+    graph: AsukaAppGraph,
 ): MediaLibraryRepository {
     return AndroidMediaLibraryRepository(
         videoAccessDataSource = AndroidVideoAccessDataSource(application),
         localVideoCatalogDataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = application,
-            playbackStateRepositoryProvider = bindings.playbackStateRepository,
+            playbackStateRepositoryProvider = { graph.playback.playbackStateRepository },
         ),
         recentPlaybackDataSource = PlaybackRecentMediaDataSource(
-            playbackStateRepositoryProvider = bindings.playbackStateRepository,
-            queueHistoryRepositoryProvider = bindings.queueHistoryRepository,
+            playbackStateRepositoryProvider = { graph.playback.playbackStateRepository },
+            queueHistoryRepositoryProvider = { graph.playback.queueHistoryRepository },
         ),
     )
 }
 
-private class AppMainActivityDependencies(
+internal class AppMainActivityDependencies(
     private val application: Application,
-    private val bindings: MainLibraryFeatureBindings,
-    private val playbackLaunchCoordinator: PlaybackLaunchCoordinator,
+    private val graph: AsukaAppGraph,
     private val playbackActivityClass: Class<*>,
 ) : MainActivityDependencies {
+    private val playbackLaunchCoordinator
+        get() = graph.playback.playbackLaunchCoordinator
+
     override val mainLibraryViewModelFactory: ViewModelProvider.Factory by lazy(LazyThreadSafetyMode.NONE) {
-        val mediaLibraryRepository = createMediaLibraryRepository(application, bindings)
+        val mediaLibraryRepository = createMediaLibraryRepository(application, graph)
         MainLibraryViewModel.Factory(
             MainLibraryViewModelDependencies(
-                uiSettingsRepository = bindings.uiSettingsRepository(),
-                playerSettingsRepository = bindings.playerSettingsRepository(),
+                uiSettingsRepository = graph.settings.uiSettingsRepository,
+                playerSettingsRepository = graph.settings.playerSettingsRepository,
                 resolveVideoAccessUseCase = ResolveVideoAccessUseCase(mediaLibraryRepository),
                 loadFolderPageUseCase = LoadFolderPageUseCase(mediaLibraryRepository),
                 loadVideoPageUseCase = LoadVideoPageUseCase(mediaLibraryRepository),

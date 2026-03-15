@@ -2,9 +2,11 @@ package com.asuka.player.renderer.activity
 
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.lifecycleScope
+import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackDependenciesProvider
 import com.asuka.player.renderer.components.Media3PlaybackSurfaceRenderer
@@ -29,56 +31,61 @@ import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.R as PlayerUiR
 import com.asuka.player.ui.theme.PlayerUiTokens
 
-/**
- * Minimal playback Activity for M0.
- * Starts MediaController, sets a single media item, and renders minimal UI.
- */
 class PlaybackActivity : ComponentActivity() {
     private val playbackDependencies: PlaybackActivityDependencies by lazy(LazyThreadSafetyMode.NONE) {
         (application as? PlaybackDependenciesProvider)?.playbackActivityDependencies
             ?: error("Application does not provide PlaybackActivityDependencies.")
     }
 
-    private val playbackSession by lazy(LazyThreadSafetyMode.NONE) {
-        PlaybackActivitySession(
-            activity = this,
-            dependencies = playbackDependencies,
-            scope = lifecycleScope,
+    private val viewModel: PlaybackViewModel by viewModels {
+        PlaybackViewModel.Factory(application, playbackDependencies)
+    }
+
+    private val playbackUiPersistence: PlaybackUiPersistence by lazy(LazyThreadSafetyMode.NONE) {
+        playbackDependencies.playbackUiPersistence
+    }
+
+    private val windowChromeController by lazy(LazyThreadSafetyMode.NONE) {
+        PlaybackWindowChromeController(
+            window = window,
+            playbackUiPersistence = playbackUiPersistence,
         )
+    }
+    private val pictureInPictureController by lazy(LazyThreadSafetyMode.NONE) {
+        PlaybackPictureInPictureController(
+            activity = this,
+            currentPlayerProvider = { viewModel.sessionHost.currentPlayer },
+            currentControllerProvider = { viewModel.sessionHost.currentController },
+        )
+    }
+    private val playbackDeviceController by lazy(LazyThreadSafetyMode.NONE) {
+        playbackDependencies.playbackDeviceControllerFactory.create(this)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        playbackSession.onCreate(intent)
-        val playbackThemeProvider = application as? PlaybackThemeProvider
+        viewModel.applyRuntimeSettings(playbackDependencies.playbackRuntimeSettingsSource.current())
+        pictureInPictureController.updateRuntimeSettings(viewModel.state.value.runtimeSettings)
+        windowChromeController.applyBaseWindowStyle()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            addOnPictureInPictureModeChangedListener { info ->
+                val transition = viewModel.activityBehavior.onPictureInPictureModeChanged(info.isInPictureInPictureMode)
+                viewModel.updatePictureInPicture(transition.isInPictureInPicture)
+                pictureInPictureController.onPictureInPictureModeChanged(transition)
+            }
+        }
+        windowChromeController.applyRememberedBrightnessIfNeeded(viewModel.state.value.runtimeSettings)
+        windowChromeController.applySystemBarsForOrientation(resources.configuration.orientation)
+        viewModel.sessionHost.ensureControllerReady(intent)
 
+        val playbackThemeProvider = application as? PlaybackThemeProvider
         setContent {
             if (playbackThemeProvider != null) {
                 playbackThemeProvider.ProvidePlaybackTheme {
-                    PlaybackActivityContent(
-                        playbackSession = playbackSession,
-                        playbackDependencies = playbackDependencies,
-                        onClose = { finish() },
-                        onRotate = {
-                            requestedOrientation = playbackSession.toggleOrientation(
-                                requestedOrientation = requestedOrientation,
-                                currentOrientation = resources.configuration.orientation,
-                            )
-                        },
-                    )
+                    PlaybackActivityContent()
                 }
             } else {
-                PlaybackActivityContent(
-                    playbackSession = playbackSession,
-                    playbackDependencies = playbackDependencies,
-                    onClose = { finish() },
-                    onRotate = {
-                        requestedOrientation = playbackSession.toggleOrientation(
-                            requestedOrientation = requestedOrientation,
-                            currentOrientation = resources.configuration.orientation,
-                        )
-                    },
-                )
+                PlaybackActivityContent()
             }
         }
     }
@@ -86,81 +93,97 @@ class PlaybackActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        playbackSession.onNewIntent(intent)
+        viewModel.applyRuntimeSettings(playbackDependencies.playbackRuntimeSettingsSource.current())
+        pictureInPictureController.updateRuntimeSettings(viewModel.state.value.runtimeSettings)
+        viewModel.sessionHost.onNewIntent(intent)
     }
 
     override fun onStart() {
         super.onStart()
-        playbackSession.onStart()
+        viewModel.activityBehavior.onStart()
+        pictureInPictureController.updateRuntimeSettings(viewModel.state.value.runtimeSettings)
+        windowChromeController.applySystemBarsForOrientation(resources.configuration.orientation)
+        viewModel.sessionHost.ensureControllerReady(intent)
+        pictureInPictureController.updatePictureInPictureParamsIfSupported()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        playbackSession.onConfigurationChanged(newConfig)
+        windowChromeController.applySystemBarsForOrientation(newConfig.orientation)
     }
 
     override fun onStop() {
-        playbackSession.onStop()
+        windowChromeController.saveRememberedBrightnessIfNeeded(viewModel.state.value.runtimeSettings)
+        viewModel.sessionHost.onStop(viewModel.activityBehavior.shouldRetainSessionOnStop())
         super.onStop()
     }
 
     override fun onDestroy() {
-        playbackSession.onDestroy()
+        pictureInPictureController.release()
         super.onDestroy()
     }
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        playbackSession.onUserLeaveHint()
+        if (viewModel.activityBehavior.shouldAutoEnterPictureInPictureOnUserLeave()) {
+            enterPip()
+        }
     }
-}
 
-@Composable
-private fun PlaybackActivityContent(
-    playbackSession: PlaybackActivitySession,
-    playbackDependencies: PlaybackActivityDependencies,
-    onClose: () -> Unit,
-    onRotate: () -> Unit,
-) {
-    val sessionState by playbackSession.uiState.collectAsState()
-    val hostState = sessionState.hostState
-    val controller = hostState.controller
-    if (controller == null) {
-        PlaybackStartupScreen(
-            errorMessage = hostState.controllerErrorMessage,
-            onRetry = playbackSession::retryCurrentIntent,
-            onClose = onClose,
+    private fun enterPip() {
+        pictureInPictureController.enterPictureInPictureMode(
+            beforeEnter = { viewModel.activityBehavior.onEnterPictureInPictureRequested() },
         )
-        return
     }
-    val isControllerConnected by controller.isConnected.collectAsState()
-    PlayerScreen(
-        model = PlaybackScreenModel(
-            uiState = hostState.uiState,
-            surfaceState = hostState.surfaceState,
-            trackUiState = hostState.trackUiState,
-            settings = sessionState.runtimeSettings,
-            isInPip = sessionState.isInPictureInPicture,
-            isControllerConnected = isControllerConnected,
-            isPersistenceDegraded = sessionState.isPersistenceDegraded,
-        ),
-        dependencies = PlaybackScreenDependencies(
-            controller = controller,
-            trackSelectionController = hostState.trackSelectionController,
-            playbackPersistence = playbackDependencies.playbackUiPersistence,
-            previewFrameProvider = playbackDependencies.playbackPreviewFrameProvider,
-            deviceController = playbackSession.playbackDeviceController,
-            surfaceRenderer = Media3PlaybackSurfaceRenderer,
-        ),
-        onVideoBoundsChanged = playbackSession::updateVideoBounds,
-        onBack = onClose,
-        onPip = playbackSession::enterPictureInPictureMode,
-        onBackground = {
-            playbackSession.requestBackgroundPlayback()
-            onClose()
-        },
-        onRotate = onRotate,
-    )
+
+    @Composable
+    private fun PlaybackActivityContent() {
+        val state by viewModel.state.collectAsState()
+        val controller = state.controller
+        if (controller == null) {
+            PlaybackStartupScreen(
+                errorMessage = state.controllerErrorMessage,
+                onRetry = { viewModel.sessionHost.ensureControllerReady(intent) },
+                onClose = { finish() },
+            )
+            return
+        }
+        val isControllerConnected by controller.isConnected.collectAsState()
+        PlayerScreen(
+            model = PlaybackScreenModel(
+                uiState = state.uiState,
+                surfaceState = state.surfaceState,
+                trackUiState = state.trackUiState,
+                settings = state.runtimeSettings,
+                isInPip = state.isInPictureInPicture,
+                isControllerConnected = isControllerConnected,
+                isPersistenceDegraded = state.isPersistenceDegraded,
+            ),
+            dependencies = PlaybackScreenDependencies(
+                controller = controller,
+                trackSelectionController = state.trackSelectionController,
+                playbackPersistence = playbackDependencies.playbackUiPersistence,
+                previewFrameProvider = playbackDependencies.playbackPreviewFrameProvider,
+                deviceController = playbackDeviceController,
+                surfaceRenderer = Media3PlaybackSurfaceRenderer,
+            ),
+            onVideoBoundsChanged = { bounds ->
+                pictureInPictureController.updateVideoBounds(bounds)
+            },
+            onBack = { finish() },
+            onPip = ::enterPip,
+            onBackground = {
+                viewModel.activityBehavior.onBackgroundPlaybackRequested()
+                finish()
+            },
+            onRotate = {
+                requestedOrientation = windowChromeController.toggleOrientation(
+                    requestedOrientation = requestedOrientation,
+                    currentOrientation = resources.configuration.orientation,
+                )
+            },
+        )
+    }
 }
 
 @Composable

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
 
     implementation(libs.media3.common)
     implementation(libs.media3.session)

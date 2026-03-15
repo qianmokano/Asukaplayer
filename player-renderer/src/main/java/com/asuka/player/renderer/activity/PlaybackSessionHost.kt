@@ -23,6 +23,7 @@ internal class PlaybackSessionHost(
     controllerContext: android.content.Context,
     controllerProvider: PlaybackControllerConnector =
         dependencies.createPlaybackControllerConnector(controllerContext.applicationContext),
+    sharedState: MutableStateFlow<PlaybackHostState> = MutableStateFlow(PlaybackHostState()),
 ) {
     private val appContext = controllerContext.applicationContext
     private val mediaMetadataBridge = PlaybackSessionMediaMetadataBridge(
@@ -35,7 +36,7 @@ internal class PlaybackSessionHost(
         scope = scope,
         runtimeSettingsSource = dependencies.playbackRuntimeSettingsSource,
     )
-    private val _state = MutableStateFlow(PlaybackHostState())
+    private val _state = sharedState
     private val stateFeeds = PlaybackSessionStateFeeds(
         scope = scope,
         state = _state,
