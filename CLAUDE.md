@@ -49,7 +49,7 @@ player-domain/        → Pure JVM algorithms (no Android deps) — gesture math
 player-data/          → DataStore/Room persistence, media library index, legacy migration
 ```
 
-Dependency direction: `app` → `player-runtime` / `player-platform` / `player-renderer` / `player-data`; `player-renderer` → `player-render-api` / `player-ui` / `player-platform` / `player-contract`; `player-ui` → `player-render-api` / `player-contract` / `player-domain`; `player-runtime` → `player-contract` / `player-platform` / `player-engine` / `player-data`; `player-engine` → `player-contract` / `player-platform`
+Dependency direction: `app` → `player-runtime` / `player-platform` / `player-renderer` / `player-data` / `player-engine`; `player-renderer` → `player-render-api` / `player-ui` / `player-platform` / `player-contract`; `player-ui` → `player-render-api` / `player-contract` / `player-domain`; `player-runtime` → `player-contract` / `player-platform` / `player-data`; `player-engine` → `player-contract` / `player-platform`
 
 `player-domain` is a pure JVM library. `player-contract`, `player-data`, `player-engine`, `player-platform`, `player-renderer`, `app`, and `player-ui` all have JVM/Robolectric test coverage.
 
@@ -61,8 +61,14 @@ Dependency direction: `app` → `player-runtime` / `player-platform` / `player-r
 - `player-ui/controller/GestureStateMachine.kt` (in domain) — state machine that enforces gesture exclusivity.
 
 **Application wiring:**
-1. `AsuraPlayerApp` builds `AsukaAppGraph`.
-2. `AsuraPlayerApp` owns the narrow dependency container; there is no registry fallback anymore.
+1. `AsuraPlayerApp` builds `AsukaAppGraph`, injecting engine bindings (`Media3PlaybackControllerConnectorFactory`, `PlaybackService` component, notification icon).
+2. `AppComposition` wires the graph into narrow dependency interfaces (`PlaybackActivityDependencies`, `PlaybackServiceDependencies`) using inline anonymous objects.
+3. Framework components resolve dependencies via `PlaybackDependenciesProvider.from(application)` / `MainActivityDependenciesProvider.from(application)` — centralized lookup with diagnostic error messages, validated by architecture boundary checks at build time.
+
+**Playback state split:**
+- `PlaybackHostState` holds slow-changing state (controller, connection, settings, PiP, degradation) — emits only on lifecycle events.
+- `PlayerUiState` (progress, title, playing, buffering, error) flows at 20Hz through a separate `StateFlow` via `PlaybackViewModel.uiState`.
+- `PlayerScreen` accepts `uiStateFlow: StateFlow<PlayerUiState>` and collects it internally, so the Activity composable does not recompose at 20Hz.
 
 **Playback launch and control flow:**
 1. `MainActivity` uses `PlaybackLaunchCoordinator` to resolve the playback URI and forward/remap explicit `ClipData` queues.
@@ -70,7 +76,7 @@ Dependency direction: `app` → `player-runtime` / `player-platform` / `player-r
 3. `PlaybackViewModel` holds `PlaybackSessionHost`, `PlaybackActivityBehavior`, and playback host state; survives configuration changes via `AndroidViewModel`.
 4. `PlaybackLaunchOrchestrator` handles runtime policy, current launch intent, seek fallback, and artwork restore.
 5. `PlaybackSessionCoordinator` asks `PlaybackSessionPlanner` for a `PlaybackSessionPlan` and applies it to the controller.
-6. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface.
+6. `Media3PlaybackController` wraps `MediaController` and implements the `PlaybackController` interface; `release()` removes its connection listener.
 7. `PlaybackSessionHost` translates Media3 state into `PlaybackScreenModel` / `PlaybackScreenDependencies`; `PlayerScreen` consumes those UI-facing contracts rather than raw wiring helpers.
 
 **State persistence:** `PlaybackStateWriter` writes position/speed/stable track IDs to `PlaybackStore`. `PlaybackStateRepository` reads typed resume state back, and `PlaybackSessionPlanner` decides what should actually be restored for the new session.
@@ -83,7 +89,7 @@ Dependency direction: `app` → `player-runtime` / `player-platform` / `player-r
 
 | File | Purpose |
 |------|---------|
-| `player-runtime/…/runtime/AppGraph.kt` | Application dependency graph and playback runtime composition root |
+| `player-runtime/…/runtime/AppGraph.kt` | Application dependency graph; accepts engine bindings as constructor params |
 | `player-runtime/…/runtime/PlaybackLaunchCoordinator.kt` | Playback intent assembly and URI/ClipData forwarding |
 | `app/…/MainActivity.kt` | Library activity shell + launches playback |
 | `app/…/MainLibraryScreen.kt` | Library Compose UI |

@@ -4,14 +4,14 @@
 
 - 单一组合根：`AsuraPlayerApp` 是唯一装配入口，负责 graph、entry point 和应用级依赖 container 初始化。
 - 组合根只做装配：`AsuraPlayerApp` 不直接 new feature 级 data source / repository / use case / `ViewModelFactory`，这些责任交给 installer / factory。
-- framework 入口显式注入：`MainActivity`、`PlaybackActivity`、`PlaybackService` 通过 `AsuraPlayerApp` 提供的窄依赖 container 读取依赖，不再通过静态 registry 注入。
+- framework 入口显式注入：`MainActivity`、`PlaybackActivity`、`PlaybackService` 通过 `PlaybackDependenciesProvider.from(application)` / `MainActivityDependenciesProvider.from(application)` 读取窄依赖，集中式查找带诊断错误信息，架构边界检查在构建期验证 Application 实现了所需 provider 接口。
 - 组合根输出窄 binding：`app` 层 installer / entry point 只接收 feature 级 binding，不再继续向下传整张 `AsukaAppGraph`。
 - 纯 contract + 平台 binding 分层：`player-contract` 只保留纯 Kotlin API；Android / Media3 入口依赖统一放进 `player-platform`。
 - render contract 与 render implementation 分层：surface / renderer 契约放在 `player-render-api`；Media3 / Activity / PiP 适配实现放在 `player-renderer`。
 - 单一设置真相源：播放运行时设置统一来自 `PlaybackRuntimeSettingsSource`。
 - 持久化语义显式异步：settings / playback / history 的 I/O contract 使用 `suspend` API 表达完成语义，调用返回即表示写入已完成或抛错。
-- 播放回调不直接写盘：播放状态与历史回写通过串行异步队列排队，service 销毁时只触发有上限的后台 drain / close，避免播放器回调线程或生命周期主路径同步阻塞。
-- UI 依赖 UI 模型：播放页消费 `PlaybackScreenModel` / `PlaybackScreenDependencies`，不直接拼装 Media3 细节。
+- 播放回调不直接写盘：播放状态与历史回写通过串行异步队列排队，service 销毁时只触发非阻塞 flush + close（队列消费者在自有 IO scope 上处理剩余项），不阻塞主线程。
+- UI 依赖 UI 模型：播放页消费 `PlaybackScreenModel` / `PlaybackScreenDependencies`，不直接拼装 Media3 细节。`PlayerUiState`（高频进度/标题/错误）通过独立 `StateFlow` 传入 `PlayerScreen`，与低频 host 状态分离。
 - 策略与落盘分离：规划、执行、持久化分别由独立对象负责，减少隐式耦合。
 - 单一播放 request：启动链路使用统一的 `PlaybackSessionRequest` / codec 表达原始队列、稳定 mediaId、当前 playback URI 与 request 身份，避免多处重复解析 intent。
 - feature 分层优先：媒体库采用 data source -> repository -> use case -> view model，theme/settings model 保持纯值对象，不携带 Compose 类型。
@@ -72,8 +72,8 @@
 - 设置仓库与 `PlaybackRuntimeSettingsSource`
 - 播放启动编排：`PlaybackLaunchCoordinator`
 - `PlaybackUiPersistence`、`PlaybackDeviceControllerFactory` 的运行实现
-- `Media3PlaybackControllerConnectorFactory` 等 engine 实现的装配入口
-- 不再依赖 Compose UI 类型，theme/settings model 使用纯 ARGB / 基础值类型
+- engine 具体实现（`Media3PlaybackControllerConnectorFactory`、`PlaybackService` 组件名、通知图标）通过构造器注入，由 `app` 层提供
+- 不依赖 `player-engine`、Compose UI 类型；theme/settings model 使用纯 ARGB / 基础值类型
 
 ### `player-ui`
 - `PlayerScreen` 与播放 UI 组件
@@ -104,17 +104,18 @@
 
 当前唯一的运行时依赖装配路径是：
 
-1. `AsuraPlayerApp` 创建 `AsukaAppGraph`
+1. `AsuraPlayerApp` 创建 `AsukaAppGraph`，注入 engine 绑定（`Media3PlaybackControllerConnectorFactory`、`PlaybackService` 组件名、通知图标）
 2. `AsukaAppGraph` 通过 `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 组装 runtime feature
-3. `AppCompositionFactory` 调用 `MainLibraryFeatureInstaller` / `PlaybackFeatureEntryPointFactory` 生成 app 侧入口依赖
+3. `AppComposition` 使用内联匿名对象将 graph 映射为窄依赖接口（`PlaybackActivityDependencies`、`PlaybackServiceDependencies`）
 4. `AsuraPlayerApp` 暴露 `MainActivityDependencies` / `PlaybackActivityDependencies` / `PlaybackServiceDependencies`
-5. `MainActivity` / `player-renderer:PlaybackActivity` / `PlaybackService` 在各自入口内从 `Application` 读取这些窄依赖
+5. `MainActivity` / `player-renderer:PlaybackActivity` / `PlaybackService` 通过 `Provider.from(application)` 集中式查找读取这些窄依赖
 
 这里的关键变化是：
 
-- `AppCompositionFactory` 现在先把 graph 拆成 `MainLibraryFeatureBindings` / `PlaybackActivityEntryBindings` / `PlaybackServiceEntryBindings`
-- feature installer 与 entry dependency wrapper 只知道自己收到的 binding，而不是继续持有整张 graph
-- 运行时依赖是否延迟初始化，成为组合根内部实现细节，而不是 feature 代码可见的能力
+- `AppComposition` 使用内联匿名对象实现窄依赖接口，消除了中间映射类（`PlaybackFeatureDependencies.kt` 已删除）
+- engine 具体实现通过 `AsukaAppGraph` 构造器注入，`player-runtime` 不再编译时依赖 `player-engine`
+- `PlaybackDependenciesProvider` / `MainActivityDependenciesProvider` 提供 `from(application)` 集中式查找方法，带诊断错误信息
+- 架构边界检查在构建期验证 Application 实现了所需 provider 接口
 
 播放入口目前只暴露两个窄依赖：
 
@@ -153,7 +154,7 @@
 - `PlaybackSessionHost` 现在只保留生命周期主时序
 - `PlaybackControllerConnection` 负责 `MediaController` 建连与 session 协调器装配
 - `PlaybackSessionLaunchDriver` 负责请求落地、seek fallback 触发与过期请求丢弃
-- `PlaybackSessionStateFeeds` 负责把 `PlayerUiStateHolder` / `PlaybackTrackUiStateHolder` 状态喂给 host
+- `PlaybackSessionStateFeeds` 负责把 `PlaybackTrackUiStateHolder` 状态喂给 host，`PlayerUiState` 通过独立 `StateFlow` 直接暴露（不再合入 `PlaybackHostState`）
 - `PlaybackLaunchOrchestrator` 负责当前 launch intent、seek fallback 与 runtime policy 编排
 - `PlaybackLaunchOrchestrator` 现在为每次播放请求分配 request id；新 intent 会使旧 request、旧 fallback job 和旧启动结果全部失效
 - state feed 层维护两类状态：
@@ -292,7 +293,7 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 - 写回策略：
   - seek / pause / ended 等事件驱动
   - 播放中低频 checkpoint
-  - service 销毁时触发有上限的后台 drain / close，而不是在生命周期主路径同步等待
+  - service 销毁时触发非阻塞 flush + close（队列消费者在自有 IO scope 上处理剩余项），不阻塞主线程
 
 ### UI 进度刷新
 
@@ -343,8 +344,11 @@ Media3 到 UI 的翻译已经前置到 renderer/host 层完成。
 
 ## 治理与约束
 
+- 架构验证和文件大小检查的 task 实现位于 `buildSrc/src/main/kotlin/VerificationTasks.kt`，根 `build.gradle.kts` 只保留 task 注册
 - `verifyArchitectureBoundaries`
   - 校验模块依赖、包归属、播放入口 manifest、`player-ui` 对 Media3 / Activity / platform 的零直接依赖
+  - 验证 `player-runtime` 不依赖 `player-engine`（engine 绑定由 `app` 层注入）
+  - 验证 Application 类实现了 `PlaybackDependenciesProvider` 和 `MainActivityDependenciesProvider`
 - `verifySourceFileSizes`
   - 扫描所有模块 `src/main/java` 根目录，而不是只看少数 feature 目录
   - page 类文件默认预算 320 行
