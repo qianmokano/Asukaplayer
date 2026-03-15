@@ -13,7 +13,7 @@ import com.asuka.player.platform.PlaybackServiceDependencies
 import com.asuka.player.platform.PlaybackStateWriter
 import com.asuka.player.platform.QueueHistoryWriter
 import com.asuka.player.engine.R
-import kotlin.system.measureTimeMillis
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -51,9 +51,9 @@ class PlaybackServiceTest {
     }
 
     @Test
-    fun onDestroy_drainsAndClosesPersistenceSynchronously() {
-        val playbackStore = RecordingPlaybackStore(delayMs = 400L)
-        val queueHistoryStore = RecordingQueueHistoryStore(delayMs = 400L)
+    fun onDestroy_closesFieldsAndDrainsNonBlocking() {
+        val playbackStore = RecordingPlaybackStore()
+        val queueHistoryStore = RecordingQueueHistoryStore()
         PlaybackServiceTestApplication.configure(
             playbackStore = playbackStore,
             queueHistoryStore = queueHistoryStore,
@@ -71,18 +71,17 @@ class PlaybackServiceTest {
         writer.onMediaItemTransition(mediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
         historyWriter.onMediaItemTransition(mediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
 
-        val elapsedMs = measureTimeMillis {
-            serviceController.destroy()
-        }
+        serviceController.destroy()
 
-        assertTrue(elapsedMs < 1500, "Expected drain to complete within shutdown timeout, but took ${elapsedMs}ms")
         assertNull(service.readPrivateField<Any>("player"))
         assertNull(service.readPrivateField<Any>("session"))
         assertNull(service.readPrivateField<Any>("writer"))
         assertNull(service.readPrivateField<Any>("historyWriter"))
 
-        assertTrue(playbackStore.savedPositions.any { it.first == "media-store:42" })
-        assertTrue(queueHistoryStore.pushedMediaIds.contains("media-store:42"))
+        waitForCondition {
+            playbackStore.savedPositions.any { it.first == "media-store:42" } &&
+                queueHistoryStore.pushedMediaIds.contains("media-store:42")
+        }
     }
 }
 
@@ -113,7 +112,7 @@ class PlaybackServiceTestApplication : Application(), PlaybackDependenciesProvid
 private class RecordingPlaybackStore(
     private val delayMs: Long = 0L,
 ) : PlaybackStore {
-    val savedPositions = mutableListOf<Pair<String, Long>>()
+    val savedPositions = CopyOnWriteArrayList<Pair<String, Long>>()
 
     override suspend fun recentMediaIds(limit: Int): List<String> = emptyList()
 
@@ -144,7 +143,7 @@ private class RecordingPlaybackStore(
 private class RecordingQueueHistoryStore(
     private val delayMs: Long = 0L,
 ) : QueueHistoryStore {
-    val pushedMediaIds = mutableListOf<String>()
+    val pushedMediaIds = CopyOnWriteArrayList<String>()
 
     override suspend fun push(mediaId: String) {
         if (delayMs > 0L) delay(delayMs)

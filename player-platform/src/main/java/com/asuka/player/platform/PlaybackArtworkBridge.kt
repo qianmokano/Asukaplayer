@@ -155,12 +155,14 @@ class PlaybackArtworkBridge(
             }
         }
 
+        @Synchronized
         fun add(key: K): Boolean {
             val existed = map.containsKey(key)
             map[key] = Unit
             return !existed
         }
 
+        @Synchronized
         fun contains(key: K): Boolean = map.containsKey(key)
     }
 

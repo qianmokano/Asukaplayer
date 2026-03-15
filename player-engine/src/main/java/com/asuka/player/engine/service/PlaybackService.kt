@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -46,12 +45,7 @@ class PlaybackService : MediaSessionService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val persistenceDispatcher = Dispatchers.IO.limitedParallelism(1)
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val persistenceShutdown = PlaybackPersistenceShutdownCoordinator(
-        timeoutMs = PERSISTENCE_SHUTDOWN_TIMEOUT_MS,
-        onTimeout = {
-            Log.w(TAG, "timed out waiting for playback persistence drain during service shutdown")
-        },
-    )
+    private val persistenceShutdown = PlaybackPersistenceShutdownCoordinator()
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
@@ -197,9 +191,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     companion object {
-        private const val TAG = "PlaybackService"
         private const val NOTIFICATION_CHANNEL_ID = "asuka_playback"
         private const val NOTIFICATION_ID = 1001
-        private const val PERSISTENCE_SHUTDOWN_TIMEOUT_MS = 1_000L
     }
 }
