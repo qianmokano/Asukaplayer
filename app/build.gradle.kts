@@ -1,4 +1,4 @@
-import com.asuka.player.build.readAppVersion
+import com.asuka.player.versioning.readAppVersion
 import java.util.Locale
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 

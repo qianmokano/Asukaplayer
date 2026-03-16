@@ -1,4 +1,4 @@
-import com.asuka.player.build.PrintAppVersionTask
+import com.asuka.player.versioning.PrintAppVersionTask
 import com.github.jk1.license.render.JsonReportRenderer
 import com.github.jk1.license.render.ReportRenderer
 import com.github.jk1.license.render.TextReportRenderer

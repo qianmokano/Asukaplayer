@@ -16,7 +16,7 @@ appVersionMinor=1
 appVersionPatch=2
 ```
 
-`app` 模块和根任务都通过 [AppVersioning.kt](../buildSrc/src/main/kotlin/com/asuka/player/build/AppVersioning.kt) 读取这三个属性并计算最终版本。
+`app` 模块和根任务都通过 [AppVersioning.kt](../buildSrc/src/main/kotlin/com/asuka/player/versioning/AppVersioning.kt) 读取这三个属性并计算最终版本。
 
 ## Rules / 规则
 
