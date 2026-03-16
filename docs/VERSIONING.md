@@ -13,7 +13,7 @@
 ```properties
 appVersionMajor=0
 appVersionMinor=1
-appVersionPatch=0
+appVersionPatch=2
 ```
 
 `app` 模块和根任务都通过 [AppVersioning.kt](../buildSrc/src/main/kotlin/com/asuka/player/build/AppVersioning.kt) 读取这三个属性并计算最终版本。
@@ -22,6 +22,8 @@ appVersionPatch=0
 
 - `versionName = MAJOR.MINOR.PATCH`
 - `versionCode = MAJOR * 10000 + MINOR * 100 + PATCH`
+- `release` builds use the plain base version, with no suffix
+- `debug` builds append a debug marker, and can optionally append a branch/build label
 - `MINOR` 和 `PATCH` 必须在 `0..99` 之间，保证 `versionCode` 可逆且不会位数冲突。
 - `MAJOR` 必须大于等于 `0`。
 - 不允许在 [app/build.gradle.kts](../app/build.gradle.kts) 里手工写死 `versionName` / `versionCode`。
@@ -32,6 +34,65 @@ appVersionPatch=0
 - `0.12.3` -> `1203`
 - `1.0.0` -> `10000`
 - `2.4.15` -> `20415`
+
+## Debug And Branch Builds / Debug 与分支构建
+
+发布版本和调试/分支标识是分层表达的：
+
+- `MAJOR.MINOR.PATCH` 只表示发布基线，例如 `0.1.2`
+- `debug` 构建通过 `versionNameSuffix` 标识调试身份，不改动发布基线
+- 分支/实验构建通过可选 label 标识来源
+- 如果需要和其他 debug 包同时安装，再额外设置独立的 `applicationIdSuffix`
+
+当前 `app` 模块支持两组输入：
+
+- `appBuildLabel` 或环境变量 `ASUKA_BUILD_LABEL`
+  - 用于追加到 `versionNameSuffix`
+  - 结果示例：`0.1.2-debug+seek-hud`
+- `appInstallId` 或环境变量 `ASUKA_INSTALL_ID`
+  - 用于生成可并存安装的 `applicationIdSuffix`
+  - 结果示例：`.bseekhud`
+
+未提供任何额外参数时：
+
+- `release` -> `versionName = 0.1.2`
+- `debug` -> `versionName = 0.1.2-debug`
+- `debug` 默认 `applicationIdSuffix = .debug`
+
+提供分支/实验标识但不要求并存安装时：
+
+```bash
+./gradlew :app:assembleDebug -PappBuildLabel=seek-hud
+```
+
+得到的版本名类似：
+
+- `0.1.2-debug+seek-hud`
+
+如果希望同机并存安装多个 debug / 分支包：
+
+```bash
+./gradlew :app:assembleDebug -PappBuildLabel=seek-hud -PappInstallId=seekhud
+```
+
+结果会类似：
+
+- `versionName = 0.1.2-debug+seek-hud`
+- `applicationIdSuffix = .bseekhud`
+
+环境变量写法：
+
+```bash
+ASUKA_BUILD_LABEL=seek-hud ASUKA_INSTALL_ID=seekhud ./gradlew :app:assembleDebug
+```
+
+额外约定：
+
+- `versionCode` 仍然只由 `MAJOR.MINOR.PATCH` 推导，不把 debug / branch 信息编码进去
+- `appBuildLabel` 只影响展示与识别，不影响升级顺序
+- `appInstallId` 只在需要并存安装时使用；普通 debug 包继续默认 `.debug`
+- label 会自动规范化为小写，并将非法字符压缩为 `-`
+- install id 会自动规范化为小写字母数字，并截断到安全长度
 
 ## Semantics / 语义
 
@@ -53,6 +114,12 @@ appVersionPatch=0
 3. 更新 [docs/CHANGELOG.md](./CHANGELOG.md)。
 4. 运行 `./gradlew printAppVersion`，确认生成结果正确。
 5. 运行至少一轮本地验证：`./gradlew test`。
+
+如果这是调试/分支包而不是正式发版：
+
+- 不修改 `MAJOR.MINOR.PATCH`
+- 通过 `-PappBuildLabel=...` 标识来源
+- 需要并存安装时再额外传 `-PappInstallId=...`
 
 ## Build Behavior / 构建行为
 

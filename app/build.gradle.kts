@@ -1,4 +1,5 @@
 import com.asuka.player.build.readAppVersion
+import java.util.Locale
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -7,6 +8,14 @@ plugins {
 }
 
 val appVersion = project.readAppVersion()
+val debugBuildLabel = providers.gradleProperty("appBuildLabel")
+    .orElse(providers.environmentVariable("ASUKA_BUILD_LABEL"))
+    .map(::sanitizeBuildLabel)
+    .orElse("")
+val debugInstallId = providers.gradleProperty("appInstallId")
+    .orElse(providers.environmentVariable("ASUKA_INSTALL_ID"))
+    .map(::sanitizeInstallId)
+    .orElse("")
 
 android {
     namespace = "com.asuka.player"
@@ -26,6 +35,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            val buildLabel = debugBuildLabel.get()
+            versionNameSuffix = if (buildLabel.isNotEmpty()) "-debug+$buildLabel" else "-debug"
+
+            val installId = debugInstallId.get()
+            applicationIdSuffix = if (installId.isNotEmpty()) ".b$installId" else ".debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -69,4 +85,20 @@ dependencies {
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
+}
+
+private fun sanitizeBuildLabel(value: String): String {
+    return value
+        .trim()
+        .lowercase(Locale.ROOT)
+        .replace(Regex("[^a-z0-9._-]+"), "-")
+        .trim('.', '-', '_')
+}
+
+private fun sanitizeInstallId(value: String): String {
+    return value
+        .trim()
+        .lowercase(Locale.ROOT)
+        .replace(Regex("[^a-z0-9]+"), "")
+        .take(24)
 }
