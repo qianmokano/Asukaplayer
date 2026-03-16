@@ -126,6 +126,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
 @Composable
 internal fun PlayerScreenLayoutShell(
     controlsVisible: Boolean,
+    gestureSeekOverlayVisible: Boolean,
     isInPip: Boolean,
     settings: com.asuka.player.contract.PlayerSettings,
     uiState: PlayerUiState,
@@ -143,23 +144,23 @@ internal fun PlayerScreenLayoutShell(
     if (isInPip) return
     Column(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
-            visible = controlsVisible,
+            visible = controlsVisible || gestureSeekOverlayVisible,
             enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
             exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
         ) {
             TopBar(
                 showButtonBackground = !settings.hideButtonsBackground,
+                showContent = !gestureSeekOverlayVisible,
                 title = uiState.title,
                 landscapeCutoutPadding = landscapeCutoutPadding,
                 onBack = onBack,
                 onPip = onPip,
-                onBackground = onBackground,
                 onSettings = { onOpenOverlay(OverlayType.SETTINGS) },
             )
         }
         Spacer(modifier = Modifier.weight(1f))
         AnimatedVisibility(
-            visible = controlsVisible,
+            visible = controlsVisible || gestureSeekOverlayVisible,
             enter = fadeIn(animationSpec = tween(PlayerUiTokens.Motion.normalMs)),
             exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
         ) {
@@ -176,6 +177,8 @@ internal fun PlayerScreenLayoutShell(
                 onSpeed = { onOpenOverlay(OverlayType.SPEED) },
                 onSubtitle = { onOpenOverlay(OverlayType.SUBTITLE) },
                 onRotate = onRotate,
+                showTimeRow = !gestureSeekOverlayVisible,
+                showActionRow = !gestureSeekOverlayVisible,
             )
         }
     }

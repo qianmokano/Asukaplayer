@@ -161,6 +161,7 @@ fun PlayerScreen(
     val displayedPositionMs = if (seekState.seeking) seekState.previewPositionMs else uiState.positionMs
     val controlsVisible = controlsState.visible && !controlsState.locked
     val visibleError = if (errorDismissed) null else uiState.errorMessage
+    val gestureSeekOverlayVisible = seekState.seeking && !controlsState.locked && overlayType == null && visibleError == null
     val landscapeCutoutPadding = rememberLandscapeCutoutPadding()
     val videoBoundsModifier = Modifier.onGloballyPositioned { coords ->
         if (onVideoBoundsChanged == null) return@onGloballyPositioned
@@ -211,6 +212,7 @@ fun PlayerScreen(
         )
         PlayerScreenLayoutShell(
             controlsVisible = controlsVisible,
+            gestureSeekOverlayVisible = gestureSeekOverlayVisible,
             isInPip = model.isInPip,
             settings = settings,
             uiState = uiState,

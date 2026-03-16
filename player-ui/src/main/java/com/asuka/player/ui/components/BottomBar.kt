@@ -55,9 +55,11 @@ private val bottomBarLoadingRingSize = 52.dp
 private val bottomBarLoadingRingStrokeWidth = 3.dp
 private val bottomBarVerticalPadding = 4.dp
 private val bottomBarRowSpacing = 2.dp
+private val bottomBarTimeRowHeight = 20.dp
 private val bottomBarSliderHeight = 18.dp
 private val bottomBarSliderTrackHeight = 6.dp
 private val bottomBarSliderThumbSize = DpSize(4.dp, 14.dp)
+private val bottomBarActionRowHeight = bottomBarButtonSize + 4.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +77,8 @@ internal fun BottomBar(
     onSpeed: () -> Unit,
     onSubtitle: () -> Unit,
     onRotate: () -> Unit,
+    showTimeRow: Boolean = true,
+    showActionRow: Boolean = true,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     var showRemainingTime by remember { mutableStateOf(false) }
@@ -113,23 +117,27 @@ internal fun BottomBar(
     ) {
         // ── Time row: "00:35 / 03:26" ─────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(bottomBarTimeRowHeight),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val currentText = if (showRemainingTime && durationMs > 0L) {
-                "-${formatTimeMs((durationMs - displayPositionMs).coerceAtLeast(0L))}"
-            } else {
-                formatTimeMs(displayPositionMs)
+            if (showTimeRow) {
+                val currentText = if (showRemainingTime && durationMs > 0L) {
+                    "-${formatTimeMs((durationMs - displayPositionMs).coerceAtLeast(0L))}"
+                } else {
+                    formatTimeMs(displayPositionMs)
+                }
+                Text(
+                    text = "$currentText / ${formatTimeMs(durationMs)}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .clickable { showRemainingTime = !showRemainingTime }
+                        .padding(start = 2.dp),
+                )
             }
-            Text(
-                text = "$currentText / ${formatTimeMs(durationMs)}",
-                color = Color.White,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .clickable { showRemainingTime = !showRemainingTime }
-                    .padding(start = 2.dp),
-            )
         }
 
         // ── Seek bar ───────────────────────────────────────────────────────────
@@ -152,7 +160,8 @@ internal fun BottomBar(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(bottomBarSliderHeight),
+                .height(bottomBarSliderHeight)
+                .testTag("bottom_seek_bar"),
             colors = sliderColors,
             interactionSource = sliderInteractionSource,
             thumb = {
@@ -176,78 +185,82 @@ internal fun BottomBar(
 
         // ── Action button row ──────────────────────────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(bottomBarActionRowHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier.size(bottomBarButtonSize + 4.dp),
-                    contentAlignment = Alignment.Center,
+            if (showActionRow) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (isBuffering) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(bottomBarLoadingRingSize)
-                                .testTag("play_pause_loading_ring"),
-                            color = PlayerUiTokens.loadingIndicatorColor(),
-                            strokeWidth = bottomBarLoadingRingStrokeWidth,
+                    Box(
+                        modifier = Modifier.size(bottomBarButtonSize + 4.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (isBuffering) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .size(bottomBarLoadingRingSize)
+                                    .testTag("play_pause_loading_ring"),
+                                color = PlayerUiTokens.loadingIndicatorColor(),
+                                strokeWidth = bottomBarLoadingRingStrokeWidth,
+                            )
+                        }
+                        SimpleButton(
+                            label = stringResource(id = R.string.play_pause),
+                            icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            onClick = controller::togglePlayPause,
+                            tag = "btn_play_pause",
+                            showBackground = showButtonBackground,
+                            size = bottomBarButtonSize,
+                            iconSize = bottomBarPlayPauseIconSize,
                         )
                     }
                     SimpleButton(
-                        label = stringResource(id = R.string.play_pause),
-                        icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        onClick = controller::togglePlayPause,
-                        tag = "btn_play_pause",
+                        label = stringResource(id = R.string.next),
+                        icon = Icons.Rounded.SkipNext,
+                        onClick = onNext,
+                        tag = "btn_next",
                         showBackground = showButtonBackground,
                         size = bottomBarButtonSize,
-                        iconSize = bottomBarPlayPauseIconSize,
+                        iconSize = bottomBarButtonIconSize,
                     )
                 }
-                SimpleButton(
-                    label = stringResource(id = R.string.next),
-                    icon = Icons.Rounded.SkipNext,
-                    onClick = onNext,
-                    tag = "btn_next",
-                    showBackground = showButtonBackground,
-                    size = bottomBarButtonSize,
-                    iconSize = bottomBarButtonIconSize,
-                )
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SimpleButton(
-                    label = stringResource(id = R.string.subs),
-                    icon = Icons.Rounded.Subtitles,
-                    onClick = onSubtitle,
-                    tag = "btn_subs",
-                    showBackground = showButtonBackground,
-                    size = bottomBarButtonSize,
-                    iconSize = bottomBarButtonIconSize,
-                )
-                SimpleButton(
-                    label = stringResource(id = R.string.speed),
-                    icon = Icons.Rounded.Speed,
-                    onClick = onSpeed,
-                    tag = "btn_speed",
-                    showBackground = showButtonBackground,
-                    size = bottomBarButtonSize,
-                    iconSize = bottomBarButtonIconSize,
-                )
-                SimpleButton(
-                    label = stringResource(id = R.string.rotate),
-                    icon = Icons.Rounded.ScreenRotation,
-                    onClick = onRotate,
-                    tag = "btn_rotate",
-                    showBackground = showButtonBackground,
-                    size = bottomBarButtonSize,
-                    iconSize = bottomBarButtonIconSize,
-                )
+                Spacer(modifier = Modifier.weight(1f))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SimpleButton(
+                        label = stringResource(id = R.string.subs),
+                        icon = Icons.Rounded.Subtitles,
+                        onClick = onSubtitle,
+                        tag = "btn_subs",
+                        showBackground = showButtonBackground,
+                        size = bottomBarButtonSize,
+                        iconSize = bottomBarButtonIconSize,
+                    )
+                    SimpleButton(
+                        label = stringResource(id = R.string.speed),
+                        icon = Icons.Rounded.Speed,
+                        onClick = onSpeed,
+                        tag = "btn_speed",
+                        showBackground = showButtonBackground,
+                        size = bottomBarButtonSize,
+                        iconSize = bottomBarButtonIconSize,
+                    )
+                    SimpleButton(
+                        label = stringResource(id = R.string.rotate),
+                        icon = Icons.Rounded.ScreenRotation,
+                        onClick = onRotate,
+                        tag = "btn_rotate",
+                        showBackground = showButtonBackground,
+                        size = bottomBarButtonSize,
+                        iconSize = bottomBarButtonIconSize,
+                    )
+                }
             }
         }
     }

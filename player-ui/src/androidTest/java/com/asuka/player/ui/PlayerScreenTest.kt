@@ -28,6 +28,7 @@ class PlayerScreenTest {
                 onBackground = {},
             )
         }
+        composeRule.onNodeWithTag("btn_bg").assertDoesNotExist()
         composeRule.onNodeWithTag("btn_settings").assertExists()
     }
 

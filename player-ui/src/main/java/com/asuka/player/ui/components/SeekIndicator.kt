@@ -90,6 +90,8 @@ fun SeekIndicator(
                         color = gestureHudContentColor(),
                         style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
                         textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
                     )
                 }
             }
@@ -124,6 +126,8 @@ fun SeekIndicator(
                     color = gestureHudContentColor(),
                     style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.Monospace),
                     textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
@@ -133,4 +137,4 @@ fun SeekIndicator(
 private const val PREVIEW_BUCKET_MS = 500L
 
 private fun rememberSeekTimeHudWidth(length: Int) =
-    ((length * 7) + 28).dp
+    (((length * 8) + 12).dp).coerceAtLeast(116.dp)
