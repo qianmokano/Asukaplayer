@@ -57,7 +57,7 @@ jobs:
           languages: ${{ matrix.language }}
 
       - name: Build for CodeQL
-        run: ./gradlew --stacktrace :app:assembleDebug -PappBuildLabel=codeql
+        run: ./gradlew --stacktrace :app:compileDebugKotlin :player-ui:compileDebugAndroidTestKotlin
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

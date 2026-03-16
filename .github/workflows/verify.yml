@@ -80,16 +80,8 @@ jobs:
           yes | sdkmanager --licenses > /dev/null
           sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
-      - name: Compile Android test sources and assemble debug APK
-        run: ./gradlew --stacktrace :player-ui:compileDebugAndroidTestKotlin :app:assembleDebug -PappBuildLabel=ci
-
-      - name: Upload debug APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: ignore
+      - name: Compile Android test sources
+        run: ./gradlew --stacktrace :player-ui:compileDebugAndroidTestKotlin
 
   architecture-guards:
     name: Architecture Guards
