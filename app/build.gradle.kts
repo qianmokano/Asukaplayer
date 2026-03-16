@@ -1,5 +1,6 @@
 import com.asuka.player.versioning.readAppVersion
 import java.util.Locale
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -16,6 +17,12 @@ val debugInstallId = providers.gradleProperty("appInstallId")
     .orElse(providers.environmentVariable("ASUKA_INSTALL_ID"))
     .map(::sanitizeInstallId)
     .orElse("")
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
 
 android {
     namespace = "com.asuka.player"
@@ -28,6 +35,20 @@ android {
         versionCode = appVersion.versionCode
         versionName = appVersion.versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = localProperties.getProperty("release.storeFile")
+                ?.takeIf { it.isNotBlank() }
+                ?.let(rootProject::file)
+            storePassword = localProperties.getProperty("release.storePassword")
+                ?.takeIf { it.isNotBlank() }
+            keyAlias = localProperties.getProperty("release.keyAlias")
+                ?.takeIf { it.isNotBlank() }
+            keyPassword = localProperties.getProperty("release.keyPassword")
+                ?.takeIf { it.isNotBlank() }
+        }
     }
 
     buildFeatures {
@@ -43,6 +64,7 @@ android {
             applicationIdSuffix = if (installId.isNotEmpty()) ".b$installId" else ".debug"
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
