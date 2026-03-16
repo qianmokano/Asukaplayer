@@ -86,7 +86,7 @@ internal object TestPlaybackTrackSelectionController : PlaybackTrackSelectionCon
 
 internal object TestPlaybackPreviewFrameProvider : PlaybackPreviewFrameProvider {
     override suspend fun loadPreviewFrame(
-        mediaId: String,
+        playbackUri: String,
         positionMs: Long,
         maxWidthPx: Int,
         maxHeightPx: Int,

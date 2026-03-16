@@ -110,7 +110,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
     SeekIndicator(
         modifier = Modifier.align(Alignment.Center),
         seekState = seekState,
-        mediaId = mediaUri,
+        playbackUri = mediaUri,
         durationMs = durationMs,
         previewFrameProvider = previewFrameProvider,
     )

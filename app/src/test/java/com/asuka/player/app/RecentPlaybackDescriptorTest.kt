@@ -102,4 +102,42 @@ class RecentPlaybackDescriptorTest {
         assertFalse(descriptor.shouldResolveDisplayName)
         assertFalse(descriptor.isPlayable)
     }
+
+    @Test
+    fun buildPlayableRecentQueueEntries_filtersUnplayableItems_andPreservesPlayableOrder() {
+        val known = LocalVideoItem(
+            id = 42L,
+            uri = Uri.parse("content://videos/42"),
+            title = "Known Title",
+            durationMs = 65_000L,
+            sizeBytes = 2_000L,
+            folderName = "Movies",
+            folderPath = "/storage/emulated/0/Movies",
+            folderId = 7L,
+            dateAddedSec = 10L,
+        )
+
+        val descriptors = buildRecentPlaybackDescriptors(
+            recentMediaIds = listOf(
+                known.playbackMediaId,
+                "opaque-id",
+                "https://example.com/video.mp4",
+            ),
+            knownVideos = mapOf(known.playbackMediaId to known),
+            unavailableLabel = "Unavailable",
+        )
+
+        val queueEntries = buildPlayableRecentQueueEntries(descriptors)
+
+        assertEquals(
+            listOf(
+                known.toPlaybackQueueEntry(mediaIdOverride = known.playbackMediaId),
+                PlaybackQueueEntry(
+                    mediaId = "https://example.com/video.mp4",
+                    uri = "https://example.com/video.mp4",
+                ),
+            ),
+            queueEntries,
+        )
+    }
 }

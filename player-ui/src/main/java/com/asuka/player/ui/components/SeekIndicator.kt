@@ -38,7 +38,7 @@ import com.asuka.player.ui.utils.formatTimeMs
 fun SeekIndicator(
     modifier: Modifier = Modifier,
     seekState: SeekState,
-    mediaId: String?,
+    playbackUri: String?,
     durationMs: Long,
     previewFrameProvider: PlaybackPreviewFrameProvider?,
 ) {
@@ -55,12 +55,12 @@ fun SeekIndicator(
     val previewHeight = if (configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) 99.dp else 108.dp
     val timeLabel = "${formatTimeMs(previewPositionMs)} / ${formatTimeMs(durationMs)}"
     val compactHudWidth = rememberSeekTimeHudWidth(timeLabel.length)
-    val previewBitmap = produceState<Bitmap?>(initialValue = null, mediaId, previewBucketMs, previewFrameProvider) {
-        value = if (mediaId == null || previewFrameProvider == null) {
+    val previewBitmap = produceState<Bitmap?>(initialValue = null, playbackUri, previewBucketMs, previewFrameProvider) {
+        value = if (playbackUri == null || previewFrameProvider == null) {
             null
         } else {
             previewFrameProvider.loadPreviewFrame(
-                mediaId = mediaId,
+                playbackUri = playbackUri,
                 positionMs = previewBucketMs,
                 maxWidthPx = with(density) { previewWidth.roundToPx() },
                 maxHeightPx = with(density) { previewHeight.roundToPx() },

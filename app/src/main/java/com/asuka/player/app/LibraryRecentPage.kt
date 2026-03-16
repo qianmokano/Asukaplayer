@@ -34,23 +34,18 @@ internal fun RecentPageContent(
     val context = LocalContext.current
     val unavailableLabel = stringResource(id = R.string.recent_unknown_source)
     val listState = rememberLazyListState()
-    val queueEntries = remember(recentMediaIds, knownVideos) {
-        recentMediaIds
-            .distinct()
-            .map { mediaId ->
-                val known = knownVideos[mediaId]
-                if (known != null) {
-                    known.toPlaybackQueueEntry(mediaIdOverride = mediaId)
-                } else {
-                    PlaybackQueueEntry(
-                        mediaId = mediaId,
-                        uri = mediaId,
-                    )
-                }
-            }
+    val descriptors = remember(recentMediaIds, knownVideos, unavailableLabel) {
+        buildRecentPlaybackDescriptors(
+            recentMediaIds = recentMediaIds,
+            knownVideos = knownVideos,
+            unavailableLabel = unavailableLabel,
+        )
     }
-    val visibleRecentMediaIds = rememberIncrementalItems(
-        items = recentMediaIds,
+    val queueEntries = remember(descriptors) {
+        buildPlayableRecentQueueEntries(descriptors)
+    }
+    val visibleDescriptors = rememberIncrementalItems(
+        items = descriptors,
         listState = listState,
         pageSize = 60,
         loadMoreThreshold = 20,
@@ -64,23 +59,16 @@ internal fun RecentPageContent(
     ) {
         item { Spacer(modifier = Modifier.size(12.dp)) }
 
-        if (recentMediaIds.isEmpty()) {
+        if (descriptors.isEmpty()) {
             item { EmptyBlock(text = stringResource(id = R.string.empty_recent_list)) }
         } else {
             item {
-                SectionTitle(text = stringResource(id = R.string.recent_group_title, recentMediaIds.size))
+                SectionTitle(text = stringResource(id = R.string.recent_group_title, descriptors.size))
             }
             itemsIndexed(
-                items = visibleRecentMediaIds,
-                key = { _, mediaId -> mediaId },
-            ) { index, mediaId ->
-                val descriptor = remember(mediaId, knownVideos[mediaId], unavailableLabel) {
-                    RecentPlaybackDescriptor.from(
-                        mediaId = mediaId,
-                        knownVideo = knownVideos[mediaId],
-                        unavailableLabel = unavailableLabel,
-                    )
-                }
+                items = visibleDescriptors,
+                key = { _, descriptor -> descriptor.targetEntry.mediaId },
+            ) { index, descriptor ->
                 val title by produceState(initialValue = descriptor.fallbackTitle, descriptor) {
                     val uri = descriptor.uri ?: return@produceState
                     if (!descriptor.shouldResolveDisplayName) return@produceState
@@ -90,7 +78,7 @@ internal fun RecentPageContent(
 
                 GroupedListRow(
                     index = index,
-                    totalCount = visibleRecentMediaIds.size,
+                    totalCount = visibleDescriptors.size,
                     horizontalPadding = VIDEO_GROUP_HORIZONTAL_PADDING,
                 ) {
                     if (descriptor.thumbnailUri != null || descriptor.thumbnailId != null) {
@@ -134,6 +122,31 @@ internal fun RecentPageContent(
 
         item { Spacer(modifier = Modifier.size(6.dp)) }
     }
+}
+
+internal fun buildRecentPlaybackDescriptors(
+    recentMediaIds: List<String>,
+    knownVideos: Map<String, LocalVideoItem>,
+    unavailableLabel: String,
+): List<RecentPlaybackDescriptor> {
+    return recentMediaIds.map { mediaId ->
+        RecentPlaybackDescriptor.from(
+            mediaId = mediaId,
+            knownVideo = knownVideos[mediaId],
+            unavailableLabel = unavailableLabel,
+        )
+    }
+}
+
+internal fun buildPlayableRecentQueueEntries(
+    descriptors: List<RecentPlaybackDescriptor>,
+): List<PlaybackQueueEntry> {
+    return descriptors
+        .asSequence()
+        .filter(RecentPlaybackDescriptor::isPlayable)
+        .map(RecentPlaybackDescriptor::targetEntry)
+        .distinctBy(PlaybackQueueEntry::mediaId)
+        .toList()
 }
 
 internal data class RecentPlaybackDescriptor(

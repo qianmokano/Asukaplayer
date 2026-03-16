@@ -83,7 +83,7 @@ class PlaybackSessionHostTest {
             }
             override val playbackPreviewFrameProvider = object : PlaybackPreviewFrameProvider {
                 override suspend fun loadPreviewFrame(
-                    mediaId: String,
+                    playbackUri: String,
                     positionMs: Long,
                     maxWidthPx: Int,
                     maxHeightPx: Int,

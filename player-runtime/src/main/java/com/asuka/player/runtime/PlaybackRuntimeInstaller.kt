@@ -40,9 +40,13 @@ class PlaybackRuntimeFeature(
     scope: CoroutineScope,
     controllerConnectorFactory: PlaybackControllerConnectorFactory,
     val playbackPlatformBindings: PlaybackPlatformBindings,
+    persistenceStoresFactory: suspend (Context) -> PlaybackPersistenceStores = PlaybackPersistenceStoresFactory::create,
 ) {
     private val appContext = application.applicationContext
-    private val persistenceResolver = PlaybackPersistenceResolver(appContext)
+    private val persistenceResolver = PlaybackPersistenceResolver(
+        context = appContext,
+        createStores = persistenceStoresFactory,
+    )
 
     val playbackStore: PlaybackStore = DeferredPlaybackStore {
         persistenceResolver.resolve().playbackStore
@@ -78,12 +82,11 @@ class PlaybackRuntimeFeature(
 
 private class PlaybackPersistenceResolver(
     private val context: Context,
+    private val createStores: suspend (Context) -> PlaybackPersistenceStores,
 ) {
     private val lock = Mutex()
     @Volatile
     private var stores: PlaybackPersistenceStores? = null
-    @Volatile
-    private var failureCount: Int = 0
     private val _degraded = MutableStateFlow(false)
     val degraded: StateFlow<Boolean> = _degraded.asStateFlow()
 
@@ -95,13 +98,11 @@ private class PlaybackPersistenceResolver(
     }
 
     private suspend fun createOrFallback(): PlaybackPersistenceStores {
-        if (failureCount >= MAX_RESOLVE_ATTEMPTS) return fallbackStores()
         return runCatching {
-            PlaybackPersistenceStoresFactory.create(context)
+            createStores(context)
         }.getOrElse { error ->
-            failureCount++
-            Log.e(TAG, "Persistence resolution failed (attempt $failureCount/$MAX_RESOLVE_ATTEMPTS)", error)
-            if (failureCount >= MAX_RESOLVE_ATTEMPTS) fallbackStores() else throw error
+            Log.e(TAG, "Persistence resolution failed; degrading to in-memory stores", error)
+            fallbackStores()
         }
     }
 
@@ -116,7 +117,6 @@ private class PlaybackPersistenceResolver(
 
     companion object {
         private const val TAG = "PersistenceResolver"
-        private const val MAX_RESOLVE_ATTEMPTS = 3
     }
 }
 
@@ -175,20 +175,20 @@ private class MediaMetadataPreviewFrameProvider(
     private val loadSemaphore = Semaphore(1)
 
     override suspend fun loadPreviewFrame(
-        mediaId: String,
+        playbackUri: String,
         positionMs: Long,
         maxWidthPx: Int,
         maxHeightPx: Int,
     ): ByteArray? {
-        if (mediaId.isBlank() || maxWidthPx <= 0 || maxHeightPx <= 0) return null
+        if (playbackUri.isBlank() || maxWidthPx <= 0 || maxHeightPx <= 0) return null
         val bucketedPositionMs = bucketPreviewPosition(positionMs)
-        val cacheKey = "$mediaId@$bucketedPositionMs:${maxWidthPx}x$maxHeightPx"
+        val cacheKey = "$playbackUri@$bucketedPositionMs:${maxWidthPx}x$maxHeightPx"
         cache.get(cacheKey)?.let { return it }
         return withContext(Dispatchers.IO) {
             loadSemaphore.withPermit {
                 cache.get(cacheKey)?.let { return@withPermit it }
                 loadFrame(
-                    mediaId = mediaId,
+                    playbackUri = playbackUri,
                     positionMs = bucketedPositionMs,
                     maxWidthPx = maxWidthPx,
                     maxHeightPx = maxHeightPx,
@@ -198,17 +198,17 @@ private class MediaMetadataPreviewFrameProvider(
     }
 
     private fun loadFrame(
-        mediaId: String,
+        playbackUri: String,
         positionMs: Long,
         maxWidthPx: Int,
         maxHeightPx: Int,
     ): ByteArray? {
         val retriever = MediaMetadataRetriever()
         return runCatching {
-            val uri = Uri.parse(mediaId)
+            val uri = Uri.parse(playbackUri)
             when (uri.scheme?.lowercase()) {
                 "content", "file", "android.resource" -> retriever.setDataSource(context, uri)
-                else -> retriever.setDataSource(mediaId, emptyMap())
+                else -> retriever.setDataSource(playbackUri, emptyMap())
             }
             val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull()
