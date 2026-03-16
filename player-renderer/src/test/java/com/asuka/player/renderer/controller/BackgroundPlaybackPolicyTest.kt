@@ -7,13 +7,14 @@ import kotlin.test.assertTrue
 class BackgroundPlaybackPolicyTest {
 
     @Test
-    fun shouldNotRetainSession_fromConnectionRetentionAlone() {
+    fun shouldRetainSession_fromConnectionRetentionAlone_withoutKeepingPlaybackActive() {
         val policy = BackgroundPlaybackPolicy(
             retainControllerConnection = true,
             autoBackgroundPlaybackEnabled = false,
         )
 
-        assertFalse(policy.shouldRetainSession())
+        assertTrue(policy.shouldRetainSession())
+        assertFalse(policy.shouldKeepPlaybackActive())
     }
 
     @Test
@@ -26,8 +27,10 @@ class BackgroundPlaybackPolicyTest {
         assertFalse(policy.shouldRetainSession())
         policy.requestBackgroundPlayback()
         assertTrue(policy.shouldRetainSession())
+        assertTrue(policy.shouldKeepPlaybackActive())
         policy.clearManualBackgroundPlaybackRequest()
         assertFalse(policy.shouldRetainSession())
+        assertFalse(policy.shouldKeepPlaybackActive())
     }
 
     @Test
@@ -39,8 +42,10 @@ class BackgroundPlaybackPolicyTest {
 
         policy.setPictureInPicture(true)
         assertTrue(policy.shouldRetainSession())
+        assertTrue(policy.shouldKeepPlaybackActive())
         policy.setPictureInPicture(false)
         assertFalse(policy.shouldRetainSession())
+        assertFalse(policy.shouldKeepPlaybackActive())
     }
 
     @Test
@@ -51,15 +56,17 @@ class BackgroundPlaybackPolicyTest {
         )
 
         assertTrue(policy.shouldRetainSession())
+        assertTrue(policy.shouldKeepPlaybackActive())
     }
 
     @Test
-    fun shouldNotRetainSession_whenAutoBackgroundPlaybackEnabledWithoutConnectionRetention() {
+    fun shouldNotKeepPlaybackActive_whenAutoBackgroundPlaybackEnabledWithoutConnectionRetention() {
         val policy = BackgroundPlaybackPolicy(
             retainControllerConnection = false,
             autoBackgroundPlaybackEnabled = true,
         )
 
         assertFalse(policy.shouldRetainSession())
+        assertFalse(policy.shouldKeepPlaybackActive())
     }
 }

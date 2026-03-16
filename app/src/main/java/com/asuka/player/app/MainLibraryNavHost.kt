@@ -26,6 +26,8 @@ import com.asuka.player.runtime.ThemeConfig
 import soup.compose.material.motion.animation.materialSharedAxisX
 import soup.compose.material.motion.animation.rememberSlideDistance
 
+private const val MAIN_LIBRARY_ROUTE_TRANSITION_MS = 300
+
 @Composable
 internal fun MainLibraryNavHost(
     state: MainLibraryUiState,
@@ -105,7 +107,13 @@ internal fun MainLibraryNavHost(
     AnimatedContent(
         targetState = currentRoute,
         modifier = Modifier.fillMaxSize(),
-        transitionSpec = { materialSharedAxisX(forward = navigatingForward, slideDistance = slideDistance) },
+        transitionSpec = {
+            materialSharedAxisX(
+                navigatingForward,
+                slideDistance,
+                MAIN_LIBRARY_ROUTE_TRANSITION_MS,
+            )
+        },
         label = "MainLibraryScreenTransition",
     ) { route ->
         saveableStateHolder.SaveableStateProvider(route) {
@@ -209,6 +217,8 @@ internal fun MainLibraryNavHost(
                         FolderPageContent(
                             modifier = Modifier.padding(innerPadding),
                             videosState = state.currentFolderVideosState,
+                            thumbnailLoadKey = folderId,
+                            thumbnailLoadDelayMs = MAIN_LIBRARY_ROUTE_TRANSITION_MS,
                             onPlay = onPlay,
                             onRefresh = { if (folderId != null) onRefreshFolder(folderId) },
                             onLoadMore = { if (folderId != null) onLoadMoreFolder(folderId) },

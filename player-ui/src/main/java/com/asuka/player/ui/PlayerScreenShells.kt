@@ -62,6 +62,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
     gestureCoordinator: GestureCoordinator,
     pointerDetector: PointerGestureDetector,
     landscapeCutoutPadding: LandscapeCutoutPadding,
+    showButtonBackground: Boolean,
     controlsVisible: Boolean,
     lockedOverlayVisible: Boolean,
     onLockedOverlayTap: () -> Unit,
@@ -93,6 +94,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
         visible = controlsVisible && !isInPip && !controlsState.locked,
         labelResId = R.string.lock,
         icon = Icons.Rounded.LockOpen,
+        showButtonBackground = showButtonBackground,
         landscapeCutoutPadding = landscapeCutoutPadding,
         onClick = controlsState::lock,
         tag = "btn_lock",
@@ -100,6 +102,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
     LockedControlsOverlay(
         visible = controlsState.locked,
         unlockHintVisible = lockedOverlayVisible,
+        showButtonBackground = showButtonBackground,
         landscapeCutoutPadding = landscapeCutoutPadding,
         onTap = onLockedOverlayTap,
         onUnlock = onUnlock,
@@ -145,7 +148,7 @@ internal fun PlayerScreenLayoutShell(
             exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
         ) {
             TopBar(
-                showBackground = !settings.hideButtonsBackground,
+                showButtonBackground = !settings.hideButtonsBackground,
                 title = uiState.title,
                 landscapeCutoutPadding = landscapeCutoutPadding,
                 onBack = onBack,
@@ -161,7 +164,7 @@ internal fun PlayerScreenLayoutShell(
             exit = fadeOut(animationSpec = tween(PlayerUiTokens.Motion.fastMs)),
         ) {
             BottomBar(
-                showBackground = !settings.hideButtonsBackground,
+                showButtonBackground = !settings.hideButtonsBackground,
                 controller = controller,
                 landscapeCutoutPadding = landscapeCutoutPadding,
                 positionMs = displayedPositionMs,

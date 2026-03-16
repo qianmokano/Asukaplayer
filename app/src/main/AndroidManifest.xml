@@ -47,7 +47,7 @@
             android:name="com.asuka.player.renderer.activity.PlaybackActivity"
             android:exported="false"
             android:supportsPictureInPicture="true"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode"
             android:windowLayoutInDisplayCutoutMode="shortEdges" />
 
     </application>

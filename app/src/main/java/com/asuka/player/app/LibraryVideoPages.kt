@@ -17,7 +17,10 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.asuka.player.R
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -62,18 +66,33 @@ internal fun VideosPageContent(
 internal fun FolderPageContent(
     modifier: Modifier = Modifier,
     videosState: MediaCatalogState<LocalVideoItem>,
+    thumbnailLoadKey: Any? = Unit,
+    thumbnailLoadDelayMs: Int = 0,
     onPlay: (PlaybackSelection) -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
     val videos = videosState.items
     val queueEntries = remember(videos) { videos.map(LocalVideoItem::toPlaybackQueueEntry) }
+    var allowThumbnailLoad by remember(thumbnailLoadKey, thumbnailLoadDelayMs) {
+        mutableStateOf(thumbnailLoadDelayMs <= 0)
+    }
+    LaunchedEffect(thumbnailLoadKey, thumbnailLoadDelayMs) {
+        if (thumbnailLoadDelayMs <= 0) {
+            allowThumbnailLoad = true
+            return@LaunchedEffect
+        }
+        allowThumbnailLoad = false
+        delay(thumbnailLoadDelayMs.toLong())
+        allowThumbnailLoad = true
+    }
     LibraryVideoListPage(
         modifier = modifier,
         state = videosState,
         onRefresh = onRefresh,
         onLoadMore = onLoadMore,
         videos = videos,
+        allowThumbnailLoad = allowThumbnailLoad,
         emptyMessage = stringResource(id = R.string.empty_folder_video_list),
         sectionTitle = stringResource(id = R.string.selected_folder_group_title, videos.size),
         onPlay = { item ->
@@ -94,6 +113,7 @@ private fun LibraryVideoListPage(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     videos: List<LocalVideoItem>,
+    allowThumbnailLoad: Boolean = true,
     emptyMessage: String,
     sectionTitle: String,
     onPlay: (LocalVideoItem) -> Unit,
@@ -195,6 +215,7 @@ private fun LibraryVideoListPage(
                                 icon = Icons.Outlined.VideoLibrary,
                                 thumbnailUri = item.uri,
                                 thumbnailId = item.id,
+                                allowThumbnailLoad = allowThumbnailLoad,
                                 durationLabel = item.durationLabel,
                                 progressFraction = item.resumeProgressFraction,
                                 title = item.title,

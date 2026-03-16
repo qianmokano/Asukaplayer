@@ -55,6 +55,8 @@ internal class PlaybackActivityBehavior(
 
     fun shouldRetainSessionOnStop(): Boolean = backgroundPolicy.shouldRetainSession()
 
+    fun shouldKeepPlaybackActiveOnStop(): Boolean = backgroundPolicy.shouldKeepPlaybackActive()
+
     private fun syncPolicy() {
         backgroundPolicy.update(
             retainControllerConnection = runtimeSettings.keepSessionConnectionInBackground,

@@ -44,10 +44,10 @@ internal class PlaybackControllerConnection(
     fun connectOrReuse(
         onConnectingChanged: (Boolean) -> Unit,
         onConnectionFailure: (Throwable) -> Unit,
-        onConnected: (PlaybackControllerConnectionSnapshot) -> Unit,
+        onConnected: (PlaybackControllerConnectionSnapshot, Boolean) -> Unit,
     ) {
         mediaController?.let { existing ->
-            ensureSession(existing)?.let(onConnected)
+            ensureSession(existing)?.let { snapshot -> onConnected(snapshot, true) }
             return
         }
         if (initJob?.isActive == true) return
@@ -57,7 +57,7 @@ internal class PlaybackControllerConnection(
             try {
                 val resolved = controllerProvider.buildAsync().await()
                 mediaController = resolved
-                ensureSession(resolved)?.let(onConnected)
+                ensureSession(resolved)?.let { snapshot -> onConnected(snapshot, false) }
                 onConnectingChanged(false)
             } catch (_: CancellationException) {
                 onConnectingChanged(false)
@@ -79,9 +79,13 @@ internal class PlaybackControllerConnection(
         sessionCoordinator = null
     }
 
+    fun pauseRetainedPlayback() {
+        mediaController?.pause()
+    }
+
     fun releaseAll(playbackListener: Player.Listener) {
         clearRetainedSession(playbackListener)
-        mediaController?.pause()
+        pauseRetainedPlayback()
         playbackController?.release()
         controllerProvider.release()
         mediaController = null

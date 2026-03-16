@@ -193,6 +193,7 @@ fun PlayerScreen(
             gestureCoordinator = gestureCoordinator,
             pointerDetector = pointerDetector,
             landscapeCutoutPadding = landscapeCutoutPadding,
+            showButtonBackground = !settings.hideButtonsBackground,
             controlsVisible = controlsVisible,
             lockedOverlayVisible = lockedOverlayVisible,
             onLockedOverlayTap = { lockedOverlayVisible = !lockedOverlayVisible },

@@ -36,10 +36,18 @@ object PlayerUiTokens {
     }
 
     @Composable
-    fun buttonBackground(): Color = MaterialTheme.colorScheme.onSecondaryContainer
+    fun buttonBackground(showBackground: Boolean = true): Color {
+        return if (showBackground) MaterialTheme.colorScheme.onSecondaryContainer else Color.Transparent
+    }
 
     @Composable
-    fun buttonContent(): Color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
+    fun buttonContent(showBackground: Boolean = true): Color {
+        return if (showBackground) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
+        } else {
+            Color.White
+        }
+    }
 
     @Composable
     fun loadingIndicatorColor(): Color {

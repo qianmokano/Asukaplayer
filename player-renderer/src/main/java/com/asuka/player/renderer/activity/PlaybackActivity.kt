@@ -113,7 +113,11 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onStop() {
         windowChromeController.saveRememberedBrightnessIfNeeded(viewModel.state.value.runtimeSettings)
-        viewModel.sessionHost.onStop(viewModel.activityBehavior.shouldRetainSessionOnStop())
+        val retainSession = viewModel.activityBehavior.shouldRetainSessionOnStop()
+        viewModel.sessionHost.onStop(
+            retainSession = retainSession,
+            pausePlayback = retainSession && !viewModel.activityBehavior.shouldKeepPlaybackActiveOnStop(),
+        )
         super.onStop()
     }
 

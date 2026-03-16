@@ -67,12 +67,13 @@ internal const val INITIAL_THUMB_WARMUP_LIMIT = 80
 internal fun rememberVideoThumbnail(
     uri: Uri?,
     thumbnailId: Long?,
+    allowLoad: Boolean = true,
 ): ImageBitmap? {
     val context = LocalContext.current
     val cacheKey = thumbnailCacheKey(thumbnailId = thumbnailId, uri = uri)
     val cached = cacheKey?.let { VideoThumbnailCache.get(it) }
-    val bitmap by produceState<Bitmap?>(initialValue = cached, cacheKey) {
-        if (cacheKey == null || uri == null || value != null) return@produceState
+    val bitmap by produceState<Bitmap?>(initialValue = cached, cacheKey, allowLoad) {
+        if (cacheKey == null || uri == null || value != null || !allowLoad) return@produceState
         value = withContext(Dispatchers.IO) {
             VideoThumbnailCache.loadSemaphore.withPermit {
                 loadOrCreateVideoThumbnail(
@@ -190,11 +191,16 @@ internal fun VideoThumbOrIcon(
     icon: ImageVector,
     thumbnailUri: Uri?,
     thumbnailId: Long?,
+    allowThumbnailLoad: Boolean = true,
     durationLabel: String?,
     progressFraction: Float?,
     selected: Boolean,
 ) {
-    val thumb = rememberVideoThumbnail(thumbnailUri, thumbnailId)
+    val thumb = rememberVideoThumbnail(
+        uri = thumbnailUri,
+        thumbnailId = thumbnailId,
+        allowLoad = allowThumbnailLoad,
+    )
     val shouldUseThumbnailSlot = thumbnailUri != null || thumbnailId != null
     if (shouldUseThumbnailSlot) {
         Crossfade(

@@ -34,7 +34,7 @@ import com.asuka.player.ui.theme.PlayerUiTokens
 @Composable
 internal fun TopBar(
     modifier: Modifier = Modifier,
-    showBackground: Boolean = true,
+    showButtonBackground: Boolean = true,
     title: String,
     landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     onBack: () -> Unit,
@@ -51,11 +51,10 @@ internal fun TopBar(
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
-                    colors = if (showBackground) {
-                        listOf(Color.Black.copy(alpha = PlayerUiTokens.Alpha.topGradientStart), Color.Transparent)
-                    } else {
-                        listOf(Color.Transparent, Color.Transparent)
-                    },
+                    colors = listOf(
+                        Color.Black.copy(alpha = PlayerUiTokens.Alpha.topGradientStart),
+                        Color.Transparent,
+                    ),
                 ),
             )
             .then(topInsetModifier)
@@ -73,6 +72,7 @@ internal fun TopBar(
             icon = Icons.AutoMirrored.Rounded.ArrowBack,
             onClick = onBack,
             tag = "btn_back",
+            showBackground = showButtonBackground,
         )
 
         val titleModifier = if (onTitleLongPress == null) {
@@ -105,18 +105,21 @@ internal fun TopBar(
                 icon = Icons.Rounded.PictureInPictureAlt,
                 onClick = onPip,
                 tag = "btn_pip",
+                showBackground = showButtonBackground,
             )
             SimpleButton(
                 label = stringResource(id = R.string.background_short),
                 icon = Icons.Rounded.Headset,
                 onClick = onBackground,
                 tag = "btn_bg",
+                showBackground = showButtonBackground,
             )
             SimpleButton(
                 label = stringResource(id = R.string.settings),
                 icon = Icons.Rounded.Settings,
                 onClick = onSettings,
                 tag = "btn_settings",
+                showBackground = showButtonBackground,
             )
         }
     }

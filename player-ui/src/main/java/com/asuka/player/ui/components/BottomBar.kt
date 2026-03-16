@@ -50,6 +50,9 @@ import com.asuka.player.ui.utils.formatTimeMs
 
 private val bottomBarButtonSize = 44.dp
 private val bottomBarButtonIconSize = 22.dp
+private val bottomBarPlayPauseIconSize = 26.dp
+private val bottomBarLoadingRingSize = 52.dp
+private val bottomBarLoadingRingStrokeWidth = 3.dp
 private val bottomBarVerticalPadding = 4.dp
 private val bottomBarRowSpacing = 2.dp
 private val bottomBarSliderHeight = 18.dp
@@ -60,7 +63,7 @@ private val bottomBarSliderThumbSize = DpSize(4.dp, 14.dp)
 @Composable
 internal fun BottomBar(
     modifier: Modifier = Modifier,
-    showBackground: Boolean = true,
+    showButtonBackground: Boolean = true,
     controller: PlaybackController,
     landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     positionMs: Long,
@@ -93,11 +96,10 @@ internal fun BottomBar(
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
-                    colors = if (showBackground) {
-                        listOf(Color.Transparent, Color.Black.copy(alpha = PlayerUiTokens.Alpha.topGradientStart))
-                    } else {
-                        listOf(Color.Transparent, Color.Transparent)
-                    },
+                    colors = listOf(
+                        Color.Transparent,
+                        Color.Black.copy(alpha = PlayerUiTokens.Alpha.topGradientStart),
+                    ),
                 ),
             )
             .navigationBarsPadding()
@@ -186,21 +188,22 @@ internal fun BottomBar(
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isBuffering) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .testTag("play_pause_loading_ring"),
-                        color = PlayerUiTokens.loadingIndicatorColor(),
-                        strokeWidth = 10.dp,
-                    )
-                }
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(bottomBarLoadingRingSize)
+                                .testTag("play_pause_loading_ring"),
+                            color = PlayerUiTokens.loadingIndicatorColor(),
+                            strokeWidth = bottomBarLoadingRingStrokeWidth,
+                        )
+                    }
                     SimpleButton(
                         label = stringResource(id = R.string.play_pause),
                         icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         onClick = controller::togglePlayPause,
                         tag = "btn_play_pause",
+                        showBackground = showButtonBackground,
                         size = bottomBarButtonSize,
-                        iconSize = bottomBarButtonIconSize,
+                        iconSize = bottomBarPlayPauseIconSize,
                     )
                 }
                 SimpleButton(
@@ -208,6 +211,7 @@ internal fun BottomBar(
                     icon = Icons.Rounded.SkipNext,
                     onClick = onNext,
                     tag = "btn_next",
+                    showBackground = showButtonBackground,
                     size = bottomBarButtonSize,
                     iconSize = bottomBarButtonIconSize,
                 )
@@ -222,6 +226,7 @@ internal fun BottomBar(
                     icon = Icons.Rounded.Subtitles,
                     onClick = onSubtitle,
                     tag = "btn_subs",
+                    showBackground = showButtonBackground,
                     size = bottomBarButtonSize,
                     iconSize = bottomBarButtonIconSize,
                 )
@@ -230,6 +235,7 @@ internal fun BottomBar(
                     icon = Icons.Rounded.Speed,
                     onClick = onSpeed,
                     tag = "btn_speed",
+                    showBackground = showButtonBackground,
                     size = bottomBarButtonSize,
                     iconSize = bottomBarButtonIconSize,
                 )
@@ -238,6 +244,7 @@ internal fun BottomBar(
                     icon = Icons.Rounded.ScreenRotation,
                     onClick = onRotate,
                     tag = "btn_rotate",
+                    showBackground = showButtonBackground,
                     size = bottomBarButtonSize,
                     iconSize = bottomBarButtonIconSize,
                 )

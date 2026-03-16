@@ -30,6 +30,7 @@ internal fun BoxScope.LockToggleAnchor(
     visible: Boolean,
     labelResId: Int,
     icon: ImageVector,
+    showButtonBackground: Boolean = true,
     landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     onClick: () -> Unit,
     tag: String,
@@ -48,6 +49,7 @@ internal fun BoxScope.LockToggleAnchor(
             icon = icon,
             onClick = onClick,
             tag = tag,
+            showBackground = showButtonBackground,
         )
     }
 }
@@ -56,6 +58,7 @@ internal fun BoxScope.LockToggleAnchor(
 internal fun LockedControlsOverlay(
     visible: Boolean,
     unlockHintVisible: Boolean,
+    showButtonBackground: Boolean = true,
     landscapeCutoutPadding: LandscapeCutoutPadding = LandscapeCutoutPadding.None,
     onTap: () -> Unit,
     onUnlock: () -> Unit,
@@ -73,6 +76,7 @@ internal fun LockedControlsOverlay(
             visible = unlockHintVisible,
             labelResId = R.string.unlock,
             icon = Icons.Rounded.Lock,
+            showButtonBackground = showButtonBackground,
             landscapeCutoutPadding = landscapeCutoutPadding,
             onClick = onUnlock,
             tag = "btn_unlock_controls",

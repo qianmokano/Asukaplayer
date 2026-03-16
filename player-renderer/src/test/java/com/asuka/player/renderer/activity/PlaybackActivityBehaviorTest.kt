@@ -21,12 +21,14 @@ class PlaybackActivityBehaviorTest {
         assertTrue(entered.shouldRegisterReceiver)
         assertTrue(entered.shouldAttachPlayStateListener)
         assertTrue(behavior.shouldRetainSessionOnStop())
+        assertTrue(behavior.shouldKeepPlaybackActiveOnStop())
 
         val exited = behavior.onPictureInPictureModeChanged(false)
         assertFalse(exited.isInPictureInPicture)
         assertFalse(exited.shouldRegisterReceiver)
         assertFalse(exited.shouldAttachPlayStateListener)
         assertFalse(behavior.shouldRetainSessionOnStop())
+        assertFalse(behavior.shouldKeepPlaybackActiveOnStop())
     }
 
     @Test
@@ -40,9 +42,11 @@ class PlaybackActivityBehaviorTest {
 
         behavior.onBackgroundPlaybackRequested()
         assertTrue(behavior.shouldRetainSessionOnStop())
+        assertTrue(behavior.shouldKeepPlaybackActiveOnStop())
 
         behavior.onStart()
         assertFalse(behavior.shouldRetainSessionOnStop())
+        assertFalse(behavior.shouldKeepPlaybackActiveOnStop())
     }
 
     @Test
@@ -59,6 +63,7 @@ class PlaybackActivityBehaviorTest {
         assertFalse(behavior.shouldAutoEnterPictureInPictureOnUserLeave())
         assertFalse(behavior.shouldRememberBrightness())
         assertFalse(behavior.shouldRetainSessionOnStop())
+        assertFalse(behavior.shouldKeepPlaybackActiveOnStop())
 
         behavior.onRuntimeSettingsChanged(
             PlayerSettings(
@@ -72,10 +77,11 @@ class PlaybackActivityBehaviorTest {
         assertTrue(behavior.shouldAutoEnterPictureInPictureOnUserLeave())
         assertTrue(behavior.shouldRememberBrightness())
         assertTrue(behavior.shouldRetainSessionOnStop())
+        assertTrue(behavior.shouldKeepPlaybackActiveOnStop())
     }
 
     @Test
-    fun backgroundPlaybackToggle_controlsRetentionEvenWhenConnectionRetentionDefaultsOn() {
+    fun connectionRetention_keepsSessionWithoutForcingBackgroundPlayback() {
         val behavior = PlaybackActivityBehavior(
             initialSettings = PlayerSettings(
                 autoBackgroundPlay = false,
@@ -83,6 +89,7 @@ class PlaybackActivityBehaviorTest {
             ),
         )
 
-        assertFalse(behavior.shouldRetainSessionOnStop())
+        assertTrue(behavior.shouldRetainSessionOnStop())
+        assertFalse(behavior.shouldKeepPlaybackActiveOnStop())
     }
 }

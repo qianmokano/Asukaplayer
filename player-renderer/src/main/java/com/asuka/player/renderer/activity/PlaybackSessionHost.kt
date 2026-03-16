@@ -93,11 +93,18 @@ internal class PlaybackSessionHost(
         }
     }
 
-    fun onStop(retainSession: Boolean) {
+    fun onStop(
+        retainSession: Boolean,
+        pausePlayback: Boolean = false,
+    ) {
         launchDriver.cancelPending()
         stateFeeds.clear()
         controllerConnection.clearRetainedSession(launchDriver.playbackListener)
-        if (!retainSession) {
+        if (retainSession) {
+            if (pausePlayback) {
+                controllerConnection.pauseRetainedPlayback()
+            }
+        } else {
             controllerConnection.releaseAll(launchDriver.playbackListener)
             launchDriver.clearAppliedRequest()
             stateFeeds.resetToDisconnected()
@@ -132,10 +139,12 @@ internal class PlaybackSessionHost(
                     )
                 }
             },
-            onConnected = { connection ->
+            onConnected = { connection, reusedSession ->
                 launchDriver.bindPlayer(connection.mediaController)
                 stateFeeds.bind(connection)
-                launchDriver.startCurrentRequest()
+                if (!reusedSession) {
+                    launchDriver.startCurrentRequest()
+                }
             },
         )
     }

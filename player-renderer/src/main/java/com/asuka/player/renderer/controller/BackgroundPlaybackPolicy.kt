@@ -30,6 +30,12 @@ class BackgroundPlaybackPolicy(
     }
 
     fun shouldRetainSession(): Boolean {
+        return retainControllerConnection ||
+            inPictureInPicture ||
+            manualBackgroundPlaybackRequested
+    }
+
+    fun shouldKeepPlaybackActive(): Boolean {
         return (retainControllerConnection && autoBackgroundPlaybackEnabled) ||
             inPictureInPicture ||
             manualBackgroundPlaybackRequested
