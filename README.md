@@ -1,135 +1,154 @@
 # Asuka Player
 
-一款基于 Jetpack Compose + Media3/ExoPlayer 的 Android 本地视频播放器。
+Asuka Player is an open-source Android local video player built with Jetpack Compose and Media3/ExoPlayer.
 
-## 当前能力
+It is designed as a modern, local-first playback app: fast library access, polished playback controls, reliable state restore, and a codebase that stays maintainable as the product grows.
 
-- 本地媒体库浏览、文件夹分组、最近播放
-- 本地索引媒体库：分页读取、增量同步、自动感知媒体变更
-- 最近播放会区分可回放 URI 与不可解析来源；不可解析来源仅展示为不可用项，不再伪装成可回放视频
-- 外部 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` / `ClipData` 多文件启动
-- 手势控制：横向 seek、亮度、音量、双击、长按倍速、缩放、平移
-- 音轨 / 字幕切换、比例切换、倍速切换
-- PiP、后台播放、播放恢复
-- 播放状态持久化：位置、速度、音轨、字幕、缩放、最近历史
-- 播放持久化回写已改为异步串行队列，回调线程不直接阻塞写盘
+Chinese README: [简体中文](docs/README.zh-CN.md)
 
-## 技术栈
+## Why Asuka Player
 
-| 层 | 技术 |
-|---|---|
-| UI | Jetpack Compose + Material 3 |
-| 播放引擎 | Media3 / ExoPlayer 1.9.1 |
-| 语言 | Kotlin 2.3.0 |
-| Android | minSdk 23 / targetSdk 36 / compileSdk 36 |
-| 测试 | JUnit 4、Robolectric、Compose UI Test |
+- Local-first video playback for files you already own
+- Modern Android UI built with Jetpack Compose and Material 3
+- Rich playback controls including gestures, track switching, speed control, and PiP
+- Indexed media library for faster browsing and incremental sync
+- Clean modular architecture instead of one oversized app module
 
-## 模块结构
+## What You Can Do
+
+### Browse
+
+- Browse local videos by folder
+- Page through large media libraries
+- View recent playback history
+- Keep the library in sync with local media changes automatically
+
+### Play
+
+- Open videos from the in-app library
+- Launch playback from `ACTION_VIEW`, `ACTION_SEND`, `ACTION_SEND_MULTIPLE`, and `ClipData`
+- Seek with gestures and the progress bar
+- Control brightness, volume, zoom, pan, aspect ratio, subtitles, audio tracks, and playback speed
+- Continue playback with resume state, restored speed, and restored track selections
+
+### Keep Context
+
+- Resume playback position
+- Persist playback speed, audio/subtitle choices, zoom state, and queue history
+- Use Picture-in-Picture and background playback retention
+- Avoid blocking player callbacks with serialized asynchronous persistence
+
+## Project Status
+
+- Active development
+- Versioning currently follows `0.x.y`
+- Android targets: `minSdk 23`, `targetSdk 36`, `compileSdk 36`
+- Core stack: Kotlin `2.3.0`, Jetpack Compose, Media3 `1.9.1`
+
+## Technical Highlights
+
+- Jetpack Compose UI with a dedicated playback UI module
+- Media3 / ExoPlayer integration isolated behind explicit playback ports
+- Room-backed local media index for paged library reads
+- DataStore-backed app settings
+- Room-backed playback state and queue history
+- Regression-oriented JVM, Robolectric, and Compose test coverage
+- Build-time architecture boundary checks
+
+## Module Layout
 
 ```text
-app/              应用入口、媒体库 data source/repository/use case、设置页、主题/UI 组件
-player-contract/  纯 Kotlin 播放契约、队列/会话规划、设置与持久化接口、UI/renderer 依赖的播放 port
-player-platform/  Android / Media3 binding API、Intent/seek fallback、异步 writer、窄依赖接口与适配器
-player-render-api/ 播放 surface / renderer 中立契约
-player-renderer/  PlaybackActivity、session assembly、PIP、Media3 surface/render adapter
-player-runtime/   设置仓库、运行时 graph、启动编排、设备/持久化实现装配
-player-ui/        纯播放 UI、手势编排、UI 状态与动作翻译，不直接依赖 Media3 / Activity
-player-engine/    PlaybackService、Media3 controller/connector 实现
-player-domain/    纯 JVM 算法与状态机
-player-data/      DataStore/Room 持久化实现、媒体库索引库、legacy SharedPreferences 迁移源、schema/compat 测试
+app/               App entry, library feature, settings pages, top-level composition
+player-contract/   Stable Kotlin contracts, session planning, persistence and playback ports
+player-platform/   Android and Media3 bindings, intent adapters, async writers, platform helpers
+player-render-api/ Renderer-neutral playback surface contracts
+player-renderer/   PlaybackActivity, session assembly, PiP, Media3 render adapters
+player-runtime/    Runtime graph, settings repositories, launch orchestration, device/persistence wiring
+player-ui/         Pure playback UI and gesture orchestration, no direct Media3 dependency
+player-engine/     PlaybackService and Media3 controller implementations
+player-domain/     Pure JVM algorithms and state machines
+player-data/       Room/DataStore implementations, local media index, migration coverage
 ```
 
-依赖方向：`app` → `player-runtime` / `player-platform` / `player-renderer` / `player-data` / `player-engine`；`player-renderer` → `player-render-api` / `player-ui` / `player-platform` / `player-contract`；`player-ui` → `player-render-api` / `player-contract` / `player-domain`；`player-runtime` → `player-contract` / `player-platform` / `player-data`；`player-engine` → `player-contract` / `player-platform`；`player-data` → `player-contract`
+Primary dependency direction:
 
-## 关键架构
+`app` -> `player-runtime` / `player-platform` / `player-renderer` / `player-data` / `player-engine`
 
-1. `AsuraPlayerApp` 是唯一组合根：构建 `AsukaAppGraph`（注入 engine 绑定），再委托 `AppComposition` 使用内联匿名对象产出 `MainActivityDependencies`、platform 层的 `PlaybackActivityDependencies` / `PlaybackServiceDependencies`。
-2. `MainActivity` / `PlaybackActivity` / `PlaybackService` 通过 `Provider.from(application)` 集中式查找读取窄依赖，架构边界检查在构建期验证 Application 实现了所需 provider 接口。
-3. `IncomingPlaybackIntentReader` + `PlaybackSessionRequestCodec` 负责把 `ACTION_VIEW` / `ACTION_SEND` / `ACTION_SEND_MULTIPLE` / `ClipData` 归一成单一 `PlaybackSessionRequest`；`PlaybackLaunchCoordinator` 只负责把当前项解析为实际 playback URI 并生成启动 intent。
-4. 媒体库现在先同步到本地索引库，再由 `MediaLibraryRepository` + use case 提供分页 folders/videos/recent lookup；`ContentObserver` 负责增量触发同步。
-5. `player-renderer` 持有 `PlaybackActivity` / `PlaybackViewModel` / `PlaybackSessionHost`，其中 `PlaybackViewModel` 作为 `AndroidViewModel` 持有 session host 和 host 状态，跨 configuration change 存活；host 已拆成 controller connection、launch driver、state feeds 三个协作者；`PlaybackHostState`（低频）和 `PlayerUiState`（20Hz 进度）分离为独立 `StateFlow`，`PlayerScreen` 内部收集高频流以避免 Activity 级重组。
-6. `PlaybackSessionCoordinator` + `PlaybackSessionPlanner` 负责队列、续播位置、倍速和轨道恢复；`PlaybackStateWriter` / `QueueHistoryWriter` 现在位于 `player-platform`，由 engine service 消费；`PlaybackController.release()` 负责清理 listener。
-7. `AsukaAppGraph` 内部已经拆成 `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 两个 runtime feature installer；engine 具体实现（`Media3PlaybackControllerConnectorFactory`、`PlaybackService` 组件名、通知图标）通过 `AsukaAppGraph` 构造器注入，`player-runtime` 不编译时依赖 `player-engine`。
-8. settings 默认走 `DataStoreAppSettingsStore`；playback state / queue history 默认走 Room-backed store；媒体库元数据默认走本地 Room 索引，并在应用运行中持续增量同步。
+`player-renderer` -> `player-render-api` / `player-ui` / `player-platform` / `player-contract`
 
-## 当前代码组织
+`player-ui` -> `player-render-api` / `player-contract` / `player-domain`
 
-- 组合根与装配已经进一步瘦身：
-  - `AsuraPlayerApp` 只持有 `graph` 和 `appComposition`
-  - `AppComposition` 使用内联匿名对象将 graph 映射为窄依赖接口，不再通过单独的映射类
-  - `MainLibraryFeatureInstaller` 负责媒体库 feature 的 repository / use case / view model factory 装配
-  - `SettingsRuntimeInstaller` / `PlaybackRuntimeInstaller` 负责 runtime graph 内部 feature 构造
-- 媒体库与设置页已经拆成 feature-oriented 文件：
-  - `MainLibraryScreen` 负责状态汇总与 launcher
-  - `MainLibraryNavHost` 负责导航装配
-  - `MainLibraryUiState` 负责 library feature 入口状态聚合
-  - `MediaLibraryDataSources` / `MediaLibraryRepository` / `MainLibraryViewModel` 形成 data source -> repository -> use case -> view model 的媒体库链路
-  - `MainLibraryCatalogStore` 已退化成 facade，内部状态机拆成 folders / all videos / current folder / recent 四个 slice
-  - `LibraryHomePage` / `LibraryVideoPages` / `LibraryRecentPage` / `SettingsPageContent` / `PlayerSettingsPageContent` / `ThemeSettingsScreen` / `MotionSettingsPageContent` 负责具体页面内容
-- 主题与共享 UI 已按职责拆分：
-  - `AsukaTheme` / `ThemeColorUtils` / `ThemeSwatchComponents` / `CustomThemeEditorSheet`
-  - `UiComponentTokens` / `GroupedSurfaceComponents` / `SettingsNavigationRows` / `SettingsSliderRows` / `SettingsToggleRows` / `SettingsSelectionRows`
-- 播放器和主题设置页内部也继续拆分：
-  - `PlayerSettingsPageContent` 现在只做页面状态装配，section 在 `PlayerSettingsSections`，弹窗在 `PlayerSettingsDialogs`
-  - `ThemeSettingsScreen` 现在只保留主题页入口逻辑，外观/颜色/显示 section 在 `ThemeSettingsSections`
-  - `PlayerScreen` 现在只保留状态初始化与 shell 装配；副作用收敛在 `PlayerScreenEffects`，渲染树拆到 `PlayerScreenShells`
-  - overlay 面板已经拆成 settings / tracks / speed 三组独立 section 文件
-- 播放进度刷新不再是 attach 后常驻轮询，而是只在 `player.isPlaying` 时启动短周期 ticker
+`player-runtime` -> `player-contract` / `player-platform` / `player-data`
 
-## 当前边界状态
+`player-engine` -> `player-contract` / `player-platform`
 
-- `player-contract` 只暴露纯业务 API，不再直接暴露 `Parcelable`、`Uri`、`MediaItem`、`Player`、`ComponentName`、`Window` 等平台类型。
-- `player-platform` 承接 Android / Media3 binding API，包括 `PlaybackActivityDependencies` / `PlaybackServiceDependencies`、Intent/URI helper、track reader、Media3 queue mapper、异步持久化 writer 和 renderer 侧 connector 适配。
-- `player-render-api` 只保留 surface/render 契约，不携带 Media3、Activity 或 app 层实现依赖。
-- `player-renderer` 负责播放入口、session assembly、PIP、surface render adapter，不直接依赖 app 层。
-- `player-ui` 不再直接依赖 `player-engine`、`Media3`、`androidx.activity` 或 `player-platform`；播放控制、轨道选择等 port 已收敛到 `player-contract`，surface render 通过 `player-render-api` 契约完成。
-- 代码包前缀已经分离为 `com.asuka.player.app` / `runtime` / `contract` / `platform` / `engine` / `ui`，减少跨模块“同包伪同层”。
+`player-data` -> `player-contract`
 
-## 当前持久化状态
+## Architecture at a Glance
 
-- settings 使用 `AppSettingsSnapshot` 作为单一 schema，默认存储实现为 DataStore。
-- playback state / queue history 使用 Room；Room schema 已导出到 `player-data/schemas/`。
-- 媒体库列表使用本地 Room 索引库，应用通过增量同步维护索引，再从索引做分页查询。
-- legacy `SharedPreferencesAppSettingsStore`、`SharedPreferencesPlaybackStore`、`SharedPreferencesQueueHistoryStore` 保留为迁移源和兼容测试目标，不再是默认运行路径。
-- migration 和 schema compatibility 已有自动化覆盖，新增字段优先改 snapshot / entity / migration，而不是到处补 key 与默认值。
-- playback/history 回写已经走串行异步任务队列；service 销毁时触发非阻塞 flush + close（队列消费者在自有 IO scope 上处理剩余项），不阻塞主线程。
+- `AsuraPlayerApp` is the single composition root
+- Playback launch inputs are normalized into one `PlaybackSessionRequest`
+- Playback host responsibilities are split into connection, launch driving, and state feeds
+- `player-ui` consumes contracts and render APIs only, not raw Media3 types
+- Media library reads come from a local Room-backed index instead of direct ad hoc MediaStore scans
+- Runtime settings and persistence paths use explicit boundaries and asynchronous write semantics
 
-## 本地验证
+This structure keeps the app easier to test, easier to refactor, and less likely to accumulate hidden cross-layer coupling.
+
+## Getting Started
+
+### Requirements
+
+- JDK 17
+- Android SDK configured for the repository toolchain
+- A local Android development environment capable of running Gradle Android builds
+
+### Build
 
 ```bash
-# Kotlin 编译
 ./gradlew :app:compileDebugKotlin
+```
 
-# 全量 JVM 单元测试
+### Default Local Verification
+
+```bash
 ./gradlew test
-
-# 架构与体积治理
-./gradlew verifyArchitectureBoundaries verifySourceFileSizes
-
-# 配置缓存健康检查
-./gradlew help
-
-# AndroidTest 源码编译预检（无设备）
 ./gradlew :player-ui:compileDebugAndroidTestKotlin
+./gradlew verifyArchitectureBoundaries verifySourceFileSizes
+./gradlew help
+```
+
+### Useful Commands
+
+```bash
+# Print the centralized app version
+./gradlew printAppVersion
 
 # Lint
 ./gradlew lintDebug
 
-# 真机 / 模拟器 UI 测试
+# Device / emulator UI tests
 ./gradlew :player-ui:connectedAndroidTest
+
+# Install debug APK
+./gradlew :app:installDebug
 ```
 
-当前无设备默认基线：
+## Development Philosophy
 
-- `./gradlew test`
-- `./gradlew :player-ui:compileDebugAndroidTestKotlin`
-- `./gradlew verifyArchitectureBoundaries verifySourceFileSizes`
-- `./gradlew help` 应显示 `Configuration cache entry reused.`
+This project intentionally treats architecture and regression safety as part of the product:
 
-## 文档
+- UI behavior should be tested, not just implemented
+- playback and persistence paths should be explicit, not hidden behind side effects
+- module boundaries should be enforced by the build
+- local media handling should remain robust as the app scales
 
-- [架构说明](docs/ARCHITECTURE.md)
-- [测试说明](docs/TESTING.md)
-- [版本管理](docs/VERSIONING.md)
-- [路线与待办](docs/ROADMAP.md)
-- [变更记录](docs/CHANGELOG.md)
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) / [架构说明](docs/ARCHITECTURE.md)
+- [Testing](docs/TESTING.md) / [测试说明](docs/TESTING.md)
+- [Versioning](docs/VERSIONING.md) / [版本管理](docs/VERSIONING.md)
+
+## Open Source Intent
+
+Asuka Player is not only a playback app project, but also a maintainable Android architecture exercise: local media, playback runtime, rendering, UI, and persistence are separated on purpose so the repository can stay readable and evolvable over time.
