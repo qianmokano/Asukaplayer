@@ -226,6 +226,11 @@ fun PlayerScreen(
             onOpenOverlay = openOverlay,
             onRotate = onRotate,
             controlsState = controlsState,
+            onProgressBarSeekStart = seekState::start,
+            onProgressBarSeekPreview = { previewPositionMs, deltaMs ->
+                seekState.update(deltaMs, previewPositionMs)
+            },
+            onProgressBarSeekEnd = seekState::end,
         )
         PlayerScreenOverlayShell(
             overlayType = overlayType,

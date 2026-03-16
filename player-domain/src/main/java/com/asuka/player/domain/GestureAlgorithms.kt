@@ -52,6 +52,28 @@ object GestureAlgorithms {
         return SeekResult(newPositionMs = clampedMs, deltaMs = clampedMs - clampedStart)
     }
 
+    data class ProgressBarSeekInput(
+        val startPositionMs: Long,
+        val startTouchPositionMs: Long,
+        val currentTouchPositionMs: Long,
+        val durationMs: Long,
+        val distanceRatio: Float = 1f,
+    )
+
+    fun calculateProgressBarSeek(input: ProgressBarSeekInput): SeekResult {
+        require(input.distanceRatio > 0f) { "distanceRatio must be positive, was ${input.distanceRatio}" }
+        if (input.durationMs <= 0L) {
+            return SeekResult(newPositionMs = input.startPositionMs.coerceAtLeast(0L), deltaMs = 0L)
+        }
+        val clampedStart = input.startPositionMs.coerceIn(0L, input.durationMs)
+        val clampedStartTouch = input.startTouchPositionMs.coerceIn(0L, input.durationMs)
+        val clampedCurrentTouch = input.currentTouchPositionMs.coerceIn(0L, input.durationMs)
+        val touchDeltaMs = clampedCurrentTouch - clampedStartTouch
+        val scaledDeltaMs = (touchDeltaMs.toFloat() * input.distanceRatio).roundToLong()
+        val clampedMs = (clampedStart + scaledDeltaMs).coerceIn(0L, input.durationMs)
+        return SeekResult(newPositionMs = clampedMs, deltaMs = clampedMs - clampedStart)
+    }
+
     // ── Volume / Brightness ───────────────────────────────────────────────────
 
     private const val DRAG_PX_PER_UNIT = 7f

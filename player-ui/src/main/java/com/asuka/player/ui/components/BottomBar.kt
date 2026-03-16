@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,10 +44,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.asuka.player.contract.PlaybackController
+import com.asuka.player.domain.GestureAlgorithms
 import com.asuka.player.ui.LandscapeCutoutPadding
 import com.asuka.player.ui.R
 import com.asuka.player.ui.theme.PlayerUiTokens
 import com.asuka.player.ui.utils.formatTimeMs
+import kotlin.math.abs
 
 private val bottomBarButtonSize = 44.dp
 private val bottomBarButtonIconSize = 22.dp
@@ -56,10 +59,11 @@ private val bottomBarLoadingRingStrokeWidth = 3.dp
 private val bottomBarVerticalPadding = 4.dp
 private val bottomBarRowSpacing = 2.dp
 private val bottomBarTimeRowHeight = 20.dp
-private val bottomBarSliderHeight = 18.dp
+private val bottomBarSliderTouchHeight = 22.dp
 private val bottomBarSliderTrackHeight = 6.dp
 private val bottomBarSliderThumbSize = DpSize(4.dp, 14.dp)
 private val bottomBarActionRowHeight = bottomBarButtonSize + 4.dp
+private const val progressBarGestureSeekDistanceRatio = 1f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +81,9 @@ internal fun BottomBar(
     onSpeed: () -> Unit,
     onSubtitle: () -> Unit,
     onRotate: () -> Unit,
+    onProgressBarSeekStart: (Long) -> Unit = {},
+    onProgressBarSeekPreview: (previewPositionMs: Long, deltaMs: Long) -> Unit = { _, _ -> },
+    onProgressBarSeekEnd: () -> Unit = {},
     showTimeRow: Boolean = true,
     showActionRow: Boolean = true,
 ) {
@@ -84,6 +91,9 @@ internal fun BottomBar(
     var showRemainingTime by remember { mutableStateOf(false) }
     var sliderDragging by remember { mutableStateOf(false) }
     var sliderValue by remember { mutableFloatStateOf(0f) }
+    var sliderTouchStartValue by remember { mutableFloatStateOf(0f) }
+    var sliderTouchCurrentValue by remember { mutableFloatStateOf(0f) }
+    var sliderSeekStartPositionMs by remember { mutableLongStateOf(0L) }
     val sliderInteractionSource = remember { MutableInteractionSource() }
     val sliderColors = SliderDefaults.colors(
         thumbColor = Color.White,
@@ -148,19 +158,47 @@ internal fun BottomBar(
                 if (!sliderDragging) {
                     sliderDragging = true
                     onSeekBarDragChange(true)
+                    sliderTouchStartValue = it
+                    sliderTouchCurrentValue = it
+                    sliderSeekStartPositionMs = positionMs.coerceAtLeast(0L)
+                    onProgressBarSeekStart(sliderSeekStartPositionMs)
                 }
-                sliderValue = it
+                sliderTouchCurrentValue = it
+                val seekResult = GestureAlgorithms.calculateProgressBarSeek(
+                    GestureAlgorithms.ProgressBarSeekInput(
+                        startPositionMs = sliderSeekStartPositionMs,
+                        startTouchPositionMs = sliderTouchStartValue.toLong(),
+                        currentTouchPositionMs = it.toLong(),
+                        durationMs = durationMs,
+                        distanceRatio = progressBarGestureSeekDistanceRatio,
+                    ),
+                )
+                sliderValue = seekResult.newPositionMs.toFloat()
+                onProgressBarSeekPreview(
+                    seekResult.newPositionMs,
+                    seekResult.deltaMs,
+                )
+                if (durationMs <= 0L) {
+                    sliderValue = 0f
+                    onProgressBarSeekPreview(0L, 0L)
+                }
             },
             onValueChangeFinished = {
-                controller.seekTo(sliderValue.toLong())
+                val targetPositionMs = if (abs(sliderTouchCurrentValue - sliderTouchStartValue) < 1f) {
+                    sliderTouchStartValue.toLong()
+                } else {
+                    sliderValue.toLong()
+                }
+                controller.seekTo(targetPositionMs)
                 if (sliderDragging) {
                     sliderDragging = false
+                    onProgressBarSeekEnd()
                     onSeekBarDragChange(false)
                 }
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(bottomBarSliderHeight)
+                .height(bottomBarSliderTouchHeight)
                 .testTag("bottom_seek_bar"),
             colors = sliderColors,
             interactionSource = sliderInteractionSource,

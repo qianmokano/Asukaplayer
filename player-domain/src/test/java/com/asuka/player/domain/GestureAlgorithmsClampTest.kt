@@ -104,6 +104,37 @@ class GestureAlgorithmsClampTest {
     }
 
     @Test
+    fun calculateProgressBarSeek_ratioScalesDelta() {
+        val result = GestureAlgorithms.calculateProgressBarSeek(
+            GestureAlgorithms.ProgressBarSeekInput(
+                startPositionMs = 30_000L,
+                startTouchPositionMs = 30_000L,
+                currentTouchPositionMs = 60_000L,
+                durationMs = 120_000L,
+                distanceRatio = 0.5f,
+            ),
+        )
+
+        assertEquals(45_000L, result.newPositionMs)
+        assertEquals(15_000L, result.deltaMs)
+    }
+
+    @Test
+    fun calculateProgressBarSeek_clampsToDuration() {
+        val result = GestureAlgorithms.calculateProgressBarSeek(
+            GestureAlgorithms.ProgressBarSeekInput(
+                startPositionMs = 110_000L,
+                startTouchPositionMs = 60_000L,
+                currentTouchPositionMs = 120_000L,
+                durationMs = 120_000L,
+            ),
+        )
+
+        assertEquals(120_000L, result.newPositionMs)
+        assertEquals(10_000L, result.deltaMs)
+    }
+
+    @Test
     fun calculateVerticalAdjust_clampsToZero() {
         val result = GestureAlgorithms.calculateVerticalAdjust(
             GestureAlgorithms.VerticalAdjustInput(

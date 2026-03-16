@@ -45,6 +45,9 @@ class GestureSeekOverlayTest {
                 onOpenOverlay = {},
                 onRotate = {},
                 controlsState = controlsState,
+                onProgressBarSeekStart = {},
+                onProgressBarSeekPreview = { _, _ -> },
+                onProgressBarSeekEnd = {},
             )
         }
         composeRule.waitForIdle()
@@ -73,6 +76,9 @@ class GestureSeekOverlayTest {
                 onOpenOverlay = {},
                 onRotate = {},
                 controlsState = controlsState,
+                onProgressBarSeekStart = {},
+                onProgressBarSeekPreview = { _, _ -> },
+                onProgressBarSeekEnd = {},
             )
         }
         composeRule.waitForIdle()

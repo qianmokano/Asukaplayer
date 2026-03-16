@@ -55,4 +55,19 @@ class GestureAlgorithmsTest {
         val zoom = GestureAlgorithms.clampZoom(input)
         assertEquals(4f, zoom)
     }
+
+    @Test
+    fun calculateProgressBarSeek_tracksTouchDeltaFromDragStart() {
+        val result = GestureAlgorithms.calculateProgressBarSeek(
+            GestureAlgorithms.ProgressBarSeekInput(
+                startPositionMs = 30_000L,
+                startTouchPositionMs = 30_000L,
+                currentTouchPositionMs = 70_000L,
+                durationMs = 120_000L,
+            ),
+        )
+
+        assertEquals(70_000L, result.newPositionMs)
+        assertEquals(40_000L, result.deltaMs)
+    }
 }

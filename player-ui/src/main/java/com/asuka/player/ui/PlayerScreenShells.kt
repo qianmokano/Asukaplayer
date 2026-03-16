@@ -140,6 +140,9 @@ internal fun PlayerScreenLayoutShell(
     onOpenOverlay: (OverlayType) -> Unit,
     onRotate: () -> Unit,
     controlsState: ControlsState,
+    onProgressBarSeekStart: (Long) -> Unit,
+    onProgressBarSeekPreview: (previewPositionMs: Long, deltaMs: Long) -> Unit,
+    onProgressBarSeekEnd: () -> Unit,
 ) {
     if (isInPip) return
     Column(modifier = Modifier.fillMaxSize()) {
@@ -177,6 +180,9 @@ internal fun PlayerScreenLayoutShell(
                 onSpeed = { onOpenOverlay(OverlayType.SPEED) },
                 onSubtitle = { onOpenOverlay(OverlayType.SUBTITLE) },
                 onRotate = onRotate,
+                onProgressBarSeekStart = onProgressBarSeekStart,
+                onProgressBarSeekPreview = onProgressBarSeekPreview,
+                onProgressBarSeekEnd = onProgressBarSeekEnd,
                 showTimeRow = !gestureSeekOverlayVisible,
                 showActionRow = !gestureSeekOverlayVisible,
             )
