@@ -1,0 +1,31 @@
+name: README Link Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readme-links-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  readme-links:
+    name: README Link Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Check README links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: --no-progress --verbose README.md docs/README.zh-CN.md
