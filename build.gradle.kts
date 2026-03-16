@@ -1,3 +1,4 @@
+import com.asuka.player.build.PrintAppVersionTask
 import com.github.jk1.license.render.JsonReportRenderer
 import com.github.jk1.license.render.ReportRenderer
 import com.github.jk1.license.render.TextReportRenderer
@@ -50,6 +51,14 @@ tasks.register("generateThirdPartyNotices") {
     group = "reporting"
     description = "Generates third-party notices for all resolved dependencies."
     dependsOn("generateLicenseReport")
+}
+
+tasks.register<PrintAppVersionTask>("printAppVersion") {
+    group = "help"
+    description = "Prints the centralized app versionName and versionCode."
+    major.set(providers.gradleProperty("appVersionMajor").map { it.toInt() })
+    minor.set(providers.gradleProperty("appVersionMinor").map { it.toInt() })
+    patch.set(providers.gradleProperty("appVersionPatch").map { it.toInt() })
 }
 
 val architectureRootPackageMap = mapOf(

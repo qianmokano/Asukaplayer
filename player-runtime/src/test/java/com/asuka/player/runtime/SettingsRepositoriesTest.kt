@@ -87,6 +87,19 @@ class SettingsRepositoriesTest {
     }
 
     @Test
+    fun playerSettingsRepository_roundTripsSeekDoubleTapAction() = runBlocking {
+        val repository = PlayerSettingsRepository(freshStore(), testScope())
+
+        repository.setPlayerSettings(
+            repository.settings.value.copy(
+                doubleTapAction = PlayerSettings.DoubleTapAction.Seek,
+            ),
+        )
+
+        assertEquals(PlayerSettings.DoubleTapAction.Seek, repository.settings.value.doubleTapAction)
+    }
+
+    @Test
     fun playbackBehaviorRepository_persistsRememberedBrightness() = runBlocking {
         val repository = PlaybackBehaviorRepository(freshStore(), testScope())
 

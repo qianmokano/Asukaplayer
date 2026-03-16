@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -56,6 +57,16 @@ class MainLibraryViewModelLogicTest {
         )
 
         assertEquals(emptyList(), result)
+    }
+
+    @Test
+    fun refreshTargetForRoute_routesRecentPageToRecentRefresh() {
+        assertSame(MainLibraryRefreshTarget.Recent, refreshTargetForRoute(ROUTE_RECENT))
+    }
+
+    @Test
+    fun refreshTargetForRoute_routesFolderPageToFolderRefresh() {
+        assertSame(MainLibraryRefreshTarget.Folder, refreshTargetForRoute(folderRoute(42L)))
     }
 
     @Test

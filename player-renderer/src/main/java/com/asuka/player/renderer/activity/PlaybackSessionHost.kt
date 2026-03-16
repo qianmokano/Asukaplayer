@@ -8,6 +8,7 @@ import com.asuka.player.contract.PlaybackController
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.ui.R
+import com.asuka.player.ui.controller.PlaybackTrackUiState
 import com.asuka.player.ui.state.PlayerUiState
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -98,6 +99,7 @@ internal class PlaybackSessionHost(
         pausePlayback: Boolean = false,
     ) {
         launchDriver.cancelPending()
+        launchDriver.unbindPlayer()
         stateFeeds.clear()
         controllerConnection.clearRetainedSession(launchDriver.playbackListener)
         if (retainSession) {
@@ -113,6 +115,7 @@ internal class PlaybackSessionHost(
 
     fun releaseAll() {
         launchDriver.cancelPending()
+        launchDriver.unbindPlayer()
         stateFeeds.clear()
         controllerConnection.releaseAll(launchDriver.playbackListener)
         launchDriver.clearAppliedRequest()
@@ -132,8 +135,14 @@ internal class PlaybackSessionHost(
             onConnectionFailure = { error ->
                 if (error is CancellationException) return@connectOrReuse
                 Log.e(TAG, "failed to connect controller", error)
+                launchDriver.unbindPlayer()
+                stateFeeds.clear()
                 _state.update { current ->
                     current.copy(
+                        controller = null,
+                        surfaceState = null,
+                        trackSelectionController = null,
+                        trackUiState = PlaybackTrackUiState(),
                         isConnectingController = false,
                         controllerErrorMessage = appContext.getString(R.string.playback_session_connection_failed),
                     )

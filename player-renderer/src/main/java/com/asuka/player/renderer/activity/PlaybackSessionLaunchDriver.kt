@@ -19,6 +19,7 @@ internal class PlaybackSessionLaunchDriver(
 ) {
     private var playbackStartJob: Job? = null
     private var appliedRequestId: Long = 0L
+    private var boundPlayer: Player? = null
 
     val playbackListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -49,9 +50,18 @@ internal class PlaybackSessionLaunchDriver(
         }
     }
 
-    fun bindPlayer(mediaController: MediaController) {
-        mediaController.removeListener(playbackListener)
-        mediaController.addListener(playbackListener)
+    fun bindPlayer(player: Player) {
+        if (boundPlayer !== player) {
+            boundPlayer?.removeListener(playbackListener)
+            boundPlayer = player
+        }
+        player.removeListener(playbackListener)
+        player.addListener(playbackListener)
+    }
+
+    fun unbindPlayer() {
+        boundPlayer?.removeListener(playbackListener)
+        boundPlayer = null
     }
 
     fun updateIntent(

@@ -1,9 +1,12 @@
+import com.asuka.player.build.readAppVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+val appVersion = project.readAppVersion()
 
 android {
     namespace = "com.asuka.player"
@@ -13,8 +16,8 @@ android {
         applicationId = "com.asuka.player"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersion.versionCode
+        versionName = appVersion.versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

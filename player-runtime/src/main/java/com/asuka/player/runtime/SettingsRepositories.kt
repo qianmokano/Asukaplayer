@@ -257,6 +257,7 @@ private fun PlayerSettings.toPlayerSettingsRecord(): PlayerSettingsRecord {
 
 private fun String?.toDoubleTapAction(): PlayerSettings.DoubleTapAction {
     return when (this) {
+        "seek" -> PlayerSettings.DoubleTapAction.Seek
         "toggle_play_pause" -> PlayerSettings.DoubleTapAction.TogglePlayPause
         "both" -> PlayerSettings.DoubleTapAction.Both
         else -> PlayerSettings.DoubleTapAction.TogglePlayPause

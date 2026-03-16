@@ -1,5 +1,9 @@
 package com.asuka.player.renderer.activity
 
+import androidx.media3.common.Player
+import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.PlaybackTrackSelectionController
+import com.asuka.player.render.api.PlaybackSurfaceState
 import com.asuka.player.renderer.Media3PlaybackSurfaceState
 import com.asuka.player.renderer.controller.PlaybackTrackUiStateHolder
 import com.asuka.player.renderer.controller.PlayerUiStateHolder
@@ -19,14 +23,35 @@ internal class PlaybackSessionStateFeeds(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
+    private var boundControllerIdentity: Any? = null
     private var uiStateHolder: PlayerUiStateHolder? = null
     private var trackUiStateHolder: PlaybackTrackUiStateHolder? = null
     private var uiStateFeedJob: Job? = null
     private var trackUiStateFeedJob: Job? = null
 
     fun bind(connection: PlaybackControllerConnectionSnapshot) {
+        bindResolvedSession(
+            player = connection.mediaController,
+            controllerIdentity = connection.mediaController,
+            playbackController = connection.playbackController,
+            trackSelectionController = connection.trackSelectionController,
+            surfaceState = Media3PlaybackSurfaceState(connection.mediaController),
+        )
+    }
+
+    internal fun bindResolvedSession(
+        player: Player,
+        controllerIdentity: Any,
+        playbackController: PlaybackController,
+        trackSelectionController: PlaybackTrackSelectionController,
+        surfaceState: PlaybackSurfaceState,
+    ) {
+        if (boundControllerIdentity !== controllerIdentity) {
+            clear()
+            boundControllerIdentity = controllerIdentity
+        }
         if (uiStateHolder == null) {
-            val holder = PlayerUiStateHolder(connection.mediaController)
+            val holder = PlayerUiStateHolder(player)
             holder.attach()
             holder.startProgressTicker(scope)
             uiStateHolder = holder
@@ -36,7 +61,7 @@ internal class PlaybackSessionStateFeeds(
             }
         }
         if (trackUiStateHolder == null) {
-            val holder = PlaybackTrackUiStateHolder(connection.mediaController)
+            val holder = PlaybackTrackUiStateHolder(player)
             holder.attach()
             trackUiStateHolder = holder
             trackUiStateFeedJob?.cancel()
@@ -48,9 +73,9 @@ internal class PlaybackSessionStateFeeds(
         }
         state.update { current ->
             current.copy(
-                controller = connection.playbackController,
-                surfaceState = Media3PlaybackSurfaceState(connection.mediaController),
-                trackSelectionController = connection.trackSelectionController,
+                controller = playbackController,
+                surfaceState = surfaceState,
+                trackSelectionController = trackSelectionController,
                 isConnectingController = false,
                 controllerErrorMessage = null,
             )
@@ -66,9 +91,11 @@ internal class PlaybackSessionStateFeeds(
         uiStateHolder = null
         trackUiStateHolder?.detach()
         trackUiStateHolder = null
+        boundControllerIdentity = null
     }
 
     fun resetToDisconnected() {
+        clear()
         state.value = PlaybackHostState()
     }
 }

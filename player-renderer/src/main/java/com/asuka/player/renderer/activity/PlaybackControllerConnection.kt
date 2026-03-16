@@ -7,7 +7,6 @@ import com.asuka.player.contract.PlaybackTrackSelectionController
 import com.asuka.player.platform.PlaybackActivityDependencies
 import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.renderer.controller.PlaybackSessionCoordinator
-import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -33,13 +32,14 @@ internal class PlaybackControllerConnection(
     private var sessionCoordinator: PlaybackSessionCoordinator? = null
     private var initJob: Job? = null
 
-    fun currentPlayer(): Player? = mediaController
+    fun currentPlayer(): Player? = mediaController?.takeIf(MediaController::isConnected)
 
-    fun currentController(): PlaybackController? = playbackController
+    fun currentController(): PlaybackController? = playbackController?.takeIf { hasActiveController() }
 
-    fun currentMediaController(): MediaController? = mediaController
+    fun currentMediaController(): MediaController? = mediaController?.takeIf(MediaController::isConnected)
 
-    fun currentSessionCoordinator(): PlaybackSessionCoordinator? = sessionCoordinator
+    fun currentSessionCoordinator(): PlaybackSessionCoordinator? =
+        sessionCoordinator?.takeIf { hasActiveController() }
 
     fun connectOrReuse(
         onConnectingChanged: (Boolean) -> Unit,
@@ -47,8 +47,12 @@ internal class PlaybackControllerConnection(
         onConnected: (PlaybackControllerConnectionSnapshot, Boolean) -> Unit,
     ) {
         mediaController?.let { existing ->
-            ensureSession(existing)?.let { snapshot -> onConnected(snapshot, true) }
-            return
+            if (existing.isConnected) {
+                ensureSession(existing)?.let { snapshot -> onConnected(snapshot, true) }
+                return
+            }
+            clearDisconnectedController()
+            controllerProvider.release()
         }
         if (initJob?.isActive == true) return
 
@@ -62,6 +66,7 @@ internal class PlaybackControllerConnection(
             } catch (_: CancellationException) {
                 onConnectingChanged(false)
             } catch (error: Throwable) {
+                clearDisconnectedController()
                 controllerProvider.release()
                 onConnectionFailure(error)
                 onConnectingChanged(false)
@@ -91,6 +96,17 @@ internal class PlaybackControllerConnection(
         mediaController = null
         playbackController = null
         trackSelectionController = null
+    }
+
+    private fun hasActiveController(): Boolean = mediaController?.isConnected == true
+
+    private fun clearDisconnectedController() {
+        sessionCoordinator?.detach()
+        sessionCoordinator = null
+        playbackController?.release()
+        playbackController = null
+        trackSelectionController = null
+        mediaController = null
     }
 
     private fun ensureSession(

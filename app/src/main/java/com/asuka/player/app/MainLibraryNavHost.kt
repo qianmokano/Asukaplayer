@@ -59,13 +59,16 @@ internal fun MainLibraryNavHost(
     val saveableStateHolder = rememberSaveableStateHolder()
     val slideDistance = rememberSlideDistance()
     val refreshCurrentPage = remember(currentRoute, currentFolderId) {
-        when {
-            currentRoute == ROUTE_HOME -> onRefreshFolders
-            currentRoute == ROUTE_ALL_VIDEOS -> onRefreshAllVideos
-            currentRoute.startsWith("folder/") && currentFolderId != null -> {
-                { onRefreshFolder(currentFolderId) }
-            }
-            else -> onRefreshFolders
+        when (refreshTargetForRoute(currentRoute)) {
+            MainLibraryRefreshTarget.Folders -> onRefreshFolders
+            MainLibraryRefreshTarget.AllVideos -> onRefreshAllVideos
+            MainLibraryRefreshTarget.Recent -> onRefreshRecent
+            MainLibraryRefreshTarget.Folder ->
+                if (currentFolderId != null) {
+                    { onRefreshFolder(currentFolderId) }
+                } else {
+                    onRefreshFolders
+                }
         }
     }
     val navigateTo: (String, Boolean) -> Unit = fun(route: String, launchSingleTop: Boolean) {
@@ -289,4 +292,20 @@ internal fun MainLibraryNavHost(
 private fun parseFolderId(route: String): Long? {
     if (!route.startsWith("folder/")) return null
     return route.substringAfter("folder/").toLongOrNull()
+}
+
+internal enum class MainLibraryRefreshTarget {
+    Folders,
+    AllVideos,
+    Folder,
+    Recent,
+}
+
+internal fun refreshTargetForRoute(route: String): MainLibraryRefreshTarget {
+    return when {
+        route == ROUTE_ALL_VIDEOS -> MainLibraryRefreshTarget.AllVideos
+        route == ROUTE_RECENT -> MainLibraryRefreshTarget.Recent
+        route.startsWith("folder/") -> MainLibraryRefreshTarget.Folder
+        else -> MainLibraryRefreshTarget.Folders
+    }
 }

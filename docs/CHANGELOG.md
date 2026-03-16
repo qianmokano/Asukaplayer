@@ -1,6 +1,11 @@
 # Changelog (Asuka) / 变更记录（Asuka）
 
 ## Unreleased / 未发布
+- Centralized app version management: `appVersionMajor/appVersionMinor/appVersionPatch` now define `versionName` and `versionCode` via build logic; release bumps no longer edit `app/build.gradle.kts` directly
+- Main library refresh actions now route correctly for recent playback and folder pages
+- Track selection state now reflects the player's active audio/subtitle choices instead of relying only on explicit overrides
+- Playback reconnect now safely rebinds UI/session listeners when a new `MediaController` instance replaces a disconnected one
+- Player settings persistence now restores the `seek` double-tap action correctly
 - Initial clean-room rewrite scaffold (M0–M4)
 - Gestures + controls + overlays
 - Persistence (position/speed/zoom/track)

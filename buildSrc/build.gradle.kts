@@ -5,3 +5,8 @@ plugins {
 repositories {
     mavenCentral()
 }
+
+dependencies {
+    testImplementation(gradleTestKit())
+    testImplementation(kotlin("test-junit"))
+}
