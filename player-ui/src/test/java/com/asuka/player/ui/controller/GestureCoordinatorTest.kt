@@ -219,7 +219,7 @@ class GestureCoordinatorTest {
 
         c.onHorizontalDragEnd()
 
-        assertEquals(listOf(45_000L), controller.seekToCalls)
+        assertEquals(listOf(15_000L), controller.seekToCalls)
     }
 
     @Test
@@ -231,7 +231,7 @@ class GestureCoordinatorTest {
         )
 
         c.onHorizontalDragStart(positionMs = 10_000L, x = 0f)
-        // 1px * 350ms/px = 350ms delta, below 1000ms threshold
+        // 100-second video: 15% / 300px => 50ms/px, still below the 1000ms threshold.
         c.onHorizontalDrag(currentX = 1f, durationMs = 100_000L, sensitivity = 1f)
         c.onHorizontalDragEnd()
 

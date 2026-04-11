@@ -104,6 +104,18 @@ class GestureAlgorithmsClampTest {
     }
 
     @Test
+    fun calculateSeek_longerDurationSeeksFurtherForSameDrag() {
+        val short = GestureAlgorithms.calculateSeek(
+            GestureAlgorithms.SeekInput(0, 0f, 100f, 1f, 120_000),
+        )
+        val long = GestureAlgorithms.calculateSeek(
+            GestureAlgorithms.SeekInput(0, 0f, 100f, 1f, 7_200_000),
+        )
+
+        assertTrue(long.newPositionMs > short.newPositionMs, "Longer media should seek further for the same drag")
+    }
+
+    @Test
     fun calculateProgressBarSeek_ratioScalesDelta() {
         val result = GestureAlgorithms.calculateProgressBarSeek(
             GestureAlgorithms.ProgressBarSeekInput(

@@ -1,6 +1,5 @@
 package com.asuka.player.domain
 
-import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
@@ -8,9 +7,10 @@ import kotlin.math.roundToLong
  * Pure gesture math utilities — no Android dependencies, fully unit-testable.
  *
  * Seek rate model:
- *   BASE_SEEK_RATE_MS is the number of milliseconds of media time that corresponds
- *   to a single display pixel of drag at sensitivity = 1.0. Calibrated so that a
- *   300-pixel swipe at speed 1.0 covers approximately 105 seconds (~1.75 minutes).
+ *   Horizontal seek speed scales with media duration so the same swipe covers a
+ *   similar fraction of the timeline across short and long videos. At sensitivity
+ *   = 1.0, a 300-pixel swipe targets roughly 15 % of the media duration, clamped
+ *   to a practical per-pixel range for very short and very long content.
  *
  * Vertical adjust model:
  *   DRAG_PX_PER_UNIT is the number of display pixels of vertical drag required to
@@ -26,7 +26,10 @@ object GestureAlgorithms {
 
     // ── Seek ─────────────────────────────────────────────────────────────────
 
-    private const val BASE_SEEK_RATE_MS = 350L
+    private const val SEEK_REFERENCE_SWIPE_PX = 300f
+    private const val SEEK_DURATION_FRACTION = 0.15f
+    private const val MIN_SEEK_RATE_MS = 10L
+    private const val MAX_SEEK_RATE_MS = 1_500L
 
     data class SeekInput(
         val startPositionMs: Long,
@@ -46,10 +49,15 @@ object GestureAlgorithms {
         if (input.durationMs <= 0L) return SeekResult(newPositionMs = input.startPositionMs.coerceAtLeast(0L), deltaMs = 0L)
         val clampedStart = input.startPositionMs.coerceIn(0L, input.durationMs)
         val dragPx = input.currentX - input.startX
-        val seekRateMs = input.sensitivity * BASE_SEEK_RATE_MS
+        val seekRateMs = input.sensitivity * seekRateMsForDuration(input.durationMs)
         val rawPositionMs = clampedStart + (dragPx * seekRateMs).roundToLong()
         val clampedMs = rawPositionMs.coerceIn(0L, input.durationMs)
         return SeekResult(newPositionMs = clampedMs, deltaMs = clampedMs - clampedStart)
+    }
+
+    private fun seekRateMsForDuration(durationMs: Long): Long {
+        val proportionalRateMs = durationMs * SEEK_DURATION_FRACTION / SEEK_REFERENCE_SWIPE_PX
+        return proportionalRateMs.roundToLong().coerceIn(MIN_SEEK_RATE_MS, MAX_SEEK_RATE_MS)
     }
 
     data class ProgressBarSeekInput(
