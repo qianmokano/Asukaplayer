@@ -35,6 +35,8 @@ internal interface LocalVideoCatalogDataSource {
     suspend fun resolveMediaIds(mediaIds: List<String>): Map<String, LocalVideoItem>
 
     suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int)
+
+    fun close() = Unit
 }
 
 internal interface RecentPlaybackDataSource {
@@ -165,6 +167,10 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
                 limit = limit,
             )
         }
+    }
+
+    override fun close() {
+        indexingCoordinator.close()
     }
 
     private fun parseMediaStoreId(mediaId: String): Long? {

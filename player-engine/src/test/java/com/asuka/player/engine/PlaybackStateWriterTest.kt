@@ -14,14 +14,15 @@ import com.asuka.player.platform.PlaybackStateWriter
 import com.asuka.player.platform.TrackSelectionIdentity
 import com.asuka.player.data.InMemoryPlaybackStore
 import java.lang.reflect.Proxy
-import kotlin.system.measureTimeMillis
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -263,22 +264,24 @@ class PlaybackStateWriterTest {
     }
 
     @Test
-    fun onPositionDiscontinuity_returnsQuickly_whenStoreWriteIsSlow() = runBlocking {
+    fun onPositionDiscontinuity_enqueuesSlowStoreWriteWithoutRunningItInline() = runTest {
         val mediaItem = mediaItem("media://slow")
         val playerState = fakePlayer(currentMediaItem = mediaItem)
-        val writer = PlaybackStateWriter(SlowPlaybackStore())
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = SlowPlaybackStore()
+        val writer = PlaybackStateWriter(store, writeDispatcher = dispatcher)
 
         writer.attach(playerState.asPlayer())
-        val elapsedMs = measureTimeMillis {
-            writer.onPositionDiscontinuity(
-                oldPosition = positionInfo(mediaItem = mediaItem, positionMs = 0L),
-                newPosition = positionInfo(mediaItem = mediaItem, positionMs = 10_000L),
-                reason = Player.DISCONTINUITY_REASON_SEEK,
-            )
-        }
-        writer.awaitIdle()
+        writer.onPositionDiscontinuity(
+            oldPosition = positionInfo(mediaItem = mediaItem, positionMs = 0L),
+            newPosition = positionInfo(mediaItem = mediaItem, positionMs = 10_000L),
+            reason = Player.DISCONTINUITY_REASON_SEEK,
+        )
 
-        assertTrue(elapsedMs < 100, "Expected non-blocking callback, but took ${elapsedMs}ms")
+        assertEquals(0, store.savePositionCalls)
+        dispatcher.scheduler.runCurrent()
+        assertEquals(1, store.savePositionCalls)
+        writer.awaitIdle()
     }
 
     private class FakePlayerState(
@@ -373,8 +376,12 @@ class PlaybackStateWriterTest {
 }
 
 private class SlowPlaybackStore : com.asuka.player.contract.PlaybackStore {
+    var savePositionCalls = 0
+        private set
+
     override suspend fun loadPosition(mediaId: String): Long? = null
     override suspend fun savePosition(mediaId: String, positionMs: Long) {
+        savePositionCalls += 1
         delay(200)
     }
     override suspend fun loadPlaybackSpeed(mediaId: String): Float? = null

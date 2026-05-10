@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -62,6 +63,7 @@ internal class MediaLibraryIndexingCoordinator(
     private var scheduledSyncJob: Job? = null
     private var pendingObservedIds = mutableSetOf<Long>()
     private var pendingRequiresFullReconcile = false
+    private var closed = false
     val changes: Flow<Unit> = _changes.asSharedFlow()
 
     fun prepareForQueries() {
@@ -70,12 +72,8 @@ internal class MediaLibraryIndexingCoordinator(
 
     suspend fun syncNow(forceFullRescan: Boolean) {
         registerObserverIfNeeded()
-        val changed = syncMutex.withLock {
-            performSync(forceFullRescan = forceFullRescan)
-        }
-        if (changed) {
-            _changes.tryEmit(Unit)
-        }
+        val changed = syncMutex.withLock { performSync(forceFullRescan = forceFullRescan) }
+        if (changed) _changes.tryEmit(Unit)
     }
 
     internal fun recordObservedChangeForTest(uri: Uri) {
@@ -83,15 +81,16 @@ internal class MediaLibraryIndexingCoordinator(
     }
 
     override fun close() {
+        closed = true
         scheduledSyncJob?.cancel()
-        if (observerRegistered) {
-            runCatching { contentResolver.unregisterContentObserver(observer) }
-            observerRegistered = false
-        }
+        scheduledSyncJob = null
+        unregisterObserverIfNeeded()
+        scope.cancel()
         database.close()
     }
 
     private fun requestIncrementalSync() {
+        if (closed) return
         registerObserverIfNeeded()
         scheduledSyncJob?.cancel()
         scheduledSyncJob = scope.launch {
@@ -101,13 +100,14 @@ internal class MediaLibraryIndexingCoordinator(
     }
 
     private fun registerObserverIfNeeded() {
-        if (observerRegistered) return
-        contentResolver.registerContentObserver(
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            true,
-            observer,
-        )
+        if (closed || observerRegistered) return
+        contentResolver.registerContentObserver(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, observer)
         observerRegistered = true
+    }
+
+    private fun unregisterObserverIfNeeded() {
+        if (!observerRegistered) return
+        runCatching { contentResolver.unregisterContentObserver(observer) }.also { observerRegistered = false }
     }
 
     private suspend fun performSync(

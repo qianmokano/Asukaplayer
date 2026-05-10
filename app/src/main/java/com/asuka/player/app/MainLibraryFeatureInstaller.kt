@@ -32,8 +32,8 @@ internal class AppMainActivityDependencies(
         get() = graph.playback.playbackLaunchCoordinator
 
     override val mainLibraryViewModelFactory: ViewModelProvider.Factory by lazy(LazyThreadSafetyMode.NONE) {
-        val mediaLibraryRepository = createMediaLibraryRepository(application, graph)
-        MainLibraryViewModel.Factory(
+        MainLibraryViewModel.Factory {
+            val mediaLibraryRepository = createMediaLibraryRepository(application, graph)
             MainLibraryViewModelDependencies(
                 uiSettingsRepository = graph.settings.uiSettingsRepository,
                 playerSettingsRepository = graph.settings.playerSettingsRepository,
@@ -43,8 +43,8 @@ internal class AppMainActivityDependencies(
                 loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(mediaLibraryRepository),
                 resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(mediaLibraryRepository),
                 observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(mediaLibraryRepository),
-            ),
-        )
+            )
+        }
     }
 
     override fun preparePlaybackRequest(

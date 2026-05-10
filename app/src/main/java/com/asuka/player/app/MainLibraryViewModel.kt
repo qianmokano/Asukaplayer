@@ -32,6 +32,7 @@ internal class MainLibraryViewModel(
 ) : ViewModel() {
     private val uiSettingsRepository = dependencies.uiSettingsRepository
     private val playerSettingsRepository = dependencies.playerSettingsRepository
+    private val mediaLibraryRepository = dependencies.resolveVideoAccessUseCase.mediaLibraryRepository
     private val _events = MutableSharedFlow<MainLibraryEvent>(extraBufferCapacity = 1)
 
     private val catalog = MainLibraryCatalogStore(
@@ -109,15 +110,22 @@ internal class MainLibraryViewModel(
 
     fun validateNetworkStreamUrl(rawUrl: String): String? = catalog.validateNetworkStreamUrl(rawUrl)
 
+    override fun onCleared() {
+        mediaLibraryRepository.close()
+        super.onCleared()
+    }
+
     internal class Factory(
-        private val dependencies: MainLibraryViewModelDependencies,
+        private val createDependencies: () -> MainLibraryViewModelDependencies,
     ) : ViewModelProvider.Factory {
+        constructor(dependencies: MainLibraryViewModelDependencies) : this({ dependencies })
+
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(MainLibraryViewModel::class.java)) {
                 "Unsupported ViewModel class: ${modelClass.name}"
             }
             @Suppress("UNCHECKED_CAST")
-            return MainLibraryViewModel(dependencies) as T
+            return MainLibraryViewModel(createDependencies()) as T
         }
     }
 }

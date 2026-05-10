@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="database" path="asuka_playback.db" />
+    <exclude domain="database" path="asuka_media_library_index.db" />
+    <exclude domain="sharedpref" path="app_settings.xml" />
+    <exclude domain="sharedpref" path="asuka_playback_state.xml" />
+    <exclude domain="sharedpref" path="asuka_queue_history.xml" />
+    <exclude domain="file" path="datastore/app_settings.json" />
+</full-backup-content>

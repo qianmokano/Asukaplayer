@@ -41,6 +41,8 @@ internal interface MediaLibraryRepository {
     suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int)
 
     suspend fun loadRecentMediaIds(limit: Int = 100): List<String>
+
+    fun close() = Unit
 }
 
 internal class AndroidMediaLibraryRepository(
@@ -83,10 +85,14 @@ internal class AndroidMediaLibraryRepository(
     override suspend fun loadRecentMediaIds(limit: Int): List<String> {
         return recentPlaybackDataSource.loadRecentMediaIds(limit)
     }
+
+    override fun close() {
+        localVideoCatalogDataSource.close()
+    }
 }
 
 internal class ResolveVideoAccessUseCase(
-    private val mediaLibraryRepository: MediaLibraryRepository,
+    internal val mediaLibraryRepository: MediaLibraryRepository,
 ) {
     operator fun invoke(): VideoAccessState = mediaLibraryRepository.readVideoAccessState()
 }
