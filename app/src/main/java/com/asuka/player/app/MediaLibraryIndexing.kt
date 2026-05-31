@@ -31,6 +31,7 @@ internal class MediaLibraryIndexingCoordinator(
     context: Context,
     private val database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val currentGenerationReader: () -> Long? = { context.applicationContext.readMediaStoreGeneration() },
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val contentResolver = appContext.contentResolver
@@ -114,10 +115,9 @@ internal class MediaLibraryIndexingCoordinator(
         forceFullRescan: Boolean,
     ): Boolean {
         return withContext(Dispatchers.IO) {
-            val existingIds = dao.allIds()
-            val shouldForce = forceFullRescan || existingIds.isEmpty()
             val (observedIds, requiresFullReconcile) = consumeObservedChanges()
-            val currentGeneration = currentGeneration()
+            val shouldForce = forceFullRescan || (observedIds.isEmpty() && !requiresFullReconcile && dao.count() == 0)
+            val currentGeneration = currentGenerationReader()
             val supportsGenerationTracking = currentGeneration != null
             val baselineGeneration = if (shouldForce) null else dao.maxGenerationModified()?.takeIf { it > 0L }
             val baselineModified = if (baselineGeneration == null && !shouldForce) dao.maxDateModifiedSec() else null
@@ -145,9 +145,10 @@ internal class MediaLibraryIndexingCoordinator(
 
             val shouldReconcileAllIds = shouldForce ||
                 requiresFullReconcile ||
-                (currentGeneration != null && baselineGeneration != null && currentGeneration > baselineGeneration && changedVideos.isEmpty())
+                (currentGeneration != null && baselineGeneration != null && currentGeneration > baselineGeneration)
             if (shouldReconcileAllIds) {
-                val currentIds = queryAllCurrentIds()
+                val existingIds = dao.allIds()
+                val currentIds = if (shouldForce) changedVideos.map(IndexedVideoEntity::mediaStoreId).toSet() else queryAllCurrentIds()
                 val addedIds = currentIds.filterNot(existingIds::contains).toSet()
                 removedIds += existingIds.filterNot(currentIds::contains)
                 if (!supportsGenerationTracking && !shouldForce && addedIds.isNotEmpty()) {
@@ -408,16 +409,6 @@ internal class MediaLibraryIndexingCoordinator(
         }
     }
 
-    private fun currentGeneration(): Long? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            runCatching {
-                MediaStore.getGeneration(appContext, MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            }.getOrNull()
-        } else {
-            null
-        }
-    }
-
     private fun parseMediaStoreId(uri: Uri): Long? {
         val lastSegment = uri.lastPathSegment?.toLongOrNull() ?: return null
         return lastSegment.takeIf { uri.authority == MediaStore.AUTHORITY }
@@ -428,3 +419,12 @@ internal class MediaLibraryIndexingCoordinator(
         private const val DELETE_CHUNK_SIZE = 900
     }
 }
+
+private fun Context.readMediaStoreGeneration(): Long? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        runCatching {
+            MediaStore.getGeneration(this, MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }.getOrNull()
+    } else {
+        null
+    }

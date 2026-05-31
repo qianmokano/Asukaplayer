@@ -7,6 +7,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.provider.MediaStore
 import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
+import com.asuka.player.data.IndexedVideoEntity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -162,7 +163,7 @@ class MediaLibraryIndexingCoordinatorTest {
             )
             coordinator.syncNow(forceFullRescan = false)
 
-            assertEquals(1, fullIdScanCount, "expected no extra full-id reconciliation after observed delete")
+            assertEquals(0, fullIdScanCount, "expected no full-id reconciliation after observed delete")
             assertEquals(1, targetedIdQueryCount, "expected one targeted id existence query for observed delete")
             assertEquals(0, database.indexedVideoDao().count(), "expected observed delete to remove stale row from index")
         } finally {
@@ -273,6 +274,132 @@ class MediaLibraryIndexingCoordinatorTest {
         }
     }
 
+    @Test
+    fun syncNow_whenGenerationAdvancesWithChangedRows_reconcilesDeletedIds() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var fullIdScanCount = 0
+        registerMediaStoreProvider { _, projection, selection, _, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") != true -> {
+                    fullIdScanCount += 1
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(43L))
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                            MediaStore.MediaColumns.GENERATION_ADDED,
+                            MediaStore.MediaColumns.GENERATION_MODIFIED,
+                        ),
+                    ).apply {
+                        addRow(
+                            arrayOf<Any?>(
+                                43L,
+                                "new.mp4",
+                                2_000L,
+                                3_000L,
+                                null,
+                                "Movies",
+                                7L,
+                                11L,
+                                101L,
+                                11L,
+                                11L,
+                            ),
+                        )
+                    }
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        database.indexedVideoDao().upsertAll(
+            listOf(
+                indexedVideoEntity(mediaStoreId = 42L, generationModified = 10L),
+            ),
+        )
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { 11L },
+        )
+
+        try {
+            coordinator.syncNow(forceFullRescan = false)
+
+            val rows = database.indexedVideoDao().findByIds(listOf(42L, 43L))
+            assertEquals(setOf(43L), rows.map { it.mediaStoreId }.toSet())
+            assertEquals(1, fullIdScanCount, "expected one full-id reconciliation to detect deletion")
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
+    fun syncNow_incrementalWithoutReconcile_doesNotReadAllLocalIds() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var fullIdScanCount = 0
+        registerMediaStoreProvider { _, projection, selection, _, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") != true -> {
+                    fullIdScanCount += 1
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(42L))
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                        ),
+                    )
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        database.indexedVideoDao().upsertAll(
+            listOf(indexedVideoEntity(mediaStoreId = 42L, dateModifiedSec = 100L)),
+        )
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { null },
+        )
+
+        try {
+            coordinator.syncNow(forceFullRescan = false)
+
+            assertEquals(0, fullIdScanCount, "expected incremental sync to skip full MediaStore id scan")
+        } finally {
+            coordinator.close()
+        }
+    }
+
     private fun registerMediaStoreProvider(
         queryHandler: (Uri, Array<out String>?, String?, Array<out String>?, String?) -> Cursor?,
     ) {
@@ -306,5 +433,25 @@ class MediaLibraryIndexingCoordinatorTest {
 
     private fun emptyCursor(): Cursor {
         return MatrixCursor(arrayOf(MediaStore.Video.Media._ID))
+    }
+
+    private fun indexedVideoEntity(
+        mediaStoreId: Long,
+        dateModifiedSec: Long = 100L,
+        generationModified: Long = 0L,
+    ): IndexedVideoEntity {
+        return IndexedVideoEntity(
+            mediaStoreId = mediaStoreId,
+            uri = "content://media/external/video/media/$mediaStoreId",
+            title = "video-$mediaStoreId.mp4",
+            durationMs = 1_000L,
+            sizeBytes = 2_000L,
+            folderName = "Movies",
+            folderPath = "/storage/emulated/0/Movies",
+            folderId = 7L,
+            dateAddedSec = 10L,
+            dateModifiedSec = dateModifiedSec,
+            generationModified = generationModified,
+        )
     }
 }
