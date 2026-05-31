@@ -6,12 +6,14 @@ import android.provider.OpenableColumns
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.util.Locale
 
 class SeekFallbackCopier(
     private val contentResolver: ContentResolver,
     private val cacheDir: File,
     private val uriMapper: (File) -> Uri = Uri::fromFile,
+    private val maxFileBytes: Long = MAX_FILE_BYTES,
 ) {
     companion object {
         const val MAX_FILE_BYTES = 500L * 1024L * 1024L
@@ -21,7 +23,7 @@ class SeekFallbackCopier(
     fun copy(uri: Uri, checkSize: Boolean = true): Uri? {
         if (checkSize) {
             val fileSize = queryFileSize(uri)
-            if (fileSize >= 0L && fileSize > MAX_FILE_BYTES) {
+            if (fileSize >= 0L && fileSize > maxFileBytes) {
                 Log.w("AsukaSeekFallback", "skip fallback: file too large ($fileSize bytes)")
                 return null
             }
@@ -33,11 +35,16 @@ class SeekFallbackCopier(
         return try {
             contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
+                    input.copyToLimited(output, maxFileBytes)
                 }
             } ?: return null
             uriMapper(targetFile)
+        } catch (error: CopyLimitExceededException) {
+            targetFile.delete()
+            Log.w("AsukaSeekFallback", "copy aborted: exceeded ${error.limitBytes} bytes for uri=$uri")
+            null
         } catch (error: Exception) {
+            targetFile.delete()
             Log.w("AsukaSeekFallback", "copy failed for uri=$uri", error)
             null
         }
@@ -92,3 +99,24 @@ class SeekFallbackCopier(
         return String.format(Locale.ROOT, "fallback_%d_%s", timestamp, safeName)
     }
 }
+
+private fun java.io.InputStream.copyToLimited(
+    output: java.io.OutputStream,
+    limitBytes: Long,
+): Long {
+    var bytesCopied = 0L
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    while (true) {
+        val bytes = read(buffer)
+        if (bytes < 0) return bytesCopied
+        bytesCopied += bytes
+        if (bytesCopied > limitBytes) {
+            throw CopyLimitExceededException(limitBytes)
+        }
+        output.write(buffer, 0, bytes)
+    }
+}
+
+private class CopyLimitExceededException(
+    val limitBytes: Long,
+) : IOException()

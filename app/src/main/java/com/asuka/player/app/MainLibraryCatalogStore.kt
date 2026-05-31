@@ -111,7 +111,7 @@ internal class MainLibraryCatalogStore(
     fun validateNetworkStreamUrl(rawUrl: String): String? {
         val trimmed = rawUrl.trim()
         val parsed = runCatching { Uri.parse(trimmed) }.getOrNull()
-        if (trimmed.isBlank() || parsed?.scheme.isNullOrBlank()) {
+        if (trimmed.isBlank() || !parsed.isSupportedNetworkStreamUri()) {
             publishMessage(MainLibraryText.OpenNetworkStreamInvalid)
             return null
         }
@@ -145,3 +145,16 @@ internal class MainLibraryCatalogStore(
         return _permissionGranted.value || _userSelectedPermissionGranted.value
     }
 }
+
+private fun Uri?.isSupportedNetworkStreamUri(): Boolean {
+    val uri = this ?: return false
+    val scheme = uri.scheme?.lowercase() ?: return false
+    if (scheme !in SUPPORTED_NETWORK_STREAM_SCHEMES) return false
+    if (uri.host.isNullOrBlank()) return false
+    return when (scheme) {
+        "rtsp" -> true
+        else -> !uri.path.isNullOrBlank() && uri.path != "/"
+    }
+}
+
+private val SUPPORTED_NETWORK_STREAM_SCHEMES = setOf("http", "https", "rtsp")

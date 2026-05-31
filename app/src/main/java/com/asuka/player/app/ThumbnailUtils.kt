@@ -62,6 +62,9 @@ internal object VideoThumbnailCache {
 
 internal const val VIDEO_THUMB_VERSION = 2
 internal const val INITIAL_THUMB_WARMUP_LIMIT = 80
+private const val VIDEO_THUMB_MAX_CACHE_BYTES = 120L * 1024L * 1024L
+private const val VIDEO_THUMB_MAX_CACHE_FILES = 2_000
+private const val VIDEO_THUMB_MAX_AGE_MS = 30L * 24L * 60L * 60L * 1000L
 
 @Composable
 internal fun rememberVideoThumbnail(
@@ -102,16 +105,18 @@ internal fun loadOrCreateVideoThumbnail(
     val generated = loadVideoThumbnail(context, uri) ?: return null
     if (cachedFile != null) {
         runCatching {
+            pruneVideoThumbnailCache(context)
             FileOutputStream(cachedFile).use { out ->
                 generated.compress(Bitmap.CompressFormat.JPEG, 88, out)
             }
+            pruneVideoThumbnailCache(context)
         }
     }
     return generated
 }
 
 internal fun videoThumbnailFile(context: Context, thumbnailId: Long): File {
-    val dir = File(context.cacheDir, "video_thumb_cache").apply { mkdirs() }
+    val dir = videoThumbnailCacheDir(context).apply { mkdirs() }
     return File(dir, "${thumbnailId}_v$VIDEO_THUMB_VERSION.jpg")
 }
 
@@ -148,9 +153,11 @@ internal fun ensureThumbnailFile(
     if (cachedFile.exists()) return
     val generated = loadVideoThumbnail(context, uri) ?: return
     runCatching {
+        pruneVideoThumbnailCache(context)
         FileOutputStream(cachedFile).use { out ->
             generated.compress(Bitmap.CompressFormat.JPEG, 88, out)
         }
+        pruneVideoThumbnailCache(context)
     }
 }
 
@@ -185,6 +192,39 @@ internal fun limitBitmapEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
     val targetHeight = (height * scale).toInt().coerceAtLeast(1)
     return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
 }
+
+internal fun pruneVideoThumbnailCache(
+    context: Context,
+    maxBytes: Long = VIDEO_THUMB_MAX_CACHE_BYTES,
+    maxFiles: Int = VIDEO_THUMB_MAX_CACHE_FILES,
+    maxAgeMs: Long = VIDEO_THUMB_MAX_AGE_MS,
+    nowMs: Long = System.currentTimeMillis(),
+) {
+    val dir = videoThumbnailCacheDir(context)
+    val files = dir.listFiles()
+        ?.filter { it.isFile }
+        ?: return
+
+    val remaining = files
+        .onEach { file ->
+            if (nowMs - file.lastModified() > maxAgeMs) {
+                file.delete()
+            }
+        }
+        .filter { it.exists() }
+        .sortedWith(compareBy<File> { it.lastModified() }.thenBy { it.name })
+        .toMutableList()
+
+    var totalBytes = remaining.sumOf { it.length() }
+    while (remaining.isNotEmpty() && (totalBytes > maxBytes || remaining.size > maxFiles)) {
+        val oldest = remaining.removeAt(0)
+        totalBytes -= oldest.length()
+        oldest.delete()
+    }
+}
+
+private fun videoThumbnailCacheDir(context: Context): File =
+    File(context.cacheDir, "video_thumb_cache")
 
 @Composable
 internal fun VideoThumbOrIcon(

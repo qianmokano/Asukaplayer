@@ -66,12 +66,7 @@ class PlaybackRuntimeFeature(
     val playbackDeviceControllerFactory: PlaybackDeviceControllerFactory = DefaultPlaybackDeviceControllerFactory
     val playbackControllerConnectorFactory: PlaybackControllerConnectorFactory = controllerConnectorFactory
     val playbackLaunchCoordinator: PlaybackLaunchCoordinator by lazy(LazyThreadSafetyMode.NONE) {
-        val uriResolver = SeekAwarePlaybackUriResolver(
-            contentResolver = appContext.contentResolver,
-            cacheDir = appContext.cacheDir,
-            fallbackAuthority = "${appContext.packageName}.files",
-        )
-        PlaybackLaunchCoordinator(uriResolver)
+        PlaybackLaunchCoordinator(PassthroughPlaybackUriResolver)
     }
     val persistenceDegraded: StateFlow<Boolean> = persistenceResolver.degraded
 

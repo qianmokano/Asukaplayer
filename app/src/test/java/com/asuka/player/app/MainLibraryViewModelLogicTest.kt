@@ -161,6 +161,36 @@ class MainLibraryViewModelLogicTest {
         assertNull(noDuration.resumeProgressFraction)
     }
 
+    @Test
+    fun validateNetworkStreamUrl_acceptsSupportedNetworkStreams() {
+        val messages = mutableListOf<MainLibraryText>()
+        val store = catalogStore(messages::add)
+
+        assertEquals("https://example.com/movie.m3u8", store.validateNetworkStreamUrl(" https://example.com/movie.m3u8 "))
+        assertEquals("rtsp://example.com/live", store.validateNetworkStreamUrl("rtsp://example.com/live"))
+        assertEquals(emptyList(), messages)
+    }
+
+    @Test
+    fun validateNetworkStreamUrl_rejectsUnsupportedOrIncompleteUrls() {
+        val messages = mutableListOf<MainLibraryText>()
+        val store = catalogStore(messages::add)
+
+        assertNull(store.validateNetworkStreamUrl("foo:bar"))
+        assertNull(store.validateNetworkStreamUrl("http://"))
+        assertNull(store.validateNetworkStreamUrl("https://example.com"))
+
+        val expectedMessages: List<MainLibraryText> = listOf(
+            MainLibraryText.OpenNetworkStreamInvalid,
+            MainLibraryText.OpenNetworkStreamInvalid,
+            MainLibraryText.OpenNetworkStreamInvalid,
+        )
+        assertEquals(
+            expectedMessages,
+            messages,
+        )
+    }
+
     private fun localVideoItem(
         id: Long,
         name: String,
@@ -180,4 +210,44 @@ class MainLibraryViewModelLogicTest {
             resumePositionMs = resumePositionMs,
         )
     }
+
+    private fun catalogStore(
+        publishMessage: (MainLibraryText) -> Unit,
+    ): MainLibraryCatalogStore {
+        val repository = EmptyMediaLibraryRepository()
+        return MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadVideoPageUseCase = LoadVideoPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined),
+            publishMessage = publishMessage,
+        )
+    }
+}
+
+private class EmptyMediaLibraryRepository : MediaLibraryRepository {
+    override val changes: kotlinx.coroutines.flow.Flow<Unit> = kotlinx.coroutines.flow.emptyFlow()
+
+    override fun readVideoAccessState(): VideoAccessState =
+        VideoAccessState(permissionGranted = false, userSelectedPermissionGranted = false)
+
+    override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+    override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> =
+        MediaLibraryPage(emptyList(), nextOffset = null, totalCount = 0)
+
+    override suspend fun loadVideoPage(
+        request: MediaLibraryPageRequest,
+        folderId: Long?,
+    ): MediaLibraryPage<LocalVideoItem> =
+        MediaLibraryPage(emptyList(), nextOffset = null, totalCount = 0)
+
+    override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> = emptyMap()
+
+    override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+    override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
 }
