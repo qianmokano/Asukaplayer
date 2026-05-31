@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 internal class MainLibraryFoldersSlice(
@@ -215,8 +214,11 @@ internal class MainLibraryAllVideosSlice(
 }
 
 internal class MainLibraryCurrentFolderSlice(
-    allVideosSource: StateFlow<MediaCatalogState<LocalVideoItem>>,
-    scope: CoroutineScope,
+    private val loadVideoPageUseCase: LoadVideoPageUseCase,
+    private val scope: CoroutineScope,
+    private val canReadLibrary: () -> Boolean,
+    private val handlePermissionDenied: () -> Boolean,
+    private val publishMessage: (MainLibraryText) -> Unit,
 ) {
     private val _currentFolderId = MutableStateFlow<Long?>(null)
     val currentFolderId: StateFlow<Long?> = _currentFolderId.asStateFlow()
@@ -224,45 +226,103 @@ internal class MainLibraryCurrentFolderSlice(
     private val _state = MutableStateFlow(MediaCatalogState<LocalVideoItem>())
     val state: StateFlow<MediaCatalogState<LocalVideoItem>> = _state.asStateFlow()
 
-    init {
-        scope.launch {
-            combine(_currentFolderId, allVideosSource) { folderId, sourceState ->
-                if (folderId == null) {
-                    MediaCatalogState(hasMore = false)
-                } else {
-                    val folderItems = sourceState.items.filter { it.folderId == folderId }
-                    MediaCatalogState(
-                        items = folderItems,
-                        status = sourceState.status,
-                        hasLoadedOnce = sourceState.hasLoadedOnce,
-                        hasMore = false,
-                        nextOffset = folderItems.size,
-                        errorMessage = sourceState.errorMessage,
-                    )
-                }
-            }.collect { _state.value = it }
-        }
-    }
-
     fun ensureLoaded(folderId: Long) {
-        _currentFolderId.value = folderId
+        if (!canReadLibrary()) return
+        val switchingFolders = currentFolderId.value != folderId
+        if (switchingFolders) {
+            _currentFolderId.value = folderId
+            _state.value = MediaCatalogState()
+        }
+        val current = state.value
+        if (current.hasLoadedOnce || current.isLoading) return
+        load(folderId = folderId, offset = 0, syncIndex = false, publishFeedback = false)
     }
 
     fun refresh(folderId: Long) {
+        if (!canReadLibrary() || state.value.isLoading) return
+        val switchingFolders = currentFolderId.value != folderId
         _currentFolderId.value = folderId
+        if (switchingFolders) {
+            _state.value = MediaCatalogState()
+        }
+        load(folderId = folderId, offset = 0, syncIndex = true, publishFeedback = true)
     }
 
     fun loadMore(folderId: Long) {
-        // No-op: all items already available via filter
+        val current = state.value
+        if (!canReadLibrary() ||
+            currentFolderId.value != folderId ||
+            current.isLoading ||
+            current.isAppending ||
+            !current.hasMore
+        ) {
+            return
+        }
+        load(folderId = folderId, offset = current.nextOffset, syncIndex = false, publishFeedback = false)
     }
 
     fun refreshLoadedFromIndex() {
-        // No-op: allVideosSource updates trigger recomputation automatically
+        val folderId = currentFolderId.value ?: return
+        val current = state.value
+        if (current.hasLoadedOnce && !current.isLoading && !current.isAppending) {
+            load(folderId = folderId, offset = 0, syncIndex = false, publishFeedback = false)
+        }
     }
 
     fun resetForPermissionLoss() {
         _currentFolderId.value = null
         _state.value = MediaCatalogState(hasMore = false)
+    }
+
+    private fun load(
+        folderId: Long,
+        offset: Int,
+        syncIndex: Boolean,
+        publishFeedback: Boolean,
+    ) {
+        scope.launch {
+            val previous = state.value
+            _state.value = previous.beginLoad(offset)
+
+            when (
+                val outcome = loadVideoPageUseCase(
+                    offset = offset,
+                    folderId = folderId,
+                    hasLoadedOnce = previous.hasLoadedOnce,
+                    syncIndex = syncIndex,
+                )
+            ) {
+                is MediaCatalogOutcome.Success -> {
+                    if (currentFolderId.value != folderId) return@launch
+                    _state.value = previous.applyPage(page = outcome.page, append = offset > 0)
+                    warmupInitialThumbnails(scope, loadVideoPageUseCase, outcome.warmupVideos)
+                    publishRefreshMessage(
+                        hasLoadedOnce = previous.hasLoadedOnce,
+                        offset = offset,
+                        totalCount = outcome.page.totalCount,
+                        fallbackItemCount = outcome.page.items.size,
+                        publishFeedback = publishFeedback,
+                        publishMessage = publishMessage,
+                    )
+                }
+
+                is MediaCatalogOutcome.Failure -> {
+                    if (currentFolderId.value != folderId) return@launch
+                    handleFailure(outcome.reason, previous, offset)
+                }
+            }
+        }
+    }
+
+    private fun handleFailure(
+        failure: MediaCatalogFailure,
+        currentState: MediaCatalogState<LocalVideoItem>,
+        offset: Int,
+    ) {
+        if (failure == MediaCatalogFailure.PermissionDenied && handlePermissionDenied()) {
+            return
+        }
+        _state.value = currentState.applyFailure(offset = offset, message = failure.toText())
     }
 }
 

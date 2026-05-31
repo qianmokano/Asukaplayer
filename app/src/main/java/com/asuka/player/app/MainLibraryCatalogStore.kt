@@ -40,16 +40,12 @@ internal class MainLibraryCatalogStore(
         handlePermissionDenied = ::syncVideoAccessState,
         publishMessage = publishMessage,
     )
-    private val preloadedVideosSlice = MainLibraryPreloadedVideosSlice(
+    private val currentFolderSlice = MainLibraryCurrentFolderSlice(
         loadVideoPageUseCase = loadVideoPageUseCase,
         scope = scope,
         canReadLibrary = ::canReadLibrary,
         handlePermissionDenied = ::syncVideoAccessState,
         publishMessage = publishMessage,
-    )
-    private val currentFolderSlice = MainLibraryCurrentFolderSlice(
-        allVideosSource = preloadedVideosSlice.state,
-        scope = scope,
     )
     private val recentSlice = MainLibraryRecentSlice(
         loadRecentMediaIdsUseCase = loadRecentMediaIdsUseCase,
@@ -65,7 +61,6 @@ internal class MainLibraryCatalogStore(
     val recentKnownVideos = recentSlice.recentKnownVideos
 
     init {
-        preloadedVideosSlice.ensureLoaded()
         scope.launch {
             observeMediaLibraryChangesUseCase().collect {
                 refreshLoadedCatalogsFromIndex()
@@ -74,10 +69,7 @@ internal class MainLibraryCatalogStore(
     }
 
     fun onPermissionResult() {
-        val wasLost = syncVideoAccessState()
-        if (!wasLost) {
-            preloadedVideosSlice.ensureLoaded()
-        }
+        syncVideoAccessState()
     }
 
     fun ensureFoldersLoaded() = foldersSlice.ensureLoaded()
@@ -94,14 +86,10 @@ internal class MainLibraryCatalogStore(
 
     fun ensureFolderLoaded(folderId: Long) {
         currentFolderSlice.ensureLoaded(folderId)
-        preloadedVideosSlice.ensureLoaded()
     }
 
     fun refreshFolder(folderId: Long) {
         currentFolderSlice.refresh(folderId)
-        preloadedVideosSlice.refresh { allItems ->
-            allItems.count { it.folderId == folderId }
-        }
     }
 
     fun loadMoreFolder(folderId: Long) = currentFolderSlice.loadMore(folderId)
@@ -123,7 +111,7 @@ internal class MainLibraryCatalogStore(
         foldersSlice.refreshLoadedFromIndex()
         allVideosSlice.refreshLoadedFromIndex()
         recentSlice.refreshIfLoaded()
-        preloadedVideosSlice.refreshLoadedFromIndex()
+        currentFolderSlice.refreshLoadedFromIndex()
     }
 
     private fun syncVideoAccessState(): Boolean {
@@ -133,7 +121,6 @@ internal class MainLibraryCatalogStore(
         if (!canReadLibrary()) {
             foldersSlice.resetForPermissionLoss()
             allVideosSlice.resetForPermissionLoss()
-            preloadedVideosSlice.resetForPermissionLoss()
             currentFolderSlice.resetForPermissionLoss()
             recentSlice.resetForPermissionLoss()
             return true

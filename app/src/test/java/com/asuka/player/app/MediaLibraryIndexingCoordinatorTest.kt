@@ -275,6 +275,99 @@ class MediaLibraryIndexingCoordinatorTest {
     }
 
     @Test
+    fun syncNow_withObservedExistingItemOnGenerationDevice_refreshesTargetedMetadata() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var targetedMetadataQueryCount = 0
+        registerMediaStoreProvider { _, projection, selection, _, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") == true -> {
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(42L))
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true && selection?.contains("IN") == true -> {
+                    targetedMetadataQueryCount += 1
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                            MediaStore.MediaColumns.GENERATION_ADDED,
+                            MediaStore.MediaColumns.GENERATION_MODIFIED,
+                        ),
+                    ).apply {
+                        addRow(
+                            arrayOf<Any?>(
+                                42L,
+                                "renamed.mp4",
+                                2_000L,
+                                3_000L,
+                                null,
+                                "Movies",
+                                7L,
+                                10L,
+                                100L,
+                                10L,
+                                10L,
+                            ),
+                        )
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                            MediaStore.MediaColumns.GENERATION_ADDED,
+                            MediaStore.MediaColumns.GENERATION_MODIFIED,
+                        ),
+                    )
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        database.indexedVideoDao().upsertAll(
+            listOf(indexedVideoEntity(mediaStoreId = 42L, generationModified = 10L)),
+        )
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { 10L },
+        )
+
+        try {
+            coordinator.recordObservedChangeForTest(
+                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 42L),
+            )
+            coordinator.syncNow(forceFullRescan = false)
+
+            val row = database.indexedVideoDao().findByIds(listOf(42L)).single()
+            assertEquals("renamed.mp4", row.title)
+            assertEquals(1, targetedMetadataQueryCount, "expected targeted refresh even when generation did not advance")
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
     fun syncNow_whenGenerationAdvancesWithChangedRows_reconcilesDeletedIds() = runBlocking {
         val context = RuntimeEnvironment.getApplication()
         var fullIdScanCount = 0

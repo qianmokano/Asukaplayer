@@ -134,7 +134,7 @@ internal class MediaLibraryIndexingCoordinator(
             if (observedIds.isNotEmpty()) {
                 val existingObservedIds = queryExistingIds(observedIds)
                 removedIds += observedIds.filterNot(existingObservedIds::contains)
-                if (!supportsGenerationTracking && existingObservedIds.isNotEmpty()) {
+                if (existingObservedIds.isNotEmpty()) {
                     val observedVideos = queryIndexedVideosByIds(existingObservedIds)
                     if (observedVideos.isNotEmpty()) {
                         dao.upsertAll(observedVideos)

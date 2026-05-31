@@ -181,9 +181,9 @@ class MainLibraryCatalogStoreTest {
     }
 
     @Test
-    fun ensureFolderLoaded_reportsLoadingUntilPreloadCompletes() = runBlocking {
-        val preloadStarted = CompletableDeferred<Unit>()
-        val releasePreload = CompletableDeferred<Unit>()
+    fun ensureFolderLoaded_reportsLoadingUntilFolderPageCompletes() = runBlocking {
+        val folderLoadStarted = CompletableDeferred<Unit>()
+        val releaseFolderLoad = CompletableDeferred<Unit>()
         val repository = object : MediaLibraryRepository {
             override val changes: Flow<Unit> = emptyFlow()
 
@@ -204,9 +204,9 @@ class MainLibraryCatalogStoreTest {
                 request: MediaLibraryPageRequest,
                 folderId: Long?,
             ): MediaLibraryPage<LocalVideoItem> {
-                assertEquals(null, folderId)
-                preloadStarted.complete(Unit)
-                releasePreload.await()
+                assertEquals(1L, folderId)
+                folderLoadStarted.complete(Unit)
+                releaseFolderLoad.await()
                 return MediaLibraryPage(
                     items = listOf(video(id = 1L, folderId = 1L, title = "Folder A")),
                     nextOffset = null,
@@ -238,7 +238,7 @@ class MainLibraryCatalogStoreTest {
         )
 
         store.ensureFolderLoaded(1L)
-        preloadStarted.await()
+        folderLoadStarted.await()
 
         waitForCondition {
             store.currentFolderId.value == 1L &&
@@ -247,7 +247,7 @@ class MainLibraryCatalogStoreTest {
                 store.currentFolderVideosState.value.items.isEmpty()
         }
 
-        releasePreload.complete(Unit)
+        releaseFolderLoad.complete(Unit)
 
         waitForCondition {
             store.currentFolderVideosState.value.hasLoadedOnce &&
@@ -257,6 +257,83 @@ class MainLibraryCatalogStoreTest {
 
         assertEquals(1L, store.currentFolderId.value)
         assertEquals(listOf(1L), store.currentFolderVideosState.value.items.map(LocalVideoItem::id))
+    }
+
+    @Test
+    fun loadMoreFolder_usesFolderIdPagination() = runBlocking {
+        val requestedPages = mutableListOf<Pair<Long?, Int>>()
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = true,
+                    userSelectedPermissionGranted = false,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null)
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                requestedPages += folderId to request.offset
+                assertEquals(1L, folderId)
+                return if (request.offset == 0) {
+                    MediaLibraryPage(
+                        items = listOf(video(id = 1L, folderId = 1L, title = "Folder A1")),
+                        nextOffset = 1,
+                    )
+                } else {
+                    MediaLibraryPage(
+                        items = listOf(video(id = 2L, folderId = 1L, title = "Folder A2")),
+                        nextOffset = null,
+                    )
+                }
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return emptyMap()
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadVideoPageUseCase = LoadVideoPageUseCase(
+                mediaLibraryRepository = repository,
+                minRefreshAnimMs = 0L,
+            ),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = {},
+        )
+
+        store.ensureFolderLoaded(1L)
+        waitForCondition {
+            store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L) &&
+                store.currentFolderVideosState.value.hasMore
+        }
+
+        store.loadMoreFolder(1L)
+        waitForCondition {
+            store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L, 2L) &&
+                !store.currentFolderVideosState.value.hasMore
+        }
+
+        assertEquals(listOf(1L as Long? to 0, 1L as Long? to 1), requestedPages)
     }
 
     @Test
@@ -283,24 +360,21 @@ class MainLibraryCatalogStoreTest {
                 request: MediaLibraryPageRequest,
                 folderId: Long?,
             ): MediaLibraryPage<LocalVideoItem> {
-                assertEquals(null, folderId)
+                assertEquals(1L, folderId)
                 return when {
-                    !failRefresh && request.offset == 0 -> MediaLibraryPage(
+                    failRefresh -> throw IllegalStateException("provider unavailable")
+
+                    request.offset == 0 -> MediaLibraryPage(
                         items = listOf(video(id = 1L, folderId = 1L, title = "Folder A1")),
                         nextOffset = 1,
                     )
 
-                    !failRefresh && request.offset == 1 -> MediaLibraryPage(
+                    request.offset == 1 -> MediaLibraryPage(
                         items = listOf(video(id = 2L, folderId = 1L, title = "Folder A2")),
                         nextOffset = null,
                     )
 
-                    failRefresh && request.offset == 0 -> MediaLibraryPage(
-                        items = listOf(video(id = 1L, folderId = 1L, title = "Folder A1 refreshed")),
-                        nextOffset = 1,
-                    )
-
-                    else -> throw IllegalStateException("provider unavailable")
+                    else -> error("unexpected offset ${request.offset}")
                 }
             }
 
@@ -330,17 +404,15 @@ class MainLibraryCatalogStoreTest {
 
         store.ensureFolderLoaded(1L)
         waitForCondition {
+            store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L)
+        }
+        store.loadMoreFolder(1L)
+        waitForCondition {
             store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L, 2L)
         }
 
         failRefresh = true
         store.refreshFolder(1L)
-
-        waitForCondition {
-            store.currentFolderVideosState.value.isLoading &&
-                store.currentFolderVideosState.value.hasLoadedOnce &&
-                store.currentFolderVideosState.value.items.map(LocalVideoItem::id) == listOf(1L, 2L)
-        }
 
         waitForCondition {
             store.currentFolderVideosState.value.errorMessage == MainLibraryText.MediaLibraryProviderUnavailable

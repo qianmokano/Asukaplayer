@@ -2,6 +2,10 @@ package com.asuka.player.engine.service
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -9,43 +13,71 @@ import org.robolectric.RobolectricTestRunner
 class PlaybackPersistenceShutdownCoordinatorTest {
 
     @Test
-    fun drainAndClose_flushesAndClosesBothHandles() {
+    fun drainAndClose_flushesAwaitsAndClosesBothHandles() = runBlocking {
         val playback = FakePlaybackStateShutdownHandle()
         val history = FakeQueueHistoryShutdownHandle()
         val coordinator = PlaybackPersistenceShutdownCoordinator()
 
-        coordinator.drainAndClose(playbackState = playback, history = history)
+        val drained = coordinator.drainAndClose(playbackState = playback, history = history)
 
+        assertTrue(drained)
         assertEquals(1, playback.flushCount)
+        assertEquals(1, playback.awaitCount)
         assertEquals(1, playback.closeCount)
+        assertEquals(1, history.awaitCount)
         assertEquals(1, history.closeCount)
     }
 
     @Test
-    fun drainAndClose_skipsWhenBothHandlesNull() {
+    fun drainAndClose_skipsWhenBothHandlesNull() = runBlocking {
         val coordinator = PlaybackPersistenceShutdownCoordinator()
 
-        coordinator.drainAndClose(playbackState = null, history = null)
+        assertTrue(coordinator.drainAndClose(playbackState = null, history = null))
     }
 
     @Test
-    fun drainAndClose_handlesPartialNulls() {
+    fun drainAndClose_handlesPartialNulls() = runBlocking {
         val playback = FakePlaybackStateShutdownHandle()
         val coordinator = PlaybackPersistenceShutdownCoordinator()
 
-        coordinator.drainAndClose(playbackState = playback, history = null)
+        val drained = coordinator.drainAndClose(playbackState = playback, history = null)
 
+        assertTrue(drained)
         assertEquals(1, playback.flushCount)
+        assertEquals(1, playback.awaitCount)
         assertEquals(1, playback.closeCount)
+    }
+
+    @Test
+    fun drainAndClose_closesHandlesAfterTimeout() = runBlocking {
+        val playback = FakePlaybackStateShutdownHandle()
+        playback.awaitGate = CompletableDeferred()
+        val history = FakeQueueHistoryShutdownHandle()
+        val coordinator = PlaybackPersistenceShutdownCoordinator(drainTimeoutMs = 1L)
+
+        val drained = coordinator.drainAndClose(playbackState = playback, history = history)
+
+        assertFalse(drained)
+        assertEquals(1, playback.flushCount)
+        assertEquals(1, playback.awaitCount)
+        assertEquals(1, playback.closeCount)
+        assertEquals(1, history.closeCount)
     }
 }
 
 private class FakePlaybackStateShutdownHandle : PlaybackStateShutdownHandle {
     var flushCount: Int = 0
+    var awaitCount: Int = 0
     var closeCount: Int = 0
+    var awaitGate: CompletableDeferred<Unit>? = null
 
-    override fun flushCurrentPosition() {
+    override suspend fun flushCurrentPosition() {
         flushCount += 1
+    }
+
+    override suspend fun awaitIdle() {
+        awaitCount += 1
+        awaitGate?.await()
     }
 
     override fun close() {
@@ -54,7 +86,12 @@ private class FakePlaybackStateShutdownHandle : PlaybackStateShutdownHandle {
 }
 
 private class FakeQueueHistoryShutdownHandle : QueueHistoryShutdownHandle {
+    var awaitCount: Int = 0
     var closeCount: Int = 0
+
+    override suspend fun awaitIdle() {
+        awaitCount += 1
+    }
 
     override fun close() {
         closeCount += 1

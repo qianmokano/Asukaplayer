@@ -2,21 +2,32 @@ package com.asuka.player.engine.service
 
 import com.asuka.player.platform.PlaybackStateWriter
 import com.asuka.player.platform.QueueHistoryWriter
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal interface PlaybackStateShutdownHandle {
-    fun flushCurrentPosition()
+    suspend fun flushCurrentPosition()
+
+    suspend fun awaitIdle()
 
     fun close()
 }
 
 internal interface QueueHistoryShutdownHandle {
+    suspend fun awaitIdle()
+
     fun close()
 }
 
 internal fun PlaybackStateWriter.asShutdownHandle(): PlaybackStateShutdownHandle {
     return object : PlaybackStateShutdownHandle {
-        override fun flushCurrentPosition() {
-            this@asShutdownHandle.flushCurrentPosition()
+        override suspend fun flushCurrentPosition() {
+            this@asShutdownHandle.flushCurrentPositionAndAwait()
+        }
+
+        override suspend fun awaitIdle() {
+            this@asShutdownHandle.awaitIdle()
         }
 
         override fun close() {
@@ -27,6 +38,10 @@ internal fun PlaybackStateWriter.asShutdownHandle(): PlaybackStateShutdownHandle
 
 internal fun QueueHistoryWriter.asShutdownHandle(): QueueHistoryShutdownHandle {
     return object : QueueHistoryShutdownHandle {
+        override suspend fun awaitIdle() {
+            this@asShutdownHandle.awaitIdle()
+        }
+
         override fun close() {
             this@asShutdownHandle.close()
         }
@@ -34,18 +49,37 @@ internal fun QueueHistoryWriter.asShutdownHandle(): QueueHistoryShutdownHandle {
 }
 
 /**
- * Non-blocking persistence shutdown: flushes the final position, then closes
- * both write queues. Remaining enqueued writes are processed asynchronously
- * by each queue's own coroutine scope — the main thread is never blocked.
+ * Flushes the final position and gives both persistence queues a short chance
+ * to drain before closing them.
  */
-internal class PlaybackPersistenceShutdownCoordinator {
-    fun drainAndClose(
+internal class PlaybackPersistenceShutdownCoordinator(
+    private val drainTimeoutMs: Long = DEFAULT_DRAIN_TIMEOUT_MS,
+) {
+    suspend fun drainAndClose(
         playbackState: PlaybackStateShutdownHandle?,
         history: QueueHistoryShutdownHandle?,
-    ) {
-        if (playbackState == null && history == null) return
-        playbackState?.flushCurrentPosition()
+    ): Boolean {
+        if (playbackState == null && history == null) return true
+        val drained = withTimeoutOrNull(drainTimeoutMs) {
+            coroutineScope {
+                val playbackDrain = async {
+                    playbackState?.flushCurrentPosition()
+                    playbackState?.awaitIdle()
+                }
+                val historyDrain = async {
+                    history?.awaitIdle()
+                }
+                playbackDrain.await()
+                historyDrain.await()
+            }
+            true
+        } ?: false
         playbackState?.close()
         history?.close()
+        return drained
+    }
+
+    private companion object {
+        const val DEFAULT_DRAIN_TIMEOUT_MS = 250L
     }
 }
