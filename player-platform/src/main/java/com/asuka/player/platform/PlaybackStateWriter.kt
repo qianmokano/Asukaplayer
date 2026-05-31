@@ -64,6 +64,7 @@ class PlaybackStateWriter(
         val player = attachedPlayer ?: return false
         if (!player.isPlaying) return false
         val mediaId = resolveCurrentMediaId(player) ?: return false
+        if (mediaId.isTransientPlaybackMediaId()) return false
         val lastSavedForSameMedia = lastCheckpointMediaId == mediaId
         if (lastSavedForSameMedia && nowMs - lastCheckpointRealtimeMs < minIntervalMs) {
             return false
@@ -77,12 +78,14 @@ class PlaybackStateWriter(
     fun flushCurrentPosition(): Boolean {
         val player = attachedPlayer ?: return false
         val mediaId = resolveCurrentMediaId(player) ?: return false
+        if (mediaId.isTransientPlaybackMediaId()) return false
         return enqueueCurrentPosition(player, mediaId)
     }
 
     suspend fun flushCurrentPositionAndAwait(): Boolean {
         val player = attachedPlayer ?: return false
         val mediaId = resolveCurrentMediaId(player) ?: return false
+        if (mediaId.isTransientPlaybackMediaId()) return false
         return saveCurrentPositionAwaited(player, mediaId)
     }
 
@@ -91,6 +94,7 @@ class PlaybackStateWriter(
         val state = player.playbackState
         if (!shouldSavePositionOnPause(isPlaying = isPlaying, playbackState = state)) return
         val mediaId = currentMediaId ?: return
+        if (mediaId.isTransientPlaybackMediaId()) return
         saveCurrentPositionAsync(player, mediaId)
     }
 
@@ -102,6 +106,7 @@ class PlaybackStateWriter(
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         val mediaId = currentMediaId ?: return
+        if (mediaId.isTransientPlaybackMediaId()) return
         dispatchWrite {
             store.savePlaybackSpeed(mediaId, playbackParameters.speed)
         }
@@ -114,6 +119,7 @@ class PlaybackStateWriter(
     ) {
         if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) return
         val mediaId = newPosition.mediaItem?.mediaId ?: oldPosition.mediaItem?.mediaId ?: return
+        if (mediaId.isTransientPlaybackMediaId()) return
         val duration = attachedPlayer?.duration ?: C.TIME_UNSET
         val playbackState = attachedPlayer?.playbackState ?: Player.STATE_READY
         dispatchWrite {
@@ -131,12 +137,14 @@ class PlaybackStateWriter(
     override fun onPlaybackStateChanged(playbackState: Int) {
         if (playbackState == Player.STATE_ENDED) {
             val mediaId = currentMediaId ?: return
+            if (mediaId.isTransientPlaybackMediaId()) return
             enqueueCurrentPosition(attachedPlayer ?: return, mediaId)
         }
     }
 
     override fun onTracksChanged(tracks: Tracks) {
         val mediaId = attachedPlayer?.currentMediaItem?.mediaId ?: return
+        if (mediaId.isTransientPlaybackMediaId()) return
         var selectedAudioId: String? = null
         var selectedSubtitleId: String? = null
         var hasTextGroup = false

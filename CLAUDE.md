@@ -113,7 +113,7 @@ Dependency direction: `app` → `player-runtime` / `player-platform` / `player-r
 
 ## Tech Stack
 
-- **Kotlin** 2.3.0, **JDK** 17
+- **Kotlin** 2.2.10, **JDK** 17 for Android compilation, Java 21 launcher for JVM tests via Gradle toolchains
 - **Jetpack Compose** (BOM 2026.01.00) + **Material3**
 - **Media3** 1.9.1 (ExoPlayer + MediaSession)
 - **Coroutines** 1.10.2

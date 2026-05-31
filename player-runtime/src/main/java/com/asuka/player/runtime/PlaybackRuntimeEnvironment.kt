@@ -8,6 +8,7 @@ import com.asuka.player.contract.PlaybackDeviceController
 import com.asuka.player.contract.PlaybackStateRepository
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
+import com.asuka.player.platform.isTransientPlaybackMediaId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,9 +22,13 @@ class PlaybackStateUiPersistence(
 ) : PlaybackUiPersistence {
     private val brightnessWriteMutex = Mutex()
 
-    override suspend fun readZoom(mediaId: String): Float? = playbackStateRepository.readResumeState(mediaId).zoom
+    override suspend fun readZoom(mediaId: String): Float? {
+        if (mediaId.isTransientPlaybackMediaId()) return null
+        return playbackStateRepository.readResumeState(mediaId).zoom
+    }
 
     override suspend fun saveZoom(mediaId: String, zoom: Float) {
+        if (mediaId.isTransientPlaybackMediaId()) return
         playbackStateRepository.saveZoom(mediaId, zoom)
     }
 

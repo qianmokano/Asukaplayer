@@ -16,7 +16,7 @@ fun PlaybackQueue.toMediaItems(
         }
         MediaItem.Builder()
             .setUri(uri)
-            .setMediaId(item.mediaId)
+            .setMediaId(item.mediaIdForPlayback())
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(item.title)
@@ -26,3 +26,11 @@ fun PlaybackQueue.toMediaItems(
             .build()
     }
 }
+
+fun String.isTransientPlaybackMediaId(): Boolean = startsWith(TRANSIENT_MEDIA_ID_PREFIX)
+
+private fun com.asuka.player.contract.PlaybackQueueItem.mediaIdForPlayback(): String {
+    return if (persistable) mediaId else "$TRANSIENT_MEDIA_ID_PREFIX$mediaId"
+}
+
+private const val TRANSIENT_MEDIA_ID_PREFIX = "transient:"

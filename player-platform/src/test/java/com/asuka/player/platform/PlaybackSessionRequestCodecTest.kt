@@ -7,8 +7,10 @@ import com.asuka.player.contract.PlaybackQueueEntry
 import com.asuka.player.contract.PlaybackSessionRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -38,6 +40,20 @@ class PlaybackSessionRequestCodecTest {
         assertEquals(1, request.queueEntries.size)
         assertEquals("content://videos/1.mp4", request.playbackUri)
         assertEquals(0, request.startIndex)
+        assertFalse(request.targetEntry.persistable)
+    }
+
+    @Test
+    fun fromExternalIntent_withPersistableGrant_marksEntriesPersistable() {
+        val intent = Intent().apply {
+            data = Uri.parse("content://videos/1.mp4")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        val request = PlaybackSessionRequestCodec.fromExternalIntent(intent)
+
+        assertNotNull(request)
+        assertTrue(request.targetEntry.persistable)
     }
 
     @Test
@@ -140,7 +156,7 @@ class PlaybackSessionRequestCodecTest {
         val original = PlaybackSessionRequest(
             queueEntries = listOf(
                 PlaybackQueueEntry(mediaId = "id-1", uri = "uri-1"),
-                PlaybackQueueEntry(mediaId = "id-2", uri = "uri-2"),
+                PlaybackQueueEntry(mediaId = "id-2", uri = "uri-2", persistable = false),
                 PlaybackQueueEntry(mediaId = "id-3", uri = "uri-3"),
             ),
             startIndex = 1,

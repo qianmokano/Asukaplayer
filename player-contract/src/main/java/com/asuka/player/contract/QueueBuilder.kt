@@ -7,6 +7,7 @@ data class PlaybackQueueItem(
     val mediaId: String,
     val uri: String,
     val title: String,
+    val persistable: Boolean = true,
 )
 
 data class PlaybackQueue(
@@ -29,6 +30,7 @@ object QueueBuilder {
                 mediaId = entry.mediaId,
                 uri = entry.uri,
                 title = title,
+                persistable = entry.persistable,
             )
         }
         return PlaybackQueue(items = items, startIndex = startIndex)

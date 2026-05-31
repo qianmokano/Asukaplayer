@@ -21,6 +21,10 @@ class QueueHistoryWriter(
         if (mediaItem != null && mediaId == null) {
             Log.v(TAG, "Media item '${mediaItem.mediaId}' has no local URI, skipping history")
         }
+        if (mediaId?.isTransientPlaybackMediaId() == true) {
+            Log.v(TAG, "Media item is transient, skipping history")
+            return
+        }
         mediaId?.let { resolvedId ->
             dispatchWrite {
                 store.push(resolvedId)

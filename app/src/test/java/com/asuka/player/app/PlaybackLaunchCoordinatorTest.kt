@@ -119,6 +119,34 @@ class PlaybackLaunchCoordinatorTest {
     }
 
     @Test
+    fun createPlaybackIntent_usesContentUriForResolvedFallback() {
+        val current = Uri.parse("content://videos/current.mp4")
+        val fallback = Uri.parse("content://com.asuka.player.debug.files/seek_fallback/fallback.mp4")
+        val coordinator = PlaybackLaunchCoordinator(
+            uriResolver = object : PlaybackUriResolver {
+                override fun resolveForPlayback(sourceUri: Uri): Uri = fallback
+            },
+        )
+
+        val request = coordinator.prepareRequest(
+            request = PlaybackSessionRequestCodec.fromSelection(
+                targetMediaId = current.toString(),
+                queueMediaIds = listOf(current.toString()),
+            ),
+        )
+
+        val playbackIntent = coordinator.createPlaybackIntent(
+            context = RuntimeEnvironment.getApplication(),
+            activityClass = PlaybackActivity::class.java,
+            request = request,
+        )
+
+        assertEquals("content", playbackIntent.data?.scheme)
+        assertEquals(fallback, playbackIntent.data)
+        assertTrue((playbackIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+    }
+
+    @Test
     fun prepareRequest_preservesStableMediaIds_whenQueueEntriesCarryOpaqueIdentity() {
         val current = PlaybackQueueEntry(
             mediaId = "media-store:1",

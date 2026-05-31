@@ -40,9 +40,12 @@ internal class PlaybackActivityBehavior(
         )
     }
 
-    fun onEnterPictureInPictureRequested(): Boolean {
+    fun onEnterPictureInPictureRequested() {
         backgroundPolicy.setPictureInPicture(true)
-        return true
+    }
+
+    fun onEnterPictureInPictureFailed() {
+        backgroundPolicy.setPictureInPicture(false)
     }
 
     fun onBackgroundPlaybackRequested() {

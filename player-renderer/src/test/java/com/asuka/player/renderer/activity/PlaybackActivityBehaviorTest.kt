@@ -50,6 +50,24 @@ class PlaybackActivityBehaviorTest {
     }
 
     @Test
+    fun enterPictureInPictureFailure_rollsBackRetentionState() {
+        val behavior = PlaybackActivityBehavior(
+            initialSettings = PlayerSettings(
+                autoBackgroundPlay = false,
+                keepSessionConnectionInBackground = false,
+            ),
+        )
+
+        behavior.onEnterPictureInPictureRequested()
+        assertTrue(behavior.shouldRetainSessionOnStop())
+        assertTrue(behavior.shouldKeepPlaybackActiveOnStop())
+
+        behavior.onEnterPictureInPictureFailed()
+        assertFalse(behavior.shouldRetainSessionOnStop())
+        assertFalse(behavior.shouldKeepPlaybackActiveOnStop())
+    }
+
+    @Test
     fun runtimeSettingsChanges_updateBehaviorFlags() {
         val behavior = PlaybackActivityBehavior(
             initialSettings = PlayerSettings(

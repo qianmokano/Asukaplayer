@@ -12,6 +12,7 @@ object PlaybackSessionRequestCodec {
     private const val EXTRA_MEDIA_ID = "com.asuka.player.extra.MEDIA_ID"
     private const val EXTRA_QUEUE_MEDIA_IDS = "com.asuka.player.extra.QUEUE_MEDIA_IDS"
     private const val EXTRA_QUEUE_URIS = "com.asuka.player.extra.QUEUE_URIS"
+    private const val EXTRA_QUEUE_PERSISTABLE = "com.asuka.player.extra.QUEUE_PERSISTABLE"
     private const val EXTRA_START_INDEX = "com.asuka.player.extra.START_INDEX"
     private const val EXTRA_PLAYBACK_URI = "com.asuka.player.extra.PLAYBACK_URI"
 
@@ -26,9 +27,14 @@ object PlaybackSessionRequestCodec {
             extraStreamUris.isNotEmpty() -> normalizeQueueUris(targetUri, extraStreamUris)
             else -> listOf(targetUri)
         }
+        val persistable = hasPersistableReadGrant(sourceIntent)
         return PlaybackSessionRequest(
             queueEntries = queueUris.map { uri ->
-                PlaybackQueueEntry(mediaId = uri, uri = uri)
+                PlaybackQueueEntry(
+                    mediaId = uri,
+                    uri = uri,
+                    persistable = persistable,
+                )
             },
             startIndex = queueUris.indexOf(targetUri).coerceAtLeast(0),
             playbackUri = targetUri,
@@ -75,10 +81,12 @@ object PlaybackSessionRequestCodec {
             .filter { it.isNotBlank() }
         if (storedQueueUris.isNotEmpty()) {
             val storedQueueMediaIds = sourceIntent.getStringArrayListExtra(EXTRA_QUEUE_MEDIA_IDS).orEmpty()
+            val storedPersistable = sourceIntent.getBooleanArrayExtra(EXTRA_QUEUE_PERSISTABLE)
             val queueEntries = storedQueueUris.mapIndexed { index, uri ->
                 PlaybackQueueEntry(
                     mediaId = storedQueueMediaIds.getOrElse(index) { uri },
                     uri = uri,
+                    persistable = storedPersistable?.getOrNull(index) ?: true,
                 )
             }
             val requestedStartIndex = sourceIntent.getIntExtra(EXTRA_START_INDEX, 0)
@@ -112,6 +120,7 @@ object PlaybackSessionRequestCodec {
             PlaybackQueueEntry(
                 mediaId = queueMediaIds.getOrElse(index) { uri },
                 uri = uri,
+                persistable = true,
             )
         }
         val startIndex = queueEntries.indexOfFirst { it.mediaId == targetMediaId }
@@ -142,6 +151,10 @@ object PlaybackSessionRequestCodec {
         intent.putStringArrayListExtra(
             EXTRA_QUEUE_URIS,
             ArrayList(request.queueEntries.map(PlaybackQueueEntry::uri)),
+        )
+        intent.putExtra(
+            EXTRA_QUEUE_PERSISTABLE,
+            request.queueEntries.map(PlaybackQueueEntry::persistable).toBooleanArray(),
         )
     }
 
@@ -243,5 +256,11 @@ object PlaybackSessionRequestCodec {
             normalized.add(0, target)
         }
         return normalized
+    }
+
+    private fun hasPersistableReadGrant(intent: Intent): Boolean {
+        val flags = intent.flags
+        return flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0 &&
+            flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
     }
 }

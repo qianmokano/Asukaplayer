@@ -56,6 +56,23 @@ class QueueHistoryWriterTest {
     }
 
     @Test
+    fun onMediaItemTransition_skipsTransientMediaIds() = runBlocking {
+        val store = InMemoryQueueHistoryStore()
+        val writer = QueueHistoryWriter(store)
+
+        writer.onMediaItemTransition(
+            MediaItem.Builder()
+                .setMediaId("transient:content://videos/shared.mp4")
+                .setUri(Uri.parse("content://videos/shared.mp4"))
+                .build(),
+            0,
+        )
+        writer.awaitIdle()
+
+        assertEquals(emptyList(), store.items())
+    }
+
+    @Test
     fun onMediaItemTransition_returnsQuickly_whenHistoryStoreIsSlow() = runBlocking {
         val store = SlowQueueHistoryStore()
         val writer = QueueHistoryWriter(store)

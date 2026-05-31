@@ -69,6 +69,7 @@ class PlaybackRuntimeFeature(
         val uriResolver = SeekAwarePlaybackUriResolver(
             contentResolver = appContext.contentResolver,
             cacheDir = appContext.cacheDir,
+            fallbackAuthority = "${appContext.packageName}.files",
         )
         PlaybackLaunchCoordinator(uriResolver)
     }

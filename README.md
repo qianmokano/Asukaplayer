@@ -43,7 +43,7 @@ Chinese README: [简体中文](docs/README.zh-CN.md)
 - Active development
 - Versioning currently follows `0.x.y`
 - Android targets: `minSdk 23`, `targetSdk 36`, `compileSdk 36`
-- Core stack: Kotlin `2.3.0`, Jetpack Compose, Media3 `1.9.1`
+- Core stack: Kotlin `2.2.10`, Jetpack Compose, Media3 `1.9.1`
 
 ## Technical Highlights
 
@@ -99,7 +99,7 @@ This structure keeps the app easier to test, easier to refactor, and less likely
 
 ### Requirements
 
-- JDK 17
+- JDK 17 for Android compilation; JVM unit tests use a Java 21 launcher via Gradle toolchains
 - Android SDK configured for the repository toolchain
 - A local Android development environment capable of running Gradle Android builds
 

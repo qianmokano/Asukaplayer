@@ -109,13 +109,18 @@ internal class PlaybackPictureInPictureController(
 
     fun enterPictureInPictureMode(
         beforeEnter: () -> Unit,
+        onEnterFailed: () -> Unit = {},
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         beforeEnter()
         registerReceiver()
         attachPlayerListener()
         refreshStableAspectRatio(currentPlayerProvider())
-        enterPictureInPicture(buildPictureInPictureParams())
+        if (!enterPictureInPicture(buildPictureInPictureParams())) {
+            detachPlayerListener()
+            unregisterReceiver()
+            onEnterFailed()
+        }
     }
 
     fun release() {

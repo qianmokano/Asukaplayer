@@ -9,6 +9,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -100,6 +101,27 @@ class PlaybackPictureInPictureControllerTest {
             ),
             appliedRatios,
         )
+    }
+
+    @Test
+    fun enterPictureInPictureMode_whenSystemRejects_invokesFailureCallback() {
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
+        var beforeEnterCalled = false
+        var failureCalled = false
+        val controller = PlaybackPictureInPictureController(
+            activity = activity,
+            currentPlayerProvider = { null },
+            currentControllerProvider = { null },
+            enterPictureInPicture = { false },
+        )
+
+        controller.enterPictureInPictureMode(
+            beforeEnter = { beforeEnterCalled = true },
+            onEnterFailed = { failureCalled = true },
+        )
+
+        assertTrue(beforeEnterCalled)
+        assertTrue(failureCalled)
     }
 }
 

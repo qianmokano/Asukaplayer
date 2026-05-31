@@ -40,18 +40,28 @@ class PlaybackLaunchCoordinator(
             data = Uri.parse(request.playbackUri)
             clipData = PlaybackSessionRequestCodec.buildClipData(request)
             PlaybackSessionRequestCodec.applyPlaybackRequest(this, request)
-            if (request.queueEntries.any { Uri.parse(it.uri).scheme == "content" }) {
+            if (request.hasContentUris()) {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         }
+    }
+
+    private fun PlaybackSessionRequest.hasContentUris(): Boolean {
+        return Uri.parse(playbackUri).scheme == "content" ||
+            queueEntries.any { Uri.parse(it.uri).scheme == "content" }
     }
 }
 
 class SeekAwarePlaybackUriResolver(
     private val contentResolver: android.content.ContentResolver,
     cacheDir: File,
+    private val fallbackAuthority: String,
 ) : PlaybackUriResolver {
-    private val seekFallbackCopier = SeekFallbackCopier(contentResolver, cacheDir)
+    private val seekFallbackCopier = SeekFallbackCopier(
+        contentResolver = contentResolver,
+        cacheDir = cacheDir,
+        uriMapper = ::toSeekFallbackContentUri,
+    )
 
     override fun resolveForPlayback(sourceUri: Uri): Uri {
         if (sourceUri.scheme != "content") return sourceUri
@@ -73,5 +83,14 @@ class SeekAwarePlaybackUriResolver(
         } catch (_: Exception) {
             false
         }
+    }
+
+    private fun toSeekFallbackContentUri(file: File): Uri {
+        return Uri.Builder()
+            .scheme("content")
+            .authority(fallbackAuthority)
+            .appendPath("seek_fallback")
+            .appendPath(file.name)
+            .build()
     }
 }

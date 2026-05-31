@@ -136,6 +136,7 @@ class PlaybackActivity : ComponentActivity() {
     private fun enterPip() {
         pictureInPictureController.enterPictureInPictureMode(
             beforeEnter = { viewModel.activityBehavior.onEnterPictureInPictureRequested() },
+            onEnterFailed = { viewModel.activityBehavior.onEnterPictureInPictureFailed() },
         )
     }
 

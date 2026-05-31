@@ -11,6 +11,7 @@ import java.util.Locale
 class SeekFallbackCopier(
     private val contentResolver: ContentResolver,
     private val cacheDir: File,
+    private val uriMapper: (File) -> Uri = Uri::fromFile,
 ) {
     companion object {
         const val MAX_FILE_BYTES = 500L * 1024L * 1024L
@@ -35,7 +36,7 @@ class SeekFallbackCopier(
                     input.copyTo(output)
                 }
             } ?: return null
-            Uri.fromFile(targetFile)
+            uriMapper(targetFile)
         } catch (error: Exception) {
             Log.w("AsukaSeekFallback", "copy failed for uri=$uri", error)
             null

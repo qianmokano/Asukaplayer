@@ -65,6 +65,24 @@ class PlaybackStateWriterTest {
     }
 
     @Test
+    fun onPositionDiscontinuity_skipsTransientMediaId() = runBlocking {
+        val store = InMemoryPlaybackStore()
+        val mediaItem = mediaItem("transient:content://videos/shared.mp4")
+        val playerState = fakePlayer(currentMediaItem = mediaItem)
+        val writer = PlaybackStateWriter(store)
+
+        writer.attach(playerState.asPlayer())
+        writer.onPositionDiscontinuity(
+            oldPosition = positionInfo(mediaItem = mediaItem, positionMs = 1_000L),
+            newPosition = positionInfo(mediaItem = mediaItem, positionMs = 25_000L),
+            reason = Player.DISCONTINUITY_REASON_SEEK,
+        )
+        writer.awaitIdle()
+
+        assertNull(store.loadPosition(mediaItem.mediaId))
+    }
+
+    @Test
     fun onPositionDiscontinuity_whenWithinTenSecondsOfEnd_resetsResumePosition() = runBlocking {
         val store = InMemoryPlaybackStore()
         val mediaItem = mediaItem("media://seek-near-end")
