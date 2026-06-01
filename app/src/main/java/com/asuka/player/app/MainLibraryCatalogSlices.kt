@@ -24,7 +24,8 @@ internal class MainLibraryFoldersSlice(
     }
 
     fun refresh() {
-        if (!canReadLibrary() || state.value.isLoading) return
+        val current = state.value
+        if (!canReadLibrary() || current.isLoading || current.isAppending) return
         load(offset = 0, syncIndex = true, publishFeedback = true)
     }
 
@@ -143,7 +144,8 @@ internal class MainLibraryAllVideosSlice(
     }
 
     fun refresh() {
-        if (!canReadLibrary() || state.value.isLoading) return
+        val current = state.value
+        if (!canReadLibrary() || current.isLoading || current.isAppending) return
         load(offset = 0, syncIndex = true, publishFeedback = true)
     }
 
@@ -239,7 +241,8 @@ internal class MainLibraryCurrentFolderSlice(
     }
 
     fun refresh(folderId: Long) {
-        if (!canReadLibrary() || state.value.isLoading) return
+        val current = state.value
+        if (!canReadLibrary() || current.isLoading || current.isAppending) return
         val switchingFolders = currentFolderId.value != folderId
         _currentFolderId.value = folderId
         if (switchingFolders) {

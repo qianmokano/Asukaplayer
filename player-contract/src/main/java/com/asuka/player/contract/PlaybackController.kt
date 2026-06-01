@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 interface PlaybackController {
     val isConnected: StateFlow<Boolean>
-        get() = MutableStateFlow(true)
+        get() = AlwaysConnectedPlaybackControllerState
 
     fun prepare()
     fun play()
@@ -29,6 +29,8 @@ interface PlaybackController {
     fun isShuffleEnabled(): Boolean
     fun release() {}
 }
+
+private val AlwaysConnectedPlaybackControllerState: StateFlow<Boolean> = MutableStateFlow(true)
 
 enum class VideoScaleMode {
     FIT,
