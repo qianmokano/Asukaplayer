@@ -111,7 +111,7 @@ class MainLibraryCatalogStoreTest {
     }
 
     @Test
-    fun refreshFolders_publishesTotalVideoCountFromIndex() = runBlocking {
+    fun refreshFolders_publishesFolderCountFromIndex() = runBlocking {
         val messages = mutableListOf<MainLibraryText>()
         val repository = object : MediaLibraryRepository {
             override val changes: Flow<Unit> = emptyFlow()
@@ -132,7 +132,7 @@ class MainLibraryCatalogStoreTest {
                         folder(id = 2L, name = "Clips", videoCount = 4),
                     ),
                     nextOffset = null,
-                    totalCount = 42,
+                    totalCount = 2,
                 )
             }
 
@@ -177,7 +177,7 @@ class MainLibraryCatalogStoreTest {
         store.refreshFolders()
         waitForCondition { messages.isNotEmpty() }
 
-        assertEquals(listOf<MainLibraryText>(MainLibraryText.RefreshDone(42)), messages)
+        assertEquals(listOf<MainLibraryText>(MainLibraryText.RefreshDone(2)), messages)
     }
 
     @Test

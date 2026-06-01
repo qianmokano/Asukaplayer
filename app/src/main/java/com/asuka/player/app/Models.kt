@@ -11,7 +11,7 @@ import java.util.Locale
 
 internal data class ThemePreset(
     val mode: ThemeMode,
-    @StringRes val nameResId: Int,
+    @param:StringRes val nameResId: Int,
     val description: String,
     val seed: Color?,
 )
@@ -33,7 +33,7 @@ internal sealed interface ThemeSwatchItem {
     data object CustomAdd : ThemeSwatchItem
 }
 
-internal enum class CustomPaletteMode(@StringRes val labelResId: Int) {
+internal enum class CustomPaletteMode(@param:StringRes val labelResId: Int) {
     Grid(R.string.palette_mode_grid),
     Spectrum(R.string.palette_mode_spectrum),
     Sliders(R.string.palette_mode_sliders),

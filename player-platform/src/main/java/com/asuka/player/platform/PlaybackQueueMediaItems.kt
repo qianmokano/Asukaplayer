@@ -30,7 +30,7 @@ fun PlaybackQueue.toMediaItems(
 fun String.isTransientPlaybackMediaId(): Boolean = startsWith(TRANSIENT_MEDIA_ID_PREFIX)
 
 private fun com.asuka.player.contract.PlaybackQueueItem.mediaIdForPlayback(): String {
-    return if (persistable) mediaId else "$TRANSIENT_MEDIA_ID_PREFIX$mediaId"
+    return if (readableInSession) mediaId else "$TRANSIENT_MEDIA_ID_PREFIX$mediaId"
 }
 
 private const val TRANSIENT_MEDIA_ID_PREFIX = "transient:"

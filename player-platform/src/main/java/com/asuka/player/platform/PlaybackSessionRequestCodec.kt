@@ -13,6 +13,7 @@ object PlaybackSessionRequestCodec {
     private const val EXTRA_QUEUE_MEDIA_IDS = "com.asuka.player.extra.QUEUE_MEDIA_IDS"
     private const val EXTRA_QUEUE_URIS = "com.asuka.player.extra.QUEUE_URIS"
     private const val EXTRA_QUEUE_PERSISTABLE = "com.asuka.player.extra.QUEUE_PERSISTABLE"
+    private const val EXTRA_QUEUE_READABLE_IN_SESSION = "com.asuka.player.extra.QUEUE_READABLE_IN_SESSION"
     private const val EXTRA_START_INDEX = "com.asuka.player.extra.START_INDEX"
     private const val EXTRA_PLAYBACK_URI = "com.asuka.player.extra.PLAYBACK_URI"
 
@@ -28,12 +29,14 @@ object PlaybackSessionRequestCodec {
             else -> listOf(targetUri)
         }
         val persistable = hasPersistableReadGrant(sourceIntent)
+        val hasReadGrant = hasReadGrant(sourceIntent)
         return PlaybackSessionRequest(
             queueEntries = queueUris.map { uri ->
                 PlaybackQueueEntry(
                     mediaId = uri,
                     uri = uri,
                     persistable = persistable,
+                    readableInSession = hasReadGrant || Uri.parse(uri).scheme != "content",
                 )
             },
             startIndex = queueUris.indexOf(targetUri).coerceAtLeast(0),
@@ -82,11 +85,16 @@ object PlaybackSessionRequestCodec {
         if (storedQueueUris.isNotEmpty()) {
             val storedQueueMediaIds = sourceIntent.getStringArrayListExtra(EXTRA_QUEUE_MEDIA_IDS).orEmpty()
             val storedPersistable = sourceIntent.getBooleanArrayExtra(EXTRA_QUEUE_PERSISTABLE)
+            val storedReadableInSession = sourceIntent.getBooleanArrayExtra(EXTRA_QUEUE_READABLE_IN_SESSION)
+            val readableInSession = hasReadGrant(sourceIntent)
             val queueEntries = storedQueueUris.mapIndexed { index, uri ->
+                val persistable = storedPersistable?.getOrNull(index) ?: true
                 PlaybackQueueEntry(
                     mediaId = storedQueueMediaIds.getOrElse(index) { uri },
                     uri = uri,
-                    persistable = storedPersistable?.getOrNull(index) ?: true,
+                    persistable = persistable,
+                    readableInSession = storedReadableInSession?.getOrNull(index)
+                        ?: (persistable || readableInSession || Uri.parse(uri).scheme != "content"),
                 )
             }
             val requestedStartIndex = sourceIntent.getIntExtra(EXTRA_START_INDEX, 0)
@@ -121,6 +129,7 @@ object PlaybackSessionRequestCodec {
                 mediaId = queueMediaIds.getOrElse(index) { uri },
                 uri = uri,
                 persistable = true,
+                readableInSession = true,
             )
         }
         val startIndex = queueEntries.indexOfFirst { it.mediaId == targetMediaId }
@@ -155,6 +164,10 @@ object PlaybackSessionRequestCodec {
         intent.putExtra(
             EXTRA_QUEUE_PERSISTABLE,
             request.queueEntries.map(PlaybackQueueEntry::persistable).toBooleanArray(),
+        )
+        intent.putExtra(
+            EXTRA_QUEUE_READABLE_IN_SESSION,
+            request.queueEntries.map(PlaybackQueueEntry::readableInSession).toBooleanArray(),
         )
     }
 
@@ -260,7 +273,10 @@ object PlaybackSessionRequestCodec {
 
     private fun hasPersistableReadGrant(intent: Intent): Boolean {
         val flags = intent.flags
-        return flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0 &&
-            flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
+        return hasReadGrant(intent) && flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0
+    }
+
+    private fun hasReadGrant(intent: Intent): Boolean {
+        return intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0
     }
 }

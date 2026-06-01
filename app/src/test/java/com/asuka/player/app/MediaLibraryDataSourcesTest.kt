@@ -39,6 +39,18 @@ class MediaLibraryDataSourcesTest {
                     dateAddedSec = 10L,
                     dateModifiedSec = 10L,
                 ),
+                IndexedVideoEntity(
+                    mediaStoreId = 2L,
+                    uri = "content://media/external/video/media/2",
+                    title = "cached-2.mp4",
+                    durationMs = 2_000L,
+                    sizeBytes = 3_000L,
+                    folderName = "Movies",
+                    folderPath = "/storage/emulated/0/Movies",
+                    folderId = 7L,
+                    dateAddedSec = 11L,
+                    dateModifiedSec = 11L,
+                ),
             ),
         )
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
@@ -52,6 +64,7 @@ class MediaLibraryDataSourcesTest {
 
         assertEquals(listOf("Movies"), result.items.map(LocalVideoFolder::name))
         assertEquals(1, result.totalCount)
+        assertEquals(2, result.items.single().videoCount)
     }
 
     @Test

@@ -101,7 +101,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
             MediaLibraryPage(
                 items = pageItems,
                 nextOffset = if (rows.size > request.limit) request.offset + pageItems.size else null,
-                totalCount = dao.count(),
+                totalCount = dao.folderCount(),
             )
         }
     }

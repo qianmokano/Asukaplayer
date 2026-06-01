@@ -86,7 +86,11 @@ class MainActivity : ComponentActivity() {
             if (!entry.persistable || Uri.parse(entry.uri).scheme != "content") {
                 entry
             } else {
-                entry.copy(persistable = takePersistableReadPermission(entry.uri))
+                val persisted = takePersistableReadPermission(entry.uri)
+                entry.copy(
+                    persistable = persisted,
+                    readableInSession = entry.readableInSession || persisted,
+                )
             }
         }
         return request.copy(queueEntries = entries)

@@ -2,12 +2,18 @@ package com.asuka.player.engine.service
 
 import com.asuka.player.platform.PlaybackStateWriter
 import com.asuka.player.platform.QueueHistoryWriter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal interface PlaybackStateShutdownHandle {
-    suspend fun flushCurrentPosition()
+    fun enqueueFinalPosition(): Boolean
 
     suspend fun awaitIdle()
 
@@ -22,8 +28,8 @@ internal interface QueueHistoryShutdownHandle {
 
 internal fun PlaybackStateWriter.asShutdownHandle(): PlaybackStateShutdownHandle {
     return object : PlaybackStateShutdownHandle {
-        override suspend fun flushCurrentPosition() {
-            this@asShutdownHandle.flushCurrentPositionAndAwait()
+        override fun enqueueFinalPosition(): Boolean {
+            return this@asShutdownHandle.flushCurrentPosition()
         }
 
         override suspend fun awaitIdle() {
@@ -55,25 +61,45 @@ internal fun QueueHistoryWriter.asShutdownHandle(): QueueHistoryShutdownHandle {
 internal class PlaybackPersistenceShutdownCoordinator(
     private val drainTimeoutMs: Long = DEFAULT_DRAIN_TIMEOUT_MS,
 ) {
+    fun drainAndCloseAsync(
+        scope: CoroutineScope,
+        playbackState: PlaybackStateShutdownHandle?,
+        history: QueueHistoryShutdownHandle?,
+    ): Job {
+        playbackState?.enqueueFinalPosition()
+        return scope.launch(Dispatchers.IO) {
+            drainAndCloseEnqueued(playbackState = playbackState, history = history)
+        }
+    }
+
     suspend fun drainAndClose(
         playbackState: PlaybackStateShutdownHandle?,
         history: QueueHistoryShutdownHandle?,
     ): Boolean {
+        playbackState?.enqueueFinalPosition()
+        return drainAndCloseEnqueued(playbackState = playbackState, history = history)
+    }
+
+    private suspend fun drainAndCloseEnqueued(
+        playbackState: PlaybackStateShutdownHandle?,
+        history: QueueHistoryShutdownHandle?,
+    ): Boolean {
         if (playbackState == null && history == null) return true
-        val drained = withTimeoutOrNull(drainTimeoutMs) {
-            coroutineScope {
-                val playbackDrain = async {
-                    playbackState?.flushCurrentPosition()
-                    playbackState?.awaitIdle()
+        val drained = withContext(NonCancellable) {
+            withTimeoutOrNull(drainTimeoutMs) {
+                coroutineScope {
+                    val playbackDrain = async {
+                        playbackState?.awaitIdle()
+                    }
+                    val historyDrain = async {
+                        history?.awaitIdle()
+                    }
+                    playbackDrain.await()
+                    historyDrain.await()
                 }
-                val historyDrain = async {
-                    history?.awaitIdle()
-                }
-                playbackDrain.await()
-                historyDrain.await()
-            }
-            true
-        } ?: false
+                true
+            } ?: false
+        }
         playbackState?.close()
         history?.close()
         return drained

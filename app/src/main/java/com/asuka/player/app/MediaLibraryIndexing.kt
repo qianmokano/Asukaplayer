@@ -119,10 +119,23 @@ internal class MediaLibraryIndexingCoordinator(
             val shouldForce = forceFullRescan || (observedIds.isEmpty() && !requiresFullReconcile && dao.count() == 0)
             val currentGeneration = currentGenerationReader()
             val supportsGenerationTracking = currentGeneration != null
-            val baselineGeneration = if (shouldForce) null else dao.maxGenerationModified()?.takeIf { it > 0L }
-            val baselineModified = if (baselineGeneration == null && !shouldForce) dao.maxDateModifiedSec() else null
+            val generationBaseline = if (shouldForce || !supportsGenerationTracking) {
+                null
+            } else {
+                val added = dao.maxGenerationAdded()?.takeIf { it > 0L }
+                val modified = dao.maxGenerationModified()?.takeIf { it > 0L }
+                if (added != null || modified != null) {
+                    GenerationBaseline(
+                        addedAfterExclusive = added ?: 0L,
+                        modifiedAfterExclusive = modified ?: 0L,
+                    )
+                } else {
+                    null
+                }
+            }
+            val baselineModified = if (generationBaseline == null && !shouldForce) dao.maxDateModifiedSec() else null
             val changedVideos = queryIndexedVideos(
-                generationAfterExclusive = baselineGeneration,
+                generationBaseline = generationBaseline,
                 modifiedSinceInclusive = baselineModified,
             )
             var hadUpserts = false
@@ -145,7 +158,9 @@ internal class MediaLibraryIndexingCoordinator(
 
             val shouldReconcileAllIds = shouldForce ||
                 requiresFullReconcile ||
-                (currentGeneration != null && baselineGeneration != null && currentGeneration > baselineGeneration)
+                (currentGeneration != null &&
+                    generationBaseline != null &&
+                    currentGeneration > maxOf(generationBaseline.addedAfterExclusive, generationBaseline.modifiedAfterExclusive))
             if (shouldReconcileAllIds) {
                 val existingIds = dao.allIds()
                 val currentIds = if (shouldForce) changedVideos.map(IndexedVideoEntity::mediaStoreId).toSet() else queryAllCurrentIds()
@@ -209,21 +224,22 @@ internal class MediaLibraryIndexingCoordinator(
     }
 
     private fun queryIndexedVideos(
-        generationAfterExclusive: Long?,
+        generationBaseline: GenerationBaseline?,
         modifiedSinceInclusive: Long?,
     ): List<IndexedVideoEntity> {
         val cursor = contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
             mediaStoreProjection(),
             buildSelection(
-                generationAfterExclusive = generationAfterExclusive,
+                base = baseSelection(),
+                generationBaseline = generationBaseline,
                 modifiedSinceInclusive = modifiedSinceInclusive,
             ),
             buildSelectionArgs(
-                generationAfterExclusive = generationAfterExclusive,
+                generationBaseline = generationBaseline,
                 modifiedSinceInclusive = modifiedSinceInclusive,
             ),
-            buildSortOrder(generationAfterExclusive),
+            buildSortOrder(generationBaseline),
         ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
         return cursor.use { readIndexedVideos(it) }
     }
@@ -356,56 +372,6 @@ internal class MediaLibraryIndexingCoordinator(
             "${MediaStore.Video.Media.IS_PENDING}=0"
         } else {
             null
-        }
-    }
-
-    private fun buildSelection(
-        generationAfterExclusive: Long?,
-        modifiedSinceInclusive: Long?,
-    ): String? {
-        val base = baseSelection()
-        if (generationAfterExclusive != null) {
-            return buildString {
-                if (!base.isNullOrBlank()) {
-                    append(base)
-                    append(" AND ")
-                }
-                append("(")
-                append(MediaStore.MediaColumns.GENERATION_ADDED)
-                append("> ? OR ")
-                append(MediaStore.MediaColumns.GENERATION_MODIFIED)
-                append("> ?)")
-            }
-        }
-        val modified = modifiedSinceInclusive ?: return base
-        return buildString {
-            if (!base.isNullOrBlank()) {
-                append(base)
-                append(" AND ")
-            }
-            append("${MediaStore.Video.Media.DATE_MODIFIED}>=?")
-        }
-    }
-
-    private fun buildSelectionArgs(
-        generationAfterExclusive: Long?,
-        modifiedSinceInclusive: Long?,
-    ): Array<String>? {
-        return when {
-            generationAfterExclusive != null -> arrayOf(
-                generationAfterExclusive.toString(),
-                generationAfterExclusive.toString(),
-            )
-            modifiedSinceInclusive != null -> arrayOf(modifiedSinceInclusive.toString())
-            else -> null
-        }
-    }
-
-    private fun buildSortOrder(generationAfterExclusive: Long?): String {
-        return if (generationAfterExclusive != null) {
-            "${MediaStore.MediaColumns.GENERATION_MODIFIED} ASC, ${MediaStore.Video.Media._ID} ASC"
-        } else {
-            "${MediaStore.Video.Media.DATE_MODIFIED} ASC, ${MediaStore.Video.Media._ID} ASC"
         }
     }
 

@@ -42,4 +42,22 @@ class QueueBuilderTest {
         val queue = QueueBuilder.buildFromUris(listOf(uri), startUri = uri) { null }
         assertEquals(uri, queue.items.single().title)
     }
+
+    @Test
+    fun build_preservesSessionReadabilitySeparatelyFromPersistability() {
+        val queue = QueueBuilder.build(
+            entries = listOf(
+                PlaybackQueueEntry(
+                    mediaId = "content://videos/shared.mp4",
+                    uri = "content://videos/shared.mp4",
+                    persistable = false,
+                    readableInSession = true,
+                ),
+            ),
+            startMediaId = "content://videos/shared.mp4",
+        )
+
+        assertEquals(false, queue.items.single().persistable)
+        assertEquals(true, queue.items.single().readableInSession)
+    }
 }

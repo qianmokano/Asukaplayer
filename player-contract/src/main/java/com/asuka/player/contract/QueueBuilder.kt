@@ -8,6 +8,7 @@ data class PlaybackQueueItem(
     val uri: String,
     val title: String,
     val persistable: Boolean = true,
+    val readableInSession: Boolean = persistable,
 )
 
 data class PlaybackQueue(
@@ -31,6 +32,7 @@ object QueueBuilder {
                 uri = entry.uri,
                 title = title,
                 persistable = entry.persistable,
+                readableInSession = entry.readableInSession,
             )
         }
         return PlaybackQueue(items = items, startIndex = startIndex)

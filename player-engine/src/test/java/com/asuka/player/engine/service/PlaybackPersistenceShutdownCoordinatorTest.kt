@@ -21,7 +21,7 @@ class PlaybackPersistenceShutdownCoordinatorTest {
         val drained = coordinator.drainAndClose(playbackState = playback, history = history)
 
         assertTrue(drained)
-        assertEquals(1, playback.flushCount)
+        assertEquals(1, playback.enqueueCount)
         assertEquals(1, playback.awaitCount)
         assertEquals(1, playback.closeCount)
         assertEquals(1, history.awaitCount)
@@ -43,7 +43,7 @@ class PlaybackPersistenceShutdownCoordinatorTest {
         val drained = coordinator.drainAndClose(playbackState = playback, history = null)
 
         assertTrue(drained)
-        assertEquals(1, playback.flushCount)
+        assertEquals(1, playback.enqueueCount)
         assertEquals(1, playback.awaitCount)
         assertEquals(1, playback.closeCount)
     }
@@ -58,7 +58,7 @@ class PlaybackPersistenceShutdownCoordinatorTest {
         val drained = coordinator.drainAndClose(playbackState = playback, history = history)
 
         assertFalse(drained)
-        assertEquals(1, playback.flushCount)
+        assertEquals(1, playback.enqueueCount)
         assertEquals(1, playback.awaitCount)
         assertEquals(1, playback.closeCount)
         assertEquals(1, history.closeCount)
@@ -66,13 +66,14 @@ class PlaybackPersistenceShutdownCoordinatorTest {
 }
 
 private class FakePlaybackStateShutdownHandle : PlaybackStateShutdownHandle {
-    var flushCount: Int = 0
+    var enqueueCount: Int = 0
     var awaitCount: Int = 0
     var closeCount: Int = 0
     var awaitGate: CompletableDeferred<Unit>? = null
 
-    override suspend fun flushCurrentPosition() {
-        flushCount += 1
+    override fun enqueueFinalPosition(): Boolean {
+        enqueueCount += 1
+        return true
     }
 
     override suspend fun awaitIdle() {

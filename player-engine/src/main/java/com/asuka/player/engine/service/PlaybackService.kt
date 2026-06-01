@@ -36,7 +36,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 
 @OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
@@ -152,12 +151,11 @@ class PlaybackService : MediaSessionService() {
         runCatching { mainHandler.removeCallbacks(positionCheckpointRunnable) }
             .onFailure { Log.w(TAG, "removeCallbacks failed", it) }
         runCatching {
-            runBlocking {
-                persistenceShutdown.drainAndClose(
-                    playbackState = writer?.asShutdownHandle(),
-                    history = historyWriter?.asShutdownHandle(),
-                )
-            }
+            persistenceShutdown.drainAndCloseAsync(
+                scope = serviceScope,
+                playbackState = writer?.asShutdownHandle(),
+                history = historyWriter?.asShutdownHandle(),
+            ).invokeOnCompletion { serviceScope.cancel() }
         }.onFailure { Log.w(TAG, "drainAndClose failed", it) }
         runCatching { session?.let { removeSession(it) } }
             .onFailure { Log.w(TAG, "removeSession failed", it) }
@@ -171,7 +169,6 @@ class PlaybackService : MediaSessionService() {
             .onFailure { Log.w(TAG, "session release failed", it) }
         runCatching { player?.release() }
             .onFailure { Log.w(TAG, "player release failed", it) }
-        serviceScope.cancel()
         artworkBridge = null
         session = null
         player = null

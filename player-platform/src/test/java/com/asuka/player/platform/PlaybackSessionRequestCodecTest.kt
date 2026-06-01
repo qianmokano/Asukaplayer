@@ -54,6 +54,20 @@ class PlaybackSessionRequestCodecTest {
 
         assertNotNull(request)
         assertTrue(request.targetEntry.persistable)
+        assertTrue(request.targetEntry.readableInSession)
+    }
+
+    @Test
+    fun fromExternalIntent_withTemporaryReadGrant_marksEntriesReadableForSessionOnly() {
+        val intent = Intent().apply {
+            data = Uri.parse("content://videos/1.mp4")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val request = PlaybackSessionRequestCodec.fromExternalIntent(intent)
+
+        assertNotNull(request)
+        assertFalse(request.targetEntry.persistable)
+        assertTrue(request.targetEntry.readableInSession)
     }
 
     @Test

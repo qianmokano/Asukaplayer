@@ -63,8 +63,14 @@ interface IndexedVideoDao {
     @Query("SELECT MAX(generationModified) FROM media_library_video")
     fun maxGenerationModified(): Long?
 
+    @Query("SELECT MAX(generationAdded) FROM media_library_video")
+    fun maxGenerationAdded(): Long?
+
     @Query("SELECT COUNT(*) FROM media_library_video")
     fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM (SELECT 1 FROM media_library_video GROUP BY folderId)")
+    fun folderCount(): Int
 
     @Query("SELECT COUNT(*) FROM media_library_video WHERE folderId = :folderId")
     fun countByFolder(folderId: Long): Int
