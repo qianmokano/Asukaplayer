@@ -30,8 +30,38 @@
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" />
-                <data android:mimeType="video/*" />
+                <data
+                    android:scheme="content"
+                    android:mimeType="video/*" />
+                <data
+                    android:scheme="file"
+                    android:mimeType="video/*" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="http"
+                    android:mimeType="video/*" />
+                <data
+                    android:scheme="https"
+                    android:mimeType="video/*" />
+                <data
+                    android:scheme="rtsp"
+                    android:mimeType="video/*" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:scheme="content"
+                    android:mimeType="application/octet-stream" />
+                <data
+                    android:scheme="file"
+                    android:mimeType="application/octet-stream" />
             </intent-filter>
 
             <intent-filter>

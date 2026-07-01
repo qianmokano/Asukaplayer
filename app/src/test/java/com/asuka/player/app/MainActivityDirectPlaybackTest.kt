@@ -5,12 +5,14 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Looper
 import com.asuka.player.renderer.activity.PlaybackActivity
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
@@ -66,6 +68,103 @@ class MainActivityDirectPlaybackTest {
         assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
         assertEquals(next, startedIntent.clipData?.getItemAt(1)?.uri)
         assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun fileViewIntent_startsPlaybackActivityWithQueue() {
+        val current = Uri.parse("file:///storage/emulated/0/Movies/current.mp4")
+        val next = Uri.parse("file:///storage/emulated/0/Movies/next.mp4")
+        val launchIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(current, "video/mp4")
+            clipData = ClipData.newRawUri("queue", current).apply {
+                addItem(ClipData.Item(next))
+            }
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertEquals(next, startedIntent.clipData?.getItemAt(1)?.uri)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun httpsViewIntent_startsPlaybackActivity() {
+        val current = Uri.parse("https://example.com/movies/current.m3u8")
+        val launchIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(current, "video/*")
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun rtspViewIntent_startsPlaybackActivity() {
+        val current = Uri.parse("rtsp://example.com/live/stream")
+        val launchIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(current, "video/*")
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun octetStreamContentViewIntent_startsPlaybackActivity() {
+        val current = Uri.parse("content://videos/current.bin")
+        val launchIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(current, "application/octet-stream")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        val activity = Robolectric.buildActivity(MainActivity::class.java, launchIntent).setup().get()
+
+        val startedIntent = waitForStartedIntent(activity)
+        assertEquals(PlaybackActivity::class.java.name, startedIntent.component?.className)
+        assertEquals(current, startedIntent.data)
+        assertEquals(current, startedIntent.clipData?.getItemAt(0)?.uri)
+        assertTrue((startedIntent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+        assertTrue(activity.isFinishing)
+    }
+
+    @Test
+    fun mergedManifestDeclaresExpandedViewEntryPoints() {
+        val manifest = File("build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml")
+            .takeIf(File::exists)
+            ?: File("build/intermediates/merged_manifests/debug/processDebugManifest/universal/AndroidManifest.xml")
+        val xml = manifest.readText()
+
+        listOf(
+            "android:scheme=\"content\"" to "android:mimeType=\"video/*\"",
+            "android:scheme=\"file\"" to "android:mimeType=\"video/*\"",
+            "android:scheme=\"http\"" to "android:mimeType=\"video/*\"",
+            "android:scheme=\"https\"" to "android:mimeType=\"video/*\"",
+            "android:scheme=\"rtsp\"" to "android:mimeType=\"video/*\"",
+            "android:scheme=\"content\"" to "android:mimeType=\"application/octet-stream\"",
+            "android:scheme=\"file\"" to "android:mimeType=\"application/octet-stream\"",
+        ).forEach { (scheme, mimeType) ->
+            assertTrue(
+                xml.contains(scheme) && xml.contains(mimeType),
+                "Expected merged manifest to include $scheme with $mimeType",
+            )
+        }
+        assertTrue(xml.contains("android.intent.category.BROWSABLE"))
     }
 
     @Test
