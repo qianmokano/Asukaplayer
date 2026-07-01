@@ -19,6 +19,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -91,7 +92,7 @@ internal fun ThemeSettingsPageContent(
     var showCustomDialog by remember { mutableStateOf(false) }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     var confirmDeleteId by remember { mutableStateOf<String?>(null) }
-    var fontScaleSlider by remember(themeConfig.fontScale) { mutableStateOf(themeConfig.fontScale) }
+    var fontScaleSlider by remember(themeConfig.fontScale) { mutableFloatStateOf(themeConfig.fontScale) }
 
     LazyColumn(
         modifier = modifier

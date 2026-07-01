@@ -50,7 +50,6 @@
     <string name="fill">Fill</string>
     <string name="crop">Crop</string>
     <string name="stretch">Stretch</string>
-    <string name="selected">Selected</string>
     <string name="vertical_adjust_volume">Volume</string>
     <string name="vertical_adjust_brightness">Brightness</string>
 </resources>

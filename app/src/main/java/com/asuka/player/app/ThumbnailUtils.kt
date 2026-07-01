@@ -33,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -190,7 +191,7 @@ internal fun limitBitmapEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
     val scale = maxEdge.toFloat() / longest.toFloat()
     val targetWidth = (width * scale).toInt().coerceAtLeast(1)
     val targetHeight = (height * scale).toInt().coerceAtLeast(1)
-    return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    return bitmap.scale(targetWidth, targetHeight)
 }
 
 internal fun pruneVideoThumbnailCache(

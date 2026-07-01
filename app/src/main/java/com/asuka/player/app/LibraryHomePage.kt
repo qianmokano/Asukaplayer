@@ -87,11 +87,7 @@ internal fun HomePageContent(
                             SettingsNavigationItem(
                                 icon = Icons.Rounded.Lock,
                                 title = stringResource(id = R.string.grant_permission),
-                                description = if (hasLimitedMediaAccess) {
-                                    stringResource(id = R.string.permission_hint_limited)
-                                } else {
-                                    stringResource(id = R.string.permission_hint)
-                                },
+                                description = stringResource(id = R.string.permission_hint),
                                 onClick = onRequestPermission,
                             )
                         }
@@ -104,11 +100,8 @@ internal fun HomePageContent(
                 item {
                     SplicedColumnGroup(title = stringResource(id = R.string.limited_access_title)) {
                         item {
-                            SettingsNavigationItem(
-                                icon = Icons.Rounded.Info,
-                                title = stringResource(id = R.string.limited_access_banner_title),
-                                description = stringResource(id = R.string.limited_access_banner_body),
-                                onClick = onRequestPermission,
+                            LimitedAccessNavigationItem(
+                                onManageAccess = onRequestPermission,
                             )
                         }
                     }
@@ -208,4 +201,28 @@ internal fun HomePageContent(
             item { Spacer(modifier = Modifier.size(6.dp)) }
         }
     }
+}
+
+@Composable
+internal fun LimitedAccessNavigationItem(
+    onManageAccess: () -> Unit,
+) {
+    SettingsNavigationItem(
+        icon = Icons.Rounded.Info,
+        title = stringResource(id = R.string.limited_access_banner_title),
+        description = stringResource(id = R.string.limited_access_banner_body),
+        onClick = onManageAccess,
+    )
+}
+
+@Composable
+internal fun LimitedAccessInfoBlock(
+    onManageAccess: () -> Unit,
+) {
+    InfoActionBlock(
+        title = stringResource(id = R.string.limited_access_banner_title),
+        text = stringResource(id = R.string.limited_access_banner_body),
+        actionLabel = stringResource(id = R.string.manage_media_access),
+        onAction = onManageAccess,
+    )
 }

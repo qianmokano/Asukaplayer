@@ -1,7 +1,6 @@
 package com.asuka.player.app
 
 import android.app.Activity
-import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -14,6 +13,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import com.asuka.player.runtime.ThemeAppearanceMode
 import com.asuka.player.runtime.ThemeConfig
@@ -62,7 +62,7 @@ internal fun AsukaTheme(
             window.statusBarColor = android.graphics.Color.TRANSPARENT
             @Suppress("DEPRECATION")
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
-            window.setBackgroundDrawable(ColorDrawable(scheme.surfaceContainerLowest.toArgb()))
+            window.setBackgroundDrawable(scheme.surfaceContainerLowest.toArgb().toDrawable())
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = !dark
                 isAppearanceLightNavigationBars = !dark

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.asuka.player.R
 import com.asuka.player.contract.PlaybackQueueEntry
 
@@ -216,7 +217,7 @@ internal data class RecentPlaybackDescriptor(
 }
 
 private fun String.toPlayableUriOrNull(): Uri? {
-    val parsed = runCatching { Uri.parse(this) }.getOrNull() ?: return null
+    val parsed = runCatching { toUri() }.getOrNull() ?: return null
     return when (parsed.scheme?.lowercase()) {
         "content", "file", "http", "https", "rtsp" -> parsed
         else -> null

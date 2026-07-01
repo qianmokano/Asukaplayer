@@ -1,7 +1,6 @@
 package com.asuka.player.app
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.asuka.player.contract.PlaybackSessionRequest
@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
         request: PlaybackSessionRequest,
     ): PlaybackSessionRequest {
         val entries = request.queueEntries.map { entry ->
-            if (!entry.persistable || Uri.parse(entry.uri).scheme != "content") {
+            if (!entry.persistable || entry.uri.toUri().scheme != "content") {
                 entry
             } else {
                 val persisted = takePersistableReadPermission(entry.uri)
@@ -99,7 +99,7 @@ class MainActivity : ComponentActivity() {
     private fun takePersistableReadPermission(uri: String): Boolean {
         return runCatching {
             contentResolver.takePersistableUriPermission(
-                Uri.parse(uri),
+                uri.toUri(),
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
             true

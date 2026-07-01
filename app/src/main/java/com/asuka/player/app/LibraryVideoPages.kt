@@ -37,7 +37,9 @@ import kotlinx.coroutines.flow.map
 internal fun VideosPageContent(
     modifier: Modifier = Modifier,
     videosState: MediaCatalogState<LocalVideoItem>,
+    hasLimitedMediaAccess: Boolean,
     onPlay: (PlaybackSelection) -> Unit,
+    onManageMediaAccess: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -49,7 +51,13 @@ internal fun VideosPageContent(
         onRefresh = onRefresh,
         onLoadMore = onLoadMore,
         videos = videos,
-        emptyMessage = stringResource(id = R.string.empty_video_list),
+        hasLimitedMediaAccess = hasLimitedMediaAccess,
+        onManageMediaAccess = onManageMediaAccess,
+        emptyMessage = if (hasLimitedMediaAccess) {
+            stringResource(id = R.string.empty_video_list_limited)
+        } else {
+            stringResource(id = R.string.empty_video_list)
+        },
         sectionTitle = stringResource(id = R.string.videos_group_title, videos.size),
         onPlay = { item ->
             onPlay(
@@ -66,9 +74,11 @@ internal fun VideosPageContent(
 internal fun FolderPageContent(
     modifier: Modifier = Modifier,
     videosState: MediaCatalogState<LocalVideoItem>,
+    hasLimitedMediaAccess: Boolean,
     thumbnailLoadKey: Any? = Unit,
     thumbnailLoadDelayMs: Int = 0,
     onPlay: (PlaybackSelection) -> Unit,
+    onManageMediaAccess: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
 ) {
@@ -93,7 +103,13 @@ internal fun FolderPageContent(
         onLoadMore = onLoadMore,
         videos = videos,
         allowThumbnailLoad = allowThumbnailLoad,
-        emptyMessage = stringResource(id = R.string.empty_folder_video_list),
+        hasLimitedMediaAccess = hasLimitedMediaAccess,
+        onManageMediaAccess = onManageMediaAccess,
+        emptyMessage = if (hasLimitedMediaAccess) {
+            stringResource(id = R.string.empty_folder_video_list_limited)
+        } else {
+            stringResource(id = R.string.empty_folder_video_list)
+        },
         sectionTitle = stringResource(id = R.string.selected_folder_group_title, videos.size),
         onPlay = { item ->
             onPlay(
@@ -114,6 +130,8 @@ private fun LibraryVideoListPage(
     onLoadMore: () -> Unit,
     videos: List<LocalVideoItem>,
     allowThumbnailLoad: Boolean = true,
+    hasLimitedMediaAccess: Boolean,
+    onManageMediaAccess: () -> Unit,
     emptyMessage: String,
     sectionTitle: String,
     onPlay: (LocalVideoItem) -> Unit,
@@ -155,6 +173,16 @@ private fun LibraryVideoListPage(
             ),
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
+
+            if (hasLimitedMediaAccess) {
+                item {
+                    AnimatedItemEntrance {
+                        LimitedAccessInfoBlock(
+                            onManageAccess = onManageMediaAccess,
+                        )
+                    }
+                }
+            }
 
             when {
                 state.isLoading && !state.hasLoadedOnce -> {

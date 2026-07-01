@@ -7,9 +7,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.toColorInt
 
 internal fun parseHexColor(value: String): Color? =
-    runCatching { Color(android.graphics.Color.parseColor(value.trim())) }.getOrNull()
+    runCatching { Color(value.trim().toColorInt()) }.getOrNull()
 
 internal fun Color.toHex(): String = String.format("#%06X", 0xFFFFFF and toArgb())
 

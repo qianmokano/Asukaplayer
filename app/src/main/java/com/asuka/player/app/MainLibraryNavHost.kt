@@ -163,7 +163,9 @@ internal fun MainLibraryNavHost(
                         VideosPageContent(
                             modifier = Modifier.padding(innerPadding),
                             videosState = state.allVideosState,
+                            hasLimitedMediaAccess = state.userSelectedPermissionGranted,
                             onPlay = onPlay,
+                            onManageMediaAccess = onRequestPermission,
                             onRefresh = onRefreshAllVideos,
                             onLoadMore = onLoadMoreAllVideos,
                         )
@@ -220,9 +222,11 @@ internal fun MainLibraryNavHost(
                         FolderPageContent(
                             modifier = Modifier.padding(innerPadding),
                             videosState = state.currentFolderVideosState,
+                            hasLimitedMediaAccess = state.userSelectedPermissionGranted,
                             thumbnailLoadKey = folderId,
                             thumbnailLoadDelayMs = MAIN_LIBRARY_ROUTE_TRANSITION_MS,
                             onPlay = onPlay,
+                            onManageMediaAccess = onRequestPermission,
                             onRefresh = { if (folderId != null) onRefreshFolder(folderId) },
                             onLoadMore = { if (folderId != null) onLoadMoreFolder(folderId) },
                         )

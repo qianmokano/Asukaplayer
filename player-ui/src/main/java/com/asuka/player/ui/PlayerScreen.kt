@@ -186,7 +186,7 @@ fun PlayerScreen(
             surfaceRenderer = dependencies.surfaceRenderer,
             zoomState = zoomState,
             scaleState = scaleState,
-            videoBoundsModifier = videoBoundsModifier,
+            modifier = videoBoundsModifier,
             controlsState = controlsState,
             overlayType = overlayType,
             visibleError = visibleError,

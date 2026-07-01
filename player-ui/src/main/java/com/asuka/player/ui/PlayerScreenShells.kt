@@ -54,7 +54,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
     surfaceRenderer: PlaybackSurfaceRenderer?,
     zoomState: ZoomState,
     scaleState: ScaleState,
-    videoBoundsModifier: Modifier,
+    modifier: Modifier,
     controlsState: ControlsState,
     overlayType: OverlayType?,
     visibleError: String?,
@@ -77,7 +77,7 @@ internal fun BoxScope.PlayerScreenGestureShell(
 ) {
     surfaceState?.let { playbackSurface ->
         surfaceRenderer?.Render(
-            modifier = videoBoundsModifier,
+            modifier = modifier,
             surfaceState = playbackSurface,
             transform = PlaybackSurfaceTransform(
                 zoomScale = zoomState.scale,

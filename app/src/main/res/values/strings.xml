@@ -3,39 +3,27 @@
     <string name="launcher_title">Asuka Player</string>
     <string name="open_local_video">Open local video</string>
     <string name="open_network_stream">Open network stream</string>
-    <string name="open_network_stream_hint">Enter a stream URL (e.g. https://...)</string>
+    <string name="open_network_stream_hint">Enter a stream URL (e.g. https://example.com/video.mp4)</string>
     <string name="open_network_stream_invalid">Please enter a valid URL with a scheme (http/https/rtsp…)</string>
     <string name="permission_hint">Allow video access to build your local library.</string>
-    <string name="permission_hint_limited">Limited access is granted (selected videos only). Grant full access to browse your entire library.</string>
     <string name="grant_permission">Grant permission</string>
+    <string name="manage_media_access">Manage access</string>
     <string name="refresh">Refresh</string>
     <string name="recent_playback">Recently played</string>
     <string name="recent_group_title">Recently played (%1$d)</string>
     <string name="empty_recent_list">No recent videos yet</string>
     <string name="empty_video_list">No local videos found.</string>
     <string name="empty_folder_video_list">No videos found in this folder.</string>
+    <string name="empty_folder_video_list_limited">No selected videos found in this folder. Manage access to choose more videos.</string>
     <string name="empty_video_list_limited">No selected videos found. Grant full access or pick a local video.</string>
-    <string name="video_meta">%1$s • %2$s</string>
-    <string name="video_meta_with_folder">%1$s • %2$s</string>
-    <string name="folder_video_count">%1$d 个视频</string>
-    <string name="folder_meta">%1$d 个视频 • %2$s • %3$s</string>
     <string name="folder_meta_no_size">%1$d 视频 • %2$s</string>
     <string name="unknown_folder">Unknown folder</string>
-    <string name="tab_folders">Folders</string>
     <string name="tab_all_videos">All Videos</string>
     <string name="back_to_folders">Back to folders</string>
-    <string name="all_videos_count">媒体库共 %1$d 个视频</string>
     <string name="permission_required_title">Permission Required</string>
     <string name="limited_access_title">Limited access</string>
     <string name="limited_access_banner_title">Selected videos only</string>
-    <string name="limited_access_banner_body">Grant full access to browse your entire library.</string>
-    <string name="open_video_without_permission_hint">Choose one video file directly for playback.</string>
-    <string name="library_actions_title">Library</string>
-    <string name="refresh_library_hint">Rescan local videos and folders.</string>
-    <string name="open_local_video_hint">Pick a single local video to play now.</string>
-    <string name="browse_mode_title">Browse Mode</string>
-    <string name="mode_folders_desc">Group videos by folders.</string>
-    <string name="mode_all_desc">Show every video in one list.</string>
+    <string name="limited_access_banner_body">Only videos selected in Android are shown here. Manage access to choose more videos or allow the full library.</string>
     <string name="folders_group_title">文件夹（%1$d）</string>
     <string name="videos_group_title">全部视频（%1$d）</string>
     <string name="selected_folder_group_title">视频（%1$d）</string>
@@ -63,21 +51,15 @@
     <string name="theme_preset_monochrome">黑白</string>
     <string name="theme_preset_custom">自定义</string>
 
-    <!-- Theme preset descriptions -->
-    <string name="theme_preset_dynamic_desc">跟随系统壁纸/主题</string>
-    <string name="theme_preset_custom_desc">输入或选择任意颜色</string>
-
     <!-- Settings page titles -->
     <string name="settings_player_title">播放器</string>
     <string name="settings_theme_title">主题</string>
-    <string name="settings_motion_title">动画</string>
 
     <!-- Settings main page -->
     <string name="settings_group_playback">播放</string>
     <string name="settings_player_desc">手势、界面与播放偏好</string>
     <string name="settings_group_appearance">外观</string>
     <string name="settings_theme_desc">主题色彩、深色模式和文本缩放</string>
-    <string name="settings_motion_desc">页面切换动画时长</string>
     <string name="settings_group_interaction">交互</string>
     <string name="settings_haptic_title">振动</string>
     <string name="settings_haptic_desc">控制操作时的振动反馈</string>
@@ -203,6 +185,4 @@
 
     <!-- Folder path -->
     <string name="internal_storage">手机存储</string>
-    <string name="notification_channel_playback_name">Playback</string>
-    <string name="notification_channel_playback_description">Media playback controls</string>
 </resources>

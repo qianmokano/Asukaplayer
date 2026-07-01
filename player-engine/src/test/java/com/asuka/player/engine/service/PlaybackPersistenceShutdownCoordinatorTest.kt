@@ -5,7 +5,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -52,10 +54,19 @@ class PlaybackPersistenceShutdownCoordinatorTest {
     fun drainAndClose_closesHandlesAfterTimeout() = runBlocking {
         val playback = FakePlaybackStateShutdownHandle()
         playback.awaitGate = CompletableDeferred()
+        playback.awaitStarted = CompletableDeferred()
         val history = FakeQueueHistoryShutdownHandle()
-        val coordinator = PlaybackPersistenceShutdownCoordinator(drainTimeoutMs = 1L)
+        val coordinator = PlaybackPersistenceShutdownCoordinator(drainTimeoutMs = 250L)
 
-        val drained = coordinator.drainAndClose(playbackState = playback, history = history)
+        val drain = async {
+            coordinator.drainAndClose(playbackState = playback, history = history)
+        }
+        val started = withTimeoutOrNull(5_000L) {
+            playback.awaitStarted?.await()
+            true
+        } ?: false
+        assertTrue(started, "Timed out waiting for playback drain to start")
+        val drained = drain.await()
 
         assertFalse(drained)
         assertEquals(1, playback.enqueueCount)
@@ -70,6 +81,7 @@ private class FakePlaybackStateShutdownHandle : PlaybackStateShutdownHandle {
     var awaitCount: Int = 0
     var closeCount: Int = 0
     var awaitGate: CompletableDeferred<Unit>? = null
+    var awaitStarted: CompletableDeferred<Unit>? = null
 
     override fun enqueueFinalPosition(): Boolean {
         enqueueCount += 1
@@ -78,6 +90,7 @@ private class FakePlaybackStateShutdownHandle : PlaybackStateShutdownHandle {
 
     override suspend fun awaitIdle() {
         awaitCount += 1
+        awaitStarted?.complete(Unit)
         awaitGate?.await()
     }
 

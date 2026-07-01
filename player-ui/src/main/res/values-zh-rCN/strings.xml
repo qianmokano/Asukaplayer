@@ -50,7 +50,6 @@
     <string name="fill">填充</string>
     <string name="crop">裁剪</string>
     <string name="stretch">拉伸</string>
-    <string name="selected">已选中</string>
     <string name="vertical_adjust_volume">音量</string>
     <string name="vertical_adjust_brightness">亮度</string>
 </resources>
