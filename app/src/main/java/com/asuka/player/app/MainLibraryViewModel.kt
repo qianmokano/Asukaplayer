@@ -25,6 +25,7 @@ internal data class MainLibraryViewModelDependencies(
     val loadRecentMediaIdsUseCase: LoadRecentMediaIdsUseCase,
     val resolveRecentMediaItemsUseCase: ResolveRecentMediaItemsUseCase,
     val observeMediaLibraryChangesUseCase: ObserveMediaLibraryChangesUseCase,
+    val observeMediaLibrarySyncFailuresUseCase: ObserveMediaLibrarySyncFailuresUseCase,
 )
 
 internal class MainLibraryViewModel(
@@ -58,6 +59,14 @@ internal class MainLibraryViewModel(
     val recentKnownVideos = catalog.recentKnownVideos
     val events = _events.asSharedFlow()
 
+    init {
+        viewModelScope.launch {
+            dependencies.observeMediaLibrarySyncFailuresUseCase().collect { failure ->
+                _events.tryEmit(MainLibraryEvent.ShowMessage(failure.toText()))
+            }
+        }
+    }
+
     fun setThemeConfig(value: ThemeConfig) {
         if (uiSettings.value.themeConfig == value) return
         viewModelScope.launch { uiSettingsRepository.setThemeConfig(value) }
@@ -86,6 +95,10 @@ internal class MainLibraryViewModel(
     @Suppress("UNUSED_PARAMETER")
     fun onPermissionResult(result: Map<String, Boolean>) {
         catalog.onPermissionResult()
+    }
+
+    fun refreshVideoAccessState() {
+        catalog.refreshVideoAccessState()
     }
 
     fun ensureFoldersLoaded() = catalog.ensureFoldersLoaded()

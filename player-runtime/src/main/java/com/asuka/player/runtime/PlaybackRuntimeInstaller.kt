@@ -6,7 +6,6 @@ import android.graphics.Bitmap
 import android.graphics.Bitmap.createScaledBitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.util.Log
 import android.util.LruCache
 import java.io.ByteArrayOutputStream
 import com.asuka.player.contract.PlaybackPreviewFrameProvider
@@ -16,21 +15,15 @@ import com.asuka.player.contract.PlaybackStore
 import com.asuka.player.contract.PlaybackUiPersistence
 import com.asuka.player.contract.QueueHistoryRepository
 import com.asuka.player.contract.QueueHistoryStore
-import com.asuka.player.data.InMemoryPlaybackStore
-import com.asuka.player.data.InMemoryQueueHistoryStore
 import com.asuka.player.data.PlaybackPersistenceStores
 import com.asuka.player.data.PlaybackPersistenceStoresFactory
 import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.asuka.player.platform.PlaybackDeviceControllerFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
@@ -41,11 +34,13 @@ class PlaybackRuntimeFeature(
     controllerConnectorFactory: PlaybackControllerConnectorFactory,
     val playbackPlatformBindings: PlaybackPlatformBindings,
     persistenceStoresFactory: suspend (Context) -> PlaybackPersistenceStores = PlaybackPersistenceStoresFactory::create,
+    private val nowMs: () -> Long = System::currentTimeMillis,
 ) {
     private val appContext = application.applicationContext
     private val persistenceResolver = PlaybackPersistenceResolver(
         context = appContext,
         createStores = persistenceStoresFactory,
+        nowMs = nowMs,
     )
 
     val playbackStore: PlaybackStore = DeferredPlaybackStore {
@@ -75,46 +70,6 @@ class PlaybackRuntimeFeature(
     }
 }
 
-
-private class PlaybackPersistenceResolver(
-    private val context: Context,
-    private val createStores: suspend (Context) -> PlaybackPersistenceStores,
-) {
-    private val lock = Mutex()
-    @Volatile
-    private var stores: PlaybackPersistenceStores? = null
-    private val _degraded = MutableStateFlow(false)
-    val degraded: StateFlow<Boolean> = _degraded.asStateFlow()
-
-    suspend fun resolve(): PlaybackPersistenceStores {
-        stores?.let { return it }
-        return lock.withLock {
-            stores ?: createOrFallback().also { stores = it }
-        }
-    }
-
-    private suspend fun createOrFallback(): PlaybackPersistenceStores {
-        return runCatching {
-            createStores(context)
-        }.getOrElse { error ->
-            Log.e(TAG, "Persistence resolution failed; degrading to in-memory stores", error)
-            fallbackStores()
-        }
-    }
-
-    private fun fallbackStores(): PlaybackPersistenceStores {
-        Log.w(TAG, "Falling back to in-memory persistence stores")
-        _degraded.value = true
-        return PlaybackPersistenceStores(
-            playbackStore = InMemoryPlaybackStore(),
-            queueHistoryStore = InMemoryQueueHistoryStore(),
-        )
-    }
-
-    companion object {
-        private const val TAG = "PersistenceResolver"
-    }
-}
 
 private class DeferredPlaybackStore(
     private val resolveStore: suspend () -> PlaybackStore,

@@ -111,6 +111,198 @@ class MainLibraryCatalogStoreTest {
     }
 
     @Test
+    fun onPermissionResult_reloadsLoadedFoldersWhenPartialAccessSelectionChanges() = runBlocking {
+        var selectedVersion = 1L
+        val fullSyncRequests = mutableListOf<Boolean>()
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = false,
+                    userSelectedPermissionGranted = true,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) {
+                fullSyncRequests += forceFullRescan
+            }
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                return MediaLibraryPage(
+                    items = listOf(folder(id = selectedVersion, name = "Selected $selectedVersion", videoCount = 1)),
+                    nextOffset = null,
+                    totalCount = 1,
+                )
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null, totalCount = 0)
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return emptyMap()
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadVideoPageUseCase = LoadVideoPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = {},
+        )
+
+        store.ensureFoldersLoaded()
+        waitForCondition { store.foldersState.value.items.map(LocalVideoFolder::id) == listOf(1L) }
+
+        selectedVersion = 2L
+        store.onPermissionResult()
+
+        waitForCondition {
+            store.foldersState.value.items.map(LocalVideoFolder::id) == listOf(2L) &&
+                fullSyncRequests.size == 2
+        }
+        assertEquals(listOf(true, true), fullSyncRequests)
+    }
+
+    @Test
+    fun refreshVideoAccessState_updatesPermissionSnapshotWithoutReloadingCatalogs() = runBlocking {
+        var granted = true
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = granted,
+                    userSelectedPermissionGranted = false,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                error("catalog should not reload on access refresh")
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                error("catalog should not reload on access refresh")
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return emptyMap()
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> = emptyList()
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadVideoPageUseCase = LoadVideoPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = {},
+        )
+
+        assertTrue(store.permissionGranted.value)
+        granted = false
+
+        store.refreshVideoAccessState()
+
+        waitForCondition {
+            !store.permissionGranted.value &&
+                !store.userSelectedPermissionGranted.value &&
+                !store.foldersState.value.hasLoadedOnce &&
+                store.foldersState.value.items.isEmpty()
+        }
+    }
+
+    @Test
+    fun refreshRecentMediaIds_keepsPreviousStateWhenHistoryReadFails() = runBlocking {
+        val knownVideo = video(id = 1L, folderId = 1L, title = "Known")
+        var failHistoryRead = false
+        val repository = object : MediaLibraryRepository {
+            override val changes: Flow<Unit> = emptyFlow()
+
+            override fun readVideoAccessState(): VideoAccessState {
+                return VideoAccessState(
+                    permissionGranted = true,
+                    userSelectedPermissionGranted = false,
+                )
+            }
+
+            override suspend fun syncIndex(forceFullRescan: Boolean) = Unit
+
+            override suspend fun loadFolderPage(request: MediaLibraryPageRequest): MediaLibraryPage<LocalVideoFolder> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null)
+            }
+
+            override suspend fun loadVideoPage(
+                request: MediaLibraryPageRequest,
+                folderId: Long?,
+            ): MediaLibraryPage<LocalVideoItem> {
+                return MediaLibraryPage(items = emptyList(), nextOffset = null)
+            }
+
+            override suspend fun resolveRecentMediaItems(mediaIds: List<String>): Map<String, LocalVideoItem> {
+                return mapOf(knownVideo.playbackMediaId to knownVideo)
+            }
+
+            override suspend fun warmupInitialThumbnails(videos: List<LocalVideoItem>, limit: Int) = Unit
+
+            override suspend fun loadRecentMediaIds(limit: Int): List<String> {
+                if (failHistoryRead) error("history unavailable")
+                return listOf(knownVideo.playbackMediaId)
+            }
+        }
+
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val store = MainLibraryCatalogStore(
+            resolveVideoAccessUseCase = ResolveVideoAccessUseCase(repository),
+            loadFolderPageUseCase = LoadFolderPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadVideoPageUseCase = LoadVideoPageUseCase(repository, minRefreshAnimMs = 0L),
+            loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(repository),
+            resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(repository),
+            observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(repository),
+            scope = scope,
+            publishMessage = {},
+        )
+
+        store.refreshRecentMediaIds()
+        waitForCondition {
+            store.recentMediaIds.value == listOf(knownVideo.playbackMediaId) &&
+                store.recentKnownVideos.value[knownVideo.playbackMediaId] == knownVideo
+        }
+
+        failHistoryRead = true
+        store.refreshRecentMediaIds()
+
+        Thread.sleep(50)
+        assertEquals(listOf(knownVideo.playbackMediaId), store.recentMediaIds.value)
+        assertEquals(knownVideo, store.recentKnownVideos.value[knownVideo.playbackMediaId])
+    }
+
+    @Test
     fun refreshFolders_publishesFolderCountFromIndex() = runBlocking {
         val messages = mutableListOf<MainLibraryText>()
         val repository = object : MediaLibraryRepository {

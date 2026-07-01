@@ -1,6 +1,7 @@
 package com.asuka.player.app
 
 import android.net.Uri
+import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,21 +31,21 @@ internal class MainLibraryCatalogStore(
         loadFolderPageUseCase = loadFolderPageUseCase,
         scope = scope,
         canReadLibrary = ::canReadLibrary,
-        handlePermissionDenied = ::syncVideoAccessState,
+        handlePermissionDenied = ::updateVideoAccessState,
         publishMessage = publishMessage,
     )
     private val allVideosSlice = MainLibraryAllVideosSlice(
         loadVideoPageUseCase = loadVideoPageUseCase,
         scope = scope,
         canReadLibrary = ::canReadLibrary,
-        handlePermissionDenied = ::syncVideoAccessState,
+        handlePermissionDenied = ::updateVideoAccessState,
         publishMessage = publishMessage,
     )
     private val currentFolderSlice = MainLibraryCurrentFolderSlice(
         loadVideoPageUseCase = loadVideoPageUseCase,
         scope = scope,
         canReadLibrary = ::canReadLibrary,
-        handlePermissionDenied = ::syncVideoAccessState,
+        handlePermissionDenied = ::updateVideoAccessState,
         publishMessage = publishMessage,
     )
     private val recentSlice = MainLibraryRecentSlice(
@@ -69,7 +70,30 @@ internal class MainLibraryCatalogStore(
     }
 
     fun onPermissionResult() {
-        syncVideoAccessState()
+        val lostAccess = updateVideoAccessState()
+        if (!lostAccess && canReadLibrary()) {
+            val reloadFolders = foldersSlice.state.value.hasLoadedOnce
+            val reloadAllVideos = allVideosSlice.state.value.hasLoadedOnce
+            val reloadFolderId = currentFolderSlice.currentFolderId.value
+                ?.takeIf { currentFolderSlice.state.value.hasLoadedOnce }
+            if (reloadFolders) {
+                foldersSlice.resetForAccessChange()
+                ensureFoldersLoaded()
+            }
+            if (reloadAllVideos) {
+                allVideosSlice.resetForAccessChange()
+                ensureAllVideosLoaded()
+            }
+            if (reloadFolderId != null) {
+                currentFolderSlice.resetForAccessChange()
+                refreshFolder(reloadFolderId)
+            }
+            recentSlice.refreshIfLoaded()
+        }
+    }
+
+    fun refreshVideoAccessState() {
+        updateVideoAccessState()
     }
 
     fun ensureFoldersLoaded() = foldersSlice.ensureLoaded()
@@ -98,7 +122,7 @@ internal class MainLibraryCatalogStore(
 
     fun validateNetworkStreamUrl(rawUrl: String): String? {
         val trimmed = rawUrl.trim()
-        val parsed = runCatching { Uri.parse(trimmed) }.getOrNull()
+        val parsed = runCatching { trimmed.toUri() }.getOrNull()
         if (trimmed.isBlank() || !parsed.isSupportedNetworkStreamUri()) {
             publishMessage(MainLibraryText.OpenNetworkStreamInvalid)
             return null
@@ -114,7 +138,7 @@ internal class MainLibraryCatalogStore(
         currentFolderSlice.refreshLoadedFromIndex()
     }
 
-    private fun syncVideoAccessState(): Boolean {
+    private fun updateVideoAccessState(): Boolean {
         val accessState = resolveVideoAccess()
         _permissionGranted.value = accessState.permissionGranted
         _userSelectedPermissionGranted.value = accessState.userSelectedPermissionGranted

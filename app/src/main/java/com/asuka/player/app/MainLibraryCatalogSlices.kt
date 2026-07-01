@@ -1,8 +1,6 @@
 package com.asuka.player.app
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,6 +13,7 @@ internal class MainLibraryFoldersSlice(
     private val handlePermissionDenied: () -> Boolean,
     private val publishMessage: (MainLibraryText) -> Unit,
 ) {
+    private val requestTracker = RequestTracker()
     private val _state = MutableStateFlow(MediaCatalogState<LocalVideoFolder>())
     val state: StateFlow<MediaCatalogState<LocalVideoFolder>> = _state.asStateFlow()
 
@@ -43,14 +42,20 @@ internal class MainLibraryFoldersSlice(
     }
 
     fun resetForPermissionLoss() {
+        requestTracker.invalidate()
         _state.value = MediaCatalogState(hasMore = false)
     }
 
-    private fun loadInitial() {
-        scope.launch {
-            val previous = state.value
-            _state.value = previous.beginLoad(offset = 0)
+    fun resetForAccessChange() {
+        requestTracker.invalidate()
+        _state.value = MediaCatalogState()
+    }
 
+    private fun loadInitial() {
+        val requestToken = requestTracker.next()
+        val previous = state.value
+        _state.value = previous.beginLoad(offset = 0)
+        scope.launch {
             when (
                 val cachedOutcome = loadFolderPageUseCase(
                     offset = 0,
@@ -59,11 +64,13 @@ internal class MainLibraryFoldersSlice(
                 )
             ) {
                 is MediaCatalogOutcome.Success -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     val hasCachedResults = cachedOutcome.page.items.isNotEmpty() ||
                         (cachedOutcome.page.totalCount ?: 0) > 0
                     if (hasCachedResults) {
                         _state.value = previous.applyPage(page = cachedOutcome.page, append = false)
                     }
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     load(
                         offset = 0,
                         syncIndex = true,
@@ -73,6 +80,7 @@ internal class MainLibraryFoldersSlice(
                 }
 
                 is MediaCatalogOutcome.Failure -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     handleFailure(cachedOutcome.reason, previous, 0)
                 }
             }
@@ -85,10 +93,10 @@ internal class MainLibraryFoldersSlice(
         publishFeedback: Boolean,
         forceFullRescan: Boolean? = null,
     ) {
+        val requestToken = requestTracker.next()
+        val previous = state.value
+        _state.value = previous.beginLoad(offset)
         scope.launch {
-            val previous = state.value
-            _state.value = previous.beginLoad(offset)
-
             when (
                 val outcome = loadFolderPageUseCase(
                     offset = offset,
@@ -98,7 +106,9 @@ internal class MainLibraryFoldersSlice(
                 )
             ) {
                 is MediaCatalogOutcome.Success -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     _state.value = previous.applyPage(page = outcome.page, append = offset > 0)
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     publishRefreshMessage(
                         hasLoadedOnce = previous.hasLoadedOnce,
                         offset = offset,
@@ -110,6 +120,7 @@ internal class MainLibraryFoldersSlice(
                 }
 
                 is MediaCatalogOutcome.Failure -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     handleFailure(outcome.reason, previous, offset)
                 }
             }
@@ -135,6 +146,7 @@ internal class MainLibraryAllVideosSlice(
     private val handlePermissionDenied: () -> Boolean,
     private val publishMessage: (MainLibraryText) -> Unit,
 ) {
+    private val requestTracker = RequestTracker()
     private val _state = MutableStateFlow(MediaCatalogState<LocalVideoItem>())
     val state: StateFlow<MediaCatalogState<LocalVideoItem>> = _state.asStateFlow()
 
@@ -163,7 +175,13 @@ internal class MainLibraryAllVideosSlice(
     }
 
     fun resetForPermissionLoss() {
+        requestTracker.invalidate()
         _state.value = MediaCatalogState(hasMore = false)
+    }
+
+    fun resetForAccessChange() {
+        requestTracker.invalidate()
+        _state.value = MediaCatalogState()
     }
 
     private fun load(
@@ -171,10 +189,10 @@ internal class MainLibraryAllVideosSlice(
         syncIndex: Boolean,
         publishFeedback: Boolean,
     ) {
+        val requestToken = requestTracker.next()
+        val previous = state.value
+        _state.value = previous.beginLoad(offset)
         scope.launch {
-            val previous = state.value
-            _state.value = previous.beginLoad(offset)
-
             when (
                 val outcome = loadVideoPageUseCase(
                     offset = offset,
@@ -184,7 +202,9 @@ internal class MainLibraryAllVideosSlice(
                 )
             ) {
                 is MediaCatalogOutcome.Success -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     _state.value = previous.applyPage(page = outcome.page, append = offset > 0)
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     warmupInitialThumbnails(scope, loadVideoPageUseCase, outcome.warmupVideos)
                     publishRefreshMessage(
                         hasLoadedOnce = previous.hasLoadedOnce,
@@ -197,6 +217,7 @@ internal class MainLibraryAllVideosSlice(
                 }
 
                 is MediaCatalogOutcome.Failure -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     handleFailure(outcome.reason, previous, offset)
                 }
             }
@@ -222,6 +243,7 @@ internal class MainLibraryCurrentFolderSlice(
     private val handlePermissionDenied: () -> Boolean,
     private val publishMessage: (MainLibraryText) -> Unit,
 ) {
+    private val requestTracker = RequestTracker()
     private val _currentFolderId = MutableStateFlow<Long?>(null)
     val currentFolderId: StateFlow<Long?> = _currentFolderId.asStateFlow()
 
@@ -273,8 +295,18 @@ internal class MainLibraryCurrentFolderSlice(
     }
 
     fun resetForPermissionLoss() {
+        requestTracker.invalidate()
+        resetCurrentFolder(MediaCatalogState(hasMore = false))
+    }
+
+    fun resetForAccessChange() {
+        requestTracker.invalidate()
+        resetCurrentFolder(MediaCatalogState())
+    }
+
+    private fun resetCurrentFolder(nextState: MediaCatalogState<LocalVideoItem>) {
         _currentFolderId.value = null
-        _state.value = MediaCatalogState(hasMore = false)
+        _state.value = nextState
     }
 
     private fun load(
@@ -283,10 +315,10 @@ internal class MainLibraryCurrentFolderSlice(
         syncIndex: Boolean,
         publishFeedback: Boolean,
     ) {
+        val requestToken = requestTracker.next()
+        val previous = state.value
+        _state.value = previous.beginLoad(offset)
         scope.launch {
-            val previous = state.value
-            _state.value = previous.beginLoad(offset)
-
             when (
                 val outcome = loadVideoPageUseCase(
                     offset = offset,
@@ -296,8 +328,10 @@ internal class MainLibraryCurrentFolderSlice(
                 )
             ) {
                 is MediaCatalogOutcome.Success -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     if (currentFolderId.value != folderId) return@launch
                     _state.value = previous.applyPage(page = outcome.page, append = offset > 0)
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     warmupInitialThumbnails(scope, loadVideoPageUseCase, outcome.warmupVideos)
                     publishRefreshMessage(
                         hasLoadedOnce = previous.hasLoadedOnce,
@@ -310,6 +344,7 @@ internal class MainLibraryCurrentFolderSlice(
                 }
 
                 is MediaCatalogOutcome.Failure -> {
+                    if (!requestTracker.isCurrent(requestToken)) return@launch
                     if (currentFolderId.value != folderId) return@launch
                     handleFailure(outcome.reason, previous, offset)
                 }
@@ -326,68 +361,5 @@ internal class MainLibraryCurrentFolderSlice(
             return
         }
         _state.value = currentState.applyFailure(offset = offset, message = failure.toText())
-    }
-}
-
-internal class MainLibraryRecentSlice(
-    private val loadRecentMediaIdsUseCase: LoadRecentMediaIdsUseCase,
-    private val resolveRecentMediaItemsUseCase: ResolveRecentMediaItemsUseCase,
-    private val scope: CoroutineScope,
-) {
-    private val _recentMediaIds = MutableStateFlow(emptyList<String>())
-    val recentMediaIds: StateFlow<List<String>> = _recentMediaIds.asStateFlow()
-
-    private val _recentKnownVideos = MutableStateFlow<Map<String, LocalVideoItem>>(emptyMap())
-    val recentKnownVideos: StateFlow<Map<String, LocalVideoItem>> = _recentKnownVideos.asStateFlow()
-
-    fun refresh() {
-        scope.launch(Dispatchers.IO) {
-            val ids = loadRecentMediaIdsUseCase(limit = 100)
-            val knownVideos = runCatching { resolveRecentMediaItemsUseCase(ids) }
-                .getOrDefault(emptyMap())
-            _recentMediaIds.value = ids
-            _recentKnownVideos.value = knownVideos
-        }
-    }
-
-    fun refreshIfLoaded() {
-        if (recentMediaIds.value.isNotEmpty()) {
-            refresh()
-        }
-    }
-
-    fun resetForPermissionLoss() {
-        _recentMediaIds.value = emptyList()
-        _recentKnownVideos.value = emptyMap()
-    }
-}
-
-private fun publishRefreshMessage(
-    hasLoadedOnce: Boolean,
-    offset: Int,
-    totalCount: Int?,
-    fallbackItemCount: Int,
-    publishFeedback: Boolean,
-    publishMessage: (MainLibraryText) -> Unit,
-) {
-    if (publishFeedback && offset == 0 && hasLoadedOnce) {
-        publishMessage(MainLibraryText.RefreshDone(totalCount ?: fallbackItemCount))
-    }
-}
-
-internal fun warmupInitialThumbnails(
-    scope: CoroutineScope,
-    loadVideoPageUseCase: LoadVideoPageUseCase,
-    videos: List<LocalVideoItem>,
-) {
-    if (videos.isEmpty()) return
-    scope.launch(Dispatchers.IO) {
-        try {
-            loadVideoPageUseCase.warmupInitialThumbnails(videos)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            // Warmup is best-effort and should never interfere with the page result.
-        }
     }
 }

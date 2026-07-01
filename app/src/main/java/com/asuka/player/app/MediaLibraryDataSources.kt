@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.asuka.player.contract.PlaybackStateRepository
 import com.asuka.player.contract.QueueHistoryRepository
 import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
@@ -12,6 +13,7 @@ import com.asuka.player.data.IndexedFolderSummaryRow
 import com.asuka.player.data.IndexedVideoEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 
 private const val MEDIA_STORE_ID_PREFIX = "media-store:"
@@ -22,6 +24,8 @@ internal interface VideoAccessDataSource {
 
 internal interface LocalVideoCatalogDataSource {
     val changes: Flow<Unit>
+    val syncFailures: Flow<MediaCatalogFailure>
+        get() = emptyFlow()
 
     suspend fun syncIndex(forceFullRescan: Boolean = false)
 
@@ -88,6 +92,7 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
     )
 
     override val changes: Flow<Unit> = indexingCoordinator.changes
+    override val syncFailures: Flow<MediaCatalogFailure> = indexingCoordinator.syncFailures
 
     override suspend fun syncIndex(forceFullRescan: Boolean) {
         indexingCoordinator.syncNow(forceFullRescan)
@@ -210,7 +215,7 @@ private fun IndexedFolderSummaryRow.toLocalFolder(): LocalVideoFolder {
 private fun IndexedVideoEntity.toLocalVideoItem(): LocalVideoItem {
     return LocalVideoItem(
         id = mediaStoreId,
-        uri = android.net.Uri.parse(uri),
+        uri = uri.toUri(),
         title = title,
         durationMs = durationMs,
         sizeBytes = sizeBytes,

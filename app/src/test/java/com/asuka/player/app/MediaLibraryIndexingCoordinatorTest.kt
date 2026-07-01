@@ -11,6 +11,13 @@ import com.asuka.player.data.IndexedVideoEntity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -21,6 +28,55 @@ import org.robolectric.shadows.ShadowContentResolver
 @Config(sdk = [34])
 @RunWith(RobolectricTestRunner::class)
 class MediaLibraryIndexingCoordinatorTest {
+
+    @Test
+    fun close_doesNotCancelCallerOwnedScope() {
+        val context = RuntimeEnvironment.getApplication()
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        val callerScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            scope = callerScope,
+        )
+
+        try {
+            coordinator.close()
+
+            assertTrue(callerScope.coroutineContext[Job]?.isActive == true)
+        } finally {
+            callerScope.cancel()
+        }
+    }
+
+    @Test
+    fun syncNow_emitsFailureWhenMediaStoreQueryThrows() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        registerMediaStoreProvider { _, _, _, _, _ ->
+            throw IllegalStateException("boom")
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+        )
+
+        val failure = CompletableDeferred<MediaCatalogFailure>()
+        val collectJob = launch {
+            coordinator.syncFailures.collect { value ->
+                failure.complete(value)
+            }
+        }
+
+        try {
+            runCatching { coordinator.syncNow(forceFullRescan = false) }
+            assertEquals(MediaCatalogFailure.ProviderUnavailable, failure.await())
+        } finally {
+            collectJob.cancel()
+            coordinator.close()
+        }
+    }
 
     @Test
     fun syncNow_afterInitialIndex_usesDateModifiedCutoffForIncrementalQuery() = runBlocking {

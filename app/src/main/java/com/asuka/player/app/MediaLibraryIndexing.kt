@@ -14,6 +14,7 @@ import com.asuka.player.data.IndexedVideoDao
 import com.asuka.player.data.IndexedVideoEntity
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -30,14 +31,17 @@ import kotlinx.coroutines.launch
 internal class MediaLibraryIndexingCoordinator(
     context: Context,
     private val database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    scope: CoroutineScope? = null,
     private val currentGenerationReader: () -> Long? = { context.applicationContext.readMediaStoreGeneration() },
 ) : AutoCloseable {
+    private val ownsScope = scope == null
+    private val scope: CoroutineScope = scope ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val appContext = context.applicationContext
     private val contentResolver = appContext.contentResolver
     private val dao: IndexedVideoDao = database.indexedVideoDao()
     private val syncMutex = Mutex()
     private val _changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val _syncFailures = MutableSharedFlow<MediaCatalogFailure>(extraBufferCapacity = 1)
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
             markObservedChange(emptyList(), requiresFullReconcile = true)
@@ -66,6 +70,7 @@ internal class MediaLibraryIndexingCoordinator(
     private var pendingRequiresFullReconcile = false
     private var closed = false
     val changes: Flow<Unit> = _changes.asSharedFlow()
+    val syncFailures: Flow<MediaCatalogFailure> = _syncFailures.asSharedFlow()
 
     fun prepareForQueries() {
         registerObserverIfNeeded()
@@ -73,8 +78,24 @@ internal class MediaLibraryIndexingCoordinator(
 
     suspend fun syncNow(forceFullRescan: Boolean) {
         registerObserverIfNeeded()
-        val changed = syncMutex.withLock { performSync(forceFullRescan = forceFullRescan) }
-        if (changed) _changes.tryEmit(Unit)
+        try {
+            val changed = syncMutex.withLock { performSync(forceFullRescan = forceFullRescan) }
+            if (changed) _changes.tryEmit(Unit)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: SecurityException) {
+            emitSyncFailure(MediaCatalogFailure.PermissionDenied)
+            throw error
+        } catch (error: IllegalArgumentException) {
+            emitSyncFailure(MediaCatalogFailure.ProviderUnavailable)
+            throw error
+        } catch (error: IllegalStateException) {
+            emitSyncFailure(MediaCatalogFailure.ProviderUnavailable)
+            throw error
+        } catch (error: Exception) {
+            emitSyncFailure(MediaCatalogFailure.Unknown)
+            throw error
+        }
     }
 
     internal fun recordObservedChangeForTest(uri: Uri) {
@@ -86,7 +107,9 @@ internal class MediaLibraryIndexingCoordinator(
         scheduledSyncJob?.cancel()
         scheduledSyncJob = null
         unregisterObserverIfNeeded()
-        scope.cancel()
+        if (ownsScope) {
+            scope.cancel()
+        }
         database.close()
     }
 
@@ -96,8 +119,18 @@ internal class MediaLibraryIndexingCoordinator(
         scheduledSyncJob?.cancel()
         scheduledSyncJob = scope.launch {
             delay(SYNC_DEBOUNCE_MS)
-            runCatching { syncNow(forceFullRescan = false) }
+            try {
+                syncNow(forceFullRescan = false)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                // Failure is surfaced via syncFailures; incremental sync keeps running.
+            }
         }
+    }
+
+    private fun emitSyncFailure(failure: MediaCatalogFailure) {
+        _syncFailures.tryEmit(failure)
     }
 
     private fun registerObserverIfNeeded() {

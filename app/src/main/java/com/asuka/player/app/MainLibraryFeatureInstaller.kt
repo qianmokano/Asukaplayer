@@ -43,6 +43,7 @@ internal class AppMainActivityDependencies(
                 loadRecentMediaIdsUseCase = LoadRecentMediaIdsUseCase(mediaLibraryRepository),
                 resolveRecentMediaItemsUseCase = ResolveRecentMediaItemsUseCase(mediaLibraryRepository),
                 observeMediaLibraryChangesUseCase = ObserveMediaLibraryChangesUseCase(mediaLibraryRepository),
+                observeMediaLibrarySyncFailuresUseCase = ObserveMediaLibrarySyncFailuresUseCase(mediaLibraryRepository),
             )
         }
     }

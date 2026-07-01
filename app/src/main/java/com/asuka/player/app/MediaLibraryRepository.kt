@@ -3,6 +3,7 @@ package com.asuka.player.app
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 private const val DEFAULT_FOLDER_PAGE_SIZE = 40
 private const val DEFAULT_VIDEO_PAGE_SIZE = 60
@@ -24,6 +25,8 @@ internal data class MediaLibraryPageRequest(
 
 internal interface MediaLibraryRepository {
     val changes: Flow<Unit>
+    val syncFailures: Flow<MediaCatalogFailure>
+        get() = emptyFlow()
 
     fun readVideoAccessState(): VideoAccessState
 
@@ -51,6 +54,7 @@ internal class AndroidMediaLibraryRepository(
     private val recentPlaybackDataSource: RecentPlaybackDataSource,
 ) : MediaLibraryRepository {
     override val changes: Flow<Unit> = localVideoCatalogDataSource.changes
+    override val syncFailures: Flow<MediaCatalogFailure> = localVideoCatalogDataSource.syncFailures
 
     override fun readVideoAccessState(): VideoAccessState {
         return videoAccessDataSource.readVideoAccessState()
@@ -210,6 +214,12 @@ internal class ObserveMediaLibraryChangesUseCase(
     private val mediaLibraryRepository: MediaLibraryRepository,
 ) {
     operator fun invoke(): Flow<Unit> = mediaLibraryRepository.changes
+}
+
+internal class ObserveMediaLibrarySyncFailuresUseCase(
+    private val mediaLibraryRepository: MediaLibraryRepository,
+) {
+    operator fun invoke(): Flow<MediaCatalogFailure> = mediaLibraryRepository.syncFailures
 }
 
 internal class LoadRecentMediaIdsUseCase(
