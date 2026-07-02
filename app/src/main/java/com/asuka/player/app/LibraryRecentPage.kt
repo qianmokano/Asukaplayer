@@ -35,11 +35,13 @@ internal fun RecentPageContent(
     val context = LocalContext.current
     val unavailableLabel = stringResource(id = R.string.recent_unknown_source)
     val listState = rememberLazyListState()
-    val descriptors = remember(recentMediaIds, knownVideos, unavailableLabel) {
+    val persistedContentUris = context.readPersistedContentUriStrings()
+    val descriptors = remember(recentMediaIds, knownVideos, unavailableLabel, persistedContentUris) {
         buildRecentPlaybackDescriptors(
             recentMediaIds = recentMediaIds,
             knownVideos = knownVideos,
             unavailableLabel = unavailableLabel,
+            isPersistedContentUri = { uri -> uri.toString() in persistedContentUris },
         )
     }
     val queueEntries = remember(descriptors) {
@@ -129,12 +131,14 @@ internal fun buildRecentPlaybackDescriptors(
     recentMediaIds: List<String>,
     knownVideos: Map<String, LocalVideoItem>,
     unavailableLabel: String,
+    isPersistedContentUri: (Uri) -> Boolean = { false },
 ): List<RecentPlaybackDescriptor> {
     return recentMediaIds.map { mediaId ->
         RecentPlaybackDescriptor.from(
             mediaId = mediaId,
             knownVideo = knownVideos[mediaId],
             unavailableLabel = unavailableLabel,
+            isPersistedContentUri = isPersistedContentUri,
         )
     }
 }
@@ -167,6 +171,7 @@ internal data class RecentPlaybackDescriptor(
             mediaId: String,
             knownVideo: LocalVideoItem?,
             unavailableLabel: String,
+            isPersistedContentUri: (Uri) -> Boolean = { false },
         ): RecentPlaybackDescriptor {
             if (knownVideo != null) {
                 return RecentPlaybackDescriptor(
@@ -187,14 +192,21 @@ internal data class RecentPlaybackDescriptor(
             val fallbackTitle = uri?.lastPathSegment?.takeIf { it.isNotBlank() }
                 ?: mediaId.substringAfterLast('/').ifBlank { unavailableLabel }
             val scheme = uri?.scheme?.lowercase()
+            val isPlayable = when (scheme) {
+                "content" -> isPersistedContentUri(uri)
+                "file", "http", "https", "rtsp" -> true
+                else -> false
+            }
             val description = when (scheme) {
-                "content", "file" -> uri.toString()
+                "content" -> if (isPlayable) uri.toString() else unavailableLabel
+                "file" -> uri.toString()
                 "http", "https", "rtsp" -> uri.toString()
                 null -> unavailableLabel
                 else -> uri.toString()
             }
             val thumbnailUri = when (scheme) {
-                "content", "file" -> uri
+                "content" -> uri.takeIf { isPlayable }
+                "file" -> uri
                 else -> null
             }
             return RecentPlaybackDescriptor(
@@ -209,8 +221,8 @@ internal data class RecentPlaybackDescriptor(
                 thumbnailId = null,
                 durationLabel = null,
                 progressFraction = null,
-                shouldResolveDisplayName = scheme == "content",
-                isPlayable = uri != null,
+                shouldResolveDisplayName = scheme == "content" && isPlayable,
+                isPlayable = isPlayable,
             )
         }
     }
@@ -235,4 +247,12 @@ private fun resolveDisplayName(context: android.content.Context, uri: Uri): Stri
         if (idx < 0) return null
         return it.getString(idx)
     }
+}
+
+private fun android.content.Context.readPersistedContentUriStrings(): Set<String> {
+    return contentResolver.persistedUriPermissions
+        .asSequence()
+        .filter { it.isReadPermission }
+        .map { it.uri.toString() }
+        .toSet()
 }

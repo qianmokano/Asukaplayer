@@ -280,10 +280,12 @@ internal class MediaLibraryIndexingCoordinator(
     private fun queryExistingIds(ids: Set<Long>): Set<Long> {
         if (ids.isEmpty()) return emptySet()
         val placeholders = ids.joinToString(",") { "?" }
+        val selection = listOfNotNull(baseSelection(), "${MediaStore.Video.Media._ID} IN ($placeholders)")
+            .joinToString(" AND ")
         val cursor = contentResolver.query(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
             arrayOf(MediaStore.Video.Media._ID),
-            "${MediaStore.Video.Media._ID} IN ($placeholders)",
+            selection,
             ids.map(Long::toString).toTypedArray(),
             null,
         ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
@@ -301,14 +303,8 @@ internal class MediaLibraryIndexingCoordinator(
         if (ids.isEmpty()) return emptyList()
         return ids.chunked(DELETE_CHUNK_SIZE).flatMap { chunk ->
             val placeholders = chunk.joinToString(",") { "?" }
-            val selection = buildString {
-                val base = baseSelection()
-                if (!base.isNullOrBlank()) {
-                    append(base)
-                    append(" AND ")
-                }
-                append("${MediaStore.Video.Media._ID} IN ($placeholders)")
-            }
+            val selection = listOfNotNull(baseSelection(), "${MediaStore.Video.Media._ID} IN ($placeholders)")
+                .joinToString(" AND ")
             val cursor = contentResolver.query(
                 MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                 mediaStoreProjection(),

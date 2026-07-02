@@ -1,5 +1,6 @@
 package com.asuka.player.platform
 
+import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.asuka.player.contract.PlaybackQueue
@@ -30,7 +31,13 @@ fun PlaybackQueue.toMediaItems(
 fun String.isTransientPlaybackMediaId(): Boolean = startsWith(TRANSIENT_MEDIA_ID_PREFIX)
 
 private fun com.asuka.player.contract.PlaybackQueueItem.mediaIdForPlayback(): String {
-    return if (readableInSession) mediaId else "$TRANSIENT_MEDIA_ID_PREFIX$mediaId"
+    return if (hasDurablePlaybackIdentity()) mediaId else "$TRANSIENT_MEDIA_ID_PREFIX$mediaId"
+}
+
+private fun com.asuka.player.contract.PlaybackQueueItem.hasDurablePlaybackIdentity(): Boolean {
+    if (!readableInSession) return false
+    val uriScheme = runCatching { Uri.parse(uri).scheme?.lowercase() }.getOrNull()
+    return uriScheme != "content" || persistable
 }
 
 private const val TRANSIENT_MEDIA_ID_PREFIX = "transient:"

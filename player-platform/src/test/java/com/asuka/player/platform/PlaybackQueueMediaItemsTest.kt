@@ -12,7 +12,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 class PlaybackQueueMediaItemsTest {
     @Test
-    fun toMediaItems_preservesStableMediaIdForSessionReadableItems() {
+    fun toMediaItems_marksTemporaryContentGrantItemsTransient() {
         val queue = PlaybackQueue(
             items = listOf(
                 PlaybackQueueItem(
@@ -28,7 +28,7 @@ class PlaybackQueueMediaItemsTest {
 
         val item = queue.toMediaItems().single()
 
-        assertEquals("content://videos/shared.mp4", item.mediaId)
+        assertEquals("transient:content://videos/shared.mp4", item.mediaId)
     }
 
     @Test
@@ -49,5 +49,45 @@ class PlaybackQueueMediaItemsTest {
         val item = queue.toMediaItems().single()
 
         assertEquals("transient:content://videos/shared.mp4", item.mediaId)
+    }
+
+    @Test
+    fun toMediaItems_preservesStableMediaIdForPersistableContentItems() {
+        val queue = PlaybackQueue(
+            items = listOf(
+                PlaybackQueueItem(
+                    mediaId = "content://videos/persisted.mp4",
+                    uri = "content://videos/persisted.mp4",
+                    title = "persisted.mp4",
+                    persistable = true,
+                    readableInSession = true,
+                ),
+            ),
+            startIndex = 0,
+        )
+
+        val item = queue.toMediaItems().single()
+
+        assertEquals("content://videos/persisted.mp4", item.mediaId)
+    }
+
+    @Test
+    fun toMediaItems_preservesStableMediaIdForNetworkItems() {
+        val queue = PlaybackQueue(
+            items = listOf(
+                PlaybackQueueItem(
+                    mediaId = "https://example.com/video.mp4",
+                    uri = "https://example.com/video.mp4",
+                    title = "video.mp4",
+                    persistable = false,
+                    readableInSession = true,
+                ),
+            ),
+            startIndex = 0,
+        )
+
+        val item = queue.toMediaItems().single()
+
+        assertEquals("https://example.com/video.mp4", item.mediaId)
     }
 }

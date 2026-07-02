@@ -228,6 +228,83 @@ class MediaLibraryIndexingCoordinatorTest {
     }
 
     @Test
+    fun syncNow_withObservedItemOutsideBaseSelection_removesStaleRow() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var metadataQueryCount = 0
+        registerMediaStoreProvider { _, projection, selection, _, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") != true -> {
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(42L))
+                    }
+                }
+
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") == true -> {
+                    assertTrue(
+                        selection?.contains(MediaStore.Video.Media.IS_PENDING) == true,
+                        "targeted existence query should apply the same visibility filter as page reads",
+                    )
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID))
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    metadataQueryCount += 1
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                        ),
+                    ).apply {
+                        if (metadataQueryCount == 1) {
+                            addRow(
+                                arrayOf<Any?>(
+                                    42L,
+                                    "video.mp4",
+                                    1_000L,
+                                    2_000L,
+                                    null,
+                                    "Movies",
+                                    7L,
+                                    10L,
+                                    100L,
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { null },
+        )
+
+        try {
+            coordinator.syncNow(forceFullRescan = false)
+            coordinator.recordObservedChangeForTest(
+                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 42L),
+            )
+            coordinator.syncNow(forceFullRescan = false)
+
+            assertEquals(0, database.indexedVideoDao().count(), "expected invisible observed item to be removed")
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
     @Config(sdk = [29])
     fun syncNow_withObservedAddedItem_upsertsMetadataWithoutDateModifiedAdvance() = runBlocking {
         val context = RuntimeEnvironment.getApplication()

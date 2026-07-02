@@ -48,12 +48,13 @@ class RecentPlaybackDescriptorTest {
     }
 
     @Test
-    fun from_contentUri_usesUriForThumbnailAndDisplayNameResolution() {
+    fun from_persistedContentUri_usesUriForThumbnailAndDisplayNameResolution() {
         val mediaId = "content://videos/43"
         val descriptor = RecentPlaybackDescriptor.from(
             mediaId = mediaId,
             knownVideo = null,
             unavailableLabel = "Unavailable",
+            isPersistedContentUri = { it.toString() == mediaId },
         )
 
         assertEquals(Uri.parse(mediaId), descriptor.uri)
@@ -67,6 +68,23 @@ class RecentPlaybackDescriptorTest {
             PlaybackQueueEntry(mediaId = mediaId, uri = mediaId),
             descriptor.targetEntry,
         )
+    }
+
+    @Test
+    fun from_unpersistedContentUri_marksItemUnavailable() {
+        val mediaId = "content://videos/43"
+        val descriptor = RecentPlaybackDescriptor.from(
+            mediaId = mediaId,
+            knownVideo = null,
+            unavailableLabel = "Unavailable",
+        )
+
+        assertEquals(Uri.parse(mediaId), descriptor.uri)
+        assertNull(descriptor.thumbnailUri)
+        assertNull(descriptor.thumbnailId)
+        assertFalse(descriptor.shouldResolveDisplayName)
+        assertFalse(descriptor.isPlayable)
+        assertEquals("Unavailable", descriptor.description)
     }
 
     @Test
