@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
 import com.asuka.player.data.IndexedVideoEntity
+import com.asuka.player.data.MediaLibrarySyncStateEntity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -480,6 +481,9 @@ class MediaLibraryIndexingCoordinatorTest {
         database.indexedVideoDao().upsertAll(
             listOf(indexedVideoEntity(mediaStoreId = 42L, generationModified = 10L)),
         )
+        database.mediaLibrarySyncStateDao().upsert(
+            MediaLibrarySyncStateEntity(lastReconciledGeneration = 10L),
+        )
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
@@ -569,6 +573,210 @@ class MediaLibraryIndexingCoordinatorTest {
             val rows = database.indexedVideoDao().findByIds(listOf(42L, 43L))
             assertEquals(setOf(43L), rows.map { it.mediaStoreId }.toSet())
             assertEquals(1, fullIdScanCount, "expected one full-id reconciliation to detect deletion")
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
+    fun syncNow_doesNotRepeatFullReconcileAfterAdvancingGlobalGeneration() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var fullIdScanCount = 0
+        registerMediaStoreProvider { _, projection, selection, _, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") != true -> {
+                    fullIdScanCount += 1
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(42L))
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true ->
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                            MediaStore.MediaColumns.GENERATION_ADDED,
+                            MediaStore.MediaColumns.GENERATION_MODIFIED,
+                        ),
+                    )
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        database.indexedVideoDao().upsertAll(
+            listOf(indexedVideoEntity(mediaStoreId = 42L, generationModified = 10L)),
+        )
+        database.mediaLibrarySyncStateDao().upsert(
+            MediaLibrarySyncStateEntity(lastReconciledGeneration = 10L),
+        )
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { 11L },
+        )
+
+        try {
+            coordinator.syncNow(forceFullRescan = false)
+            coordinator.syncNow(forceFullRescan = false)
+
+            assertEquals(1, fullIdScanCount)
+            assertEquals(11L, database.mediaLibrarySyncStateDao().state()?.lastReconciledGeneration)
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
+    fun syncNow_reconcilesWhenMediaStoreVersionChangesAfterGenerationReset() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        var fullIdScanCount = 0
+        var fullMetadataScanCount = 0
+        registerMediaStoreProvider { _, projection, selection, _, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") != true -> {
+                    fullIdScanCount += 1
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        addRow(arrayOf(42L))
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    fullMetadataScanCount += 1
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                            MediaStore.MediaColumns.GENERATION_ADDED,
+                            MediaStore.MediaColumns.GENERATION_MODIFIED,
+                        ),
+                    ).apply {
+                        addRow(
+                            arrayOf<Any?>(
+                                42L,
+                                "rebuilt.mp4",
+                                2_000L,
+                                3_000L,
+                                null,
+                                "Movies",
+                                7L,
+                                11L,
+                                101L,
+                                1L,
+                                1L,
+                            ),
+                        )
+                    }
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        database.indexedVideoDao().upsertAll(
+            listOf(indexedVideoEntity(mediaStoreId = 42L, generationModified = 100L)),
+        )
+        database.mediaLibrarySyncStateDao().upsert(
+            MediaLibrarySyncStateEntity(
+                lastReconciledGeneration = 100L,
+                mediaStoreVersion = "before-reset",
+            ),
+        )
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { 1L },
+            currentMediaStoreVersionReader = { "after-reset" },
+        )
+
+        try {
+            coordinator.syncNow(forceFullRescan = false)
+
+            assertEquals(1, fullMetadataScanCount)
+            assertEquals(0, fullIdScanCount)
+            assertEquals(
+                MediaLibrarySyncStateEntity(
+                    lastReconciledGeneration = 1L,
+                    mediaStoreVersion = "after-reset",
+                ),
+                database.mediaLibrarySyncStateDao().state(),
+            )
+            assertEquals("rebuilt.mp4", database.indexedVideoDao().findByIds(listOf(42L)).single().title)
+        } finally {
+            coordinator.close()
+        }
+    }
+
+    @Test
+    fun syncNow_chunksObservedIdLookupToProviderSafeSizes() = runBlocking {
+        val context = RuntimeEnvironment.getApplication()
+        val observedLookupSizes = mutableListOf<Int>()
+        registerMediaStoreProvider { _, projection, selection, selectionArgs, _ ->
+            when {
+                projection?.contentEquals(arrayOf(MediaStore.Video.Media._ID)) == true && selection?.contains("IN") == true -> {
+                    observedLookupSizes += selectionArgs.orEmpty().size
+                    MatrixCursor(arrayOf(MediaStore.Video.Media._ID)).apply {
+                        selectionArgs.orEmpty().forEach { id -> addRow(arrayOf(id.toLong())) }
+                    }
+                }
+
+                projection?.contains(MediaStore.Video.Media.DATE_MODIFIED) == true -> {
+                    MatrixCursor(
+                        arrayOf(
+                            MediaStore.Video.Media._ID,
+                            MediaStore.Video.Media.DISPLAY_NAME,
+                            MediaStore.Video.Media.DURATION,
+                            MediaStore.Video.Media.SIZE,
+                            MediaStore.Video.Media.DATA,
+                            MediaStore.Video.Media.BUCKET_DISPLAY_NAME,
+                            MediaStore.Video.Media.BUCKET_ID,
+                            MediaStore.Video.Media.DATE_ADDED,
+                            MediaStore.Video.Media.DATE_MODIFIED,
+                        ),
+                    )
+                }
+
+                else -> emptyCursor()
+            }
+        }
+
+        val database = AsukaMediaLibraryIndexDatabase.inMemory(context)
+        val coordinator = MediaLibraryIndexingCoordinator(
+            context = context,
+            database = database,
+            currentGenerationReader = { null },
+        )
+
+        try {
+            (1L..901L).forEach { mediaStoreId ->
+                coordinator.recordObservedChangeForTest(
+                    android.content.ContentUris.withAppendedId(
+                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                        mediaStoreId,
+                    ),
+                )
+            }
+
+            coordinator.syncNow(forceFullRescan = false)
+
+            assertEquals(listOf(1, 900), observedLookupSizes.sorted())
         } finally {
             coordinator.close()
         }

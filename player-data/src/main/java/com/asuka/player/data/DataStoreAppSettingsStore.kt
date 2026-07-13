@@ -79,7 +79,9 @@ class DataStoreAppSettingsStore(
             return legacyStore.loadSnapshot()
         }
 
-        override suspend fun cleanUp() = Unit
+        override suspend fun cleanUp() {
+            legacyStore.clearLegacyData()
+        }
     }
 
     private object AppSettingsSnapshotSerializer : Serializer<AppSettingsSnapshot> {

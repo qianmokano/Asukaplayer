@@ -13,12 +13,15 @@ import com.asuka.player.platform.PlaybackControllerConnector
 import com.asuka.player.platform.PlaybackControllerConnectorFactory
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -163,6 +166,48 @@ class PlaybackRuntimeFeatureTest {
         } finally {
             scope.cancel()
         }
+    }
+
+    @Test
+    fun persistenceRecovery_waitsForInFlightFallbackWriteBeforeMigrating() = runBlocking {
+        val application = RuntimeEnvironment.getApplication()
+        var attempts = 0
+        var nowMs = 0L
+        val recoveredPlaybackStore = FakePlaybackStore()
+        val resolver = PlaybackPersistenceResolver(
+            context = application,
+            createStores = { _ ->
+                attempts += 1
+                if (attempts == 1) error("boom")
+                PlaybackPersistenceStores(
+                    playbackStore = recoveredPlaybackStore,
+                    queueHistoryStore = FakeQueueHistoryStore(),
+                )
+            },
+            nowMs = { nowMs },
+        )
+        resolver.resolve()
+        val writeStarted = CompletableDeferred<Unit>()
+        val releaseWrite = CompletableDeferred<Unit>()
+
+        val fallbackWrite = async {
+            resolver.withPlaybackStore { store ->
+                writeStarted.complete(Unit)
+                releaseWrite.await()
+                store.savePosition("media://one", 123L)
+            }
+        }
+        writeStarted.await()
+        nowMs = 6_000L
+        val recovery = async { resolver.resolve() }
+
+        assertNull(withTimeoutOrNull(50L) { recovery.await() })
+
+        releaseWrite.complete(Unit)
+        fallbackWrite.await()
+        recovery.await()
+
+        assertEquals(123L, recoveredPlaybackStore.loadPosition("media://one"))
     }
 
     private fun createFeature(

@@ -28,34 +28,43 @@ internal class PlaybackPersistenceResolver(
     val degraded: StateFlow<Boolean> = _degraded.asStateFlow()
 
     suspend fun resolve(): PlaybackPersistenceStores {
+        return lock.withLock { resolveLocked() }
+    }
+
+    suspend fun <T> withPlaybackStore(block: suspend (PlaybackStore) -> T): T {
+        return lock.withLock { block(resolveLocked().playbackStore) }
+    }
+
+    suspend fun <T> withQueueHistoryStore(block: suspend (QueueHistoryStore) -> T): T {
+        return lock.withLock { block(resolveLocked().queueHistoryStore) }
+    }
+
+    private suspend fun resolveLocked(): PlaybackPersistenceStores {
         stores?.let { return it }
-        return lock.withLock {
-            stores?.let { return it }
-            fallbackState?.let { fallback ->
-                if (shouldRetryRecovery()) {
-                    lastRecoveryAttemptAtMs = nowMs()
-                    createStoresSafely("Persistence recovery failed; keeping in-memory stores")?.let { recovered ->
-                        if (migrateFallbackStateSafely(fallback, recovered)) {
-                            stores = recovered
-                            fallbackState = null
-                            _degraded.value = false
-                            return recovered
-                        }
+        fallbackState?.let { fallback ->
+            if (shouldRetryRecovery()) {
+                lastRecoveryAttemptAtMs = nowMs()
+                createStoresSafely("Persistence recovery failed; keeping in-memory stores")?.let { recovered ->
+                    if (migrateFallbackStateSafely(fallback, recovered)) {
+                        stores = recovered
+                        fallbackState = null
+                        _degraded.value = false
+                        return recovered
                     }
                 }
-                return fallback.stores
             }
-            createStoresSafely("Persistence resolution failed; degrading to in-memory stores")?.let { resolved ->
-                stores = resolved
-                _degraded.value = false
-                return resolved
-            }
-            val fallbackStores = createFallbackStores()
-            fallbackState = FallbackState(fallbackStores)
-            stores = null
-            lastRecoveryAttemptAtMs = nowMs()
-            return fallbackStores
+            return fallback.stores
         }
+        createStoresSafely("Persistence resolution failed; degrading to in-memory stores")?.let { resolved ->
+            stores = resolved
+            _degraded.value = false
+            return resolved
+        }
+        val fallbackStores = createFallbackStores()
+        fallbackState = FallbackState(fallbackStores)
+        stores = null
+        lastRecoveryAttemptAtMs = nowMs()
+        return fallbackStores
     }
 
     private fun shouldRetryRecovery(): Boolean {

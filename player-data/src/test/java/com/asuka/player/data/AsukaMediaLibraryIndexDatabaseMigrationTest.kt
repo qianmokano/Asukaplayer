@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 class AsukaMediaLibraryIndexDatabaseMigrationTest {
     @Test
-    fun migrate1To2_preservesRowsAndBackfillsGenerationColumns() {
+    fun migrate1To3_preservesRowsAndCreatesSyncStateTable() {
         val context = RuntimeEnvironment.getApplication()
         context.deleteDatabase(TEST_DB)
         val helper = FrameworkSQLiteOpenHelperFactory().create(
@@ -34,12 +34,17 @@ class AsukaMediaLibraryIndexDatabaseMigrationTest {
             val db = helper.writableDatabase
             insertVersion1Row(db)
             AsukaMediaLibraryIndexDatabase.MIGRATION_1_2.migrate(db)
+            AsukaMediaLibraryIndexDatabase.MIGRATION_2_3.migrate(db)
             db.query("SELECT mediaStoreId, generationAdded, generationModified FROM media_library_video")
                 .use { cursor ->
                     assertEquals(true, cursor.moveToFirst())
                     assertEquals(42L, cursor.getLong(0))
                     assertEquals(0L, cursor.getLong(1))
                     assertEquals(0L, cursor.getLong(2))
+                }
+            db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'media_library_sync_state'")
+                .use { cursor ->
+                    assertEquals(true, cursor.moveToFirst())
                 }
         } finally {
             helper.close()

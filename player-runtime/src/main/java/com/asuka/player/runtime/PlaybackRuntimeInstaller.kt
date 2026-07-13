@@ -43,12 +43,8 @@ class PlaybackRuntimeFeature(
         nowMs = nowMs,
     )
 
-    val playbackStore: PlaybackStore = DeferredPlaybackStore {
-        persistenceResolver.resolve().playbackStore
-    }
-    val queueHistoryStore: QueueHistoryStore = DeferredQueueHistoryStore {
-        persistenceResolver.resolve().queueHistoryStore
-    }
+    val playbackStore: PlaybackStore = DeferredPlaybackStore(persistenceResolver)
+    val queueHistoryStore: QueueHistoryStore = DeferredQueueHistoryStore(persistenceResolver)
     val queueHistoryRepository: QueueHistoryRepository = QueueHistoryRepository(queueHistoryStore)
     val playbackStateRepository: PlaybackStateRepository = PlaybackStateRepository(playbackStore)
     val playbackSessionPlanner: PlaybackSessionPlanner = PlaybackSessionPlanner(playbackStateRepository)
@@ -72,49 +68,56 @@ class PlaybackRuntimeFeature(
 
 
 private class DeferredPlaybackStore(
-    private val resolveStore: suspend () -> PlaybackStore,
+    private val persistenceResolver: PlaybackPersistenceResolver,
 ) : PlaybackStore {
-    override suspend fun recentMediaIds(limit: Int): List<String> = resolveStore().recentMediaIds(limit)
+    override suspend fun recentMediaIds(limit: Int): List<String> =
+        persistenceResolver.withPlaybackStore { it.recentMediaIds(limit) }
 
-    override suspend fun loadPosition(mediaId: String): Long? = resolveStore().loadPosition(mediaId)
+    override suspend fun loadPosition(mediaId: String): Long? =
+        persistenceResolver.withPlaybackStore { it.loadPosition(mediaId) }
 
     override suspend fun savePosition(mediaId: String, positionMs: Long) {
-        resolveStore().savePosition(mediaId, positionMs)
+        persistenceResolver.withPlaybackStore { it.savePosition(mediaId, positionMs) }
     }
 
-    override suspend fun loadPlaybackSpeed(mediaId: String): Float? = resolveStore().loadPlaybackSpeed(mediaId)
+    override suspend fun loadPlaybackSpeed(mediaId: String): Float? =
+        persistenceResolver.withPlaybackStore { it.loadPlaybackSpeed(mediaId) }
 
     override suspend fun savePlaybackSpeed(mediaId: String, speed: Float) {
-        resolveStore().savePlaybackSpeed(mediaId, speed)
+        persistenceResolver.withPlaybackStore { it.savePlaybackSpeed(mediaId, speed) }
     }
 
-    override suspend fun loadAudioTrackId(mediaId: String): String? = resolveStore().loadAudioTrackId(mediaId)
+    override suspend fun loadAudioTrackId(mediaId: String): String? =
+        persistenceResolver.withPlaybackStore { it.loadAudioTrackId(mediaId) }
 
     override suspend fun saveAudioTrackId(mediaId: String, trackId: String) {
-        resolveStore().saveAudioTrackId(mediaId, trackId)
+        persistenceResolver.withPlaybackStore { it.saveAudioTrackId(mediaId, trackId) }
     }
 
-    override suspend fun loadSubtitleTrackId(mediaId: String): String? = resolveStore().loadSubtitleTrackId(mediaId)
+    override suspend fun loadSubtitleTrackId(mediaId: String): String? =
+        persistenceResolver.withPlaybackStore { it.loadSubtitleTrackId(mediaId) }
 
     override suspend fun saveSubtitleTrackId(mediaId: String, trackId: String) {
-        resolveStore().saveSubtitleTrackId(mediaId, trackId)
+        persistenceResolver.withPlaybackStore { it.saveSubtitleTrackId(mediaId, trackId) }
     }
 
-    override suspend fun loadZoom(mediaId: String): Float? = resolveStore().loadZoom(mediaId)
+    override suspend fun loadZoom(mediaId: String): Float? =
+        persistenceResolver.withPlaybackStore { it.loadZoom(mediaId) }
 
     override suspend fun saveZoom(mediaId: String, zoom: Float) {
-        resolveStore().saveZoom(mediaId, zoom)
+        persistenceResolver.withPlaybackStore { it.saveZoom(mediaId, zoom) }
     }
 }
 
 private class DeferredQueueHistoryStore(
-    private val resolveStore: suspend () -> QueueHistoryStore,
+    private val persistenceResolver: PlaybackPersistenceResolver,
 ) : QueueHistoryStore {
     override suspend fun push(mediaId: String) {
-        resolveStore().push(mediaId)
+        persistenceResolver.withQueueHistoryStore { it.push(mediaId) }
     }
 
-    override suspend fun items(): List<String> = resolveStore().items()
+    override suspend fun items(): List<String> =
+        persistenceResolver.withQueueHistoryStore { it.items() }
 }
 
 private class MediaMetadataPreviewFrameProvider(

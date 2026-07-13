@@ -3,6 +3,7 @@ package com.asuka.player.data
 import android.content.Context
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -68,7 +69,8 @@ class DataStoreAppSettingsStoreTest {
         val context = RuntimeEnvironment.getApplication()
         clearPersistence(context)
 
-        SharedPreferencesAppSettingsStore(context).saveSnapshot(
+        val legacyStore = SharedPreferencesAppSettingsStore(context)
+        legacyStore.saveSnapshot(
             AppSettingsSnapshot(
                 uiSettings = UiSettingsRecord(
                     themeMode = "Custom",
@@ -97,6 +99,7 @@ class DataStoreAppSettingsStoreTest {
         assertEquals(1.5f, migrated.playerSettings.defaultPlaybackSpeed)
         assertEquals(false, migrated.playbackBehavior.keepConnectionInBackground)
         assertEquals(0.33f, migrated.playbackBehavior.rememberedBrightness)
+        assertFalse(legacyStore.hasLegacyData())
     }
 
     private fun dataStore(

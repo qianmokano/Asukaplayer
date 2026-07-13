@@ -1,5 +1,7 @@
 package com.asuka.player.app
 
+import android.content.Context
+import android.os.Build
 import android.provider.MediaStore
 
 internal data class GenerationBaseline(
@@ -57,3 +59,17 @@ private fun StringBuilder.appendBaseSelection(base: String?) {
         append(" AND ")
     }
 }
+
+internal fun Context.readMediaStoreGeneration(): Long? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        runCatching { MediaStore.getGeneration(this, MediaStore.VOLUME_EXTERNAL_PRIMARY) }.getOrNull()
+    } else {
+        null
+    }
+
+internal fun Context.readMediaStoreVersion(): String? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        runCatching { MediaStore.getVersion(this, MediaStore.VOLUME_EXTERNAL_PRIMARY) }.getOrNull()
+    } else {
+        null
+    }

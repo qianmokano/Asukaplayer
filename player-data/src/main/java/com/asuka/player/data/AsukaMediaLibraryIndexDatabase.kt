@@ -38,6 +38,14 @@ data class IndexedVideoEntity(
     val generationModified: Long = 0L,
 )
 
+@Entity(tableName = "media_library_sync_state")
+data class MediaLibrarySyncStateEntity(
+    @PrimaryKey
+    val id: Int = 0,
+    val lastReconciledGeneration: Long,
+    val mediaStoreVersion: String? = null,
+)
+
 data class IndexedFolderSummaryRow(
     val folderId: Long,
     val folderName: String,
@@ -119,13 +127,26 @@ interface IndexedVideoDao {
     fun findByIds(ids: List<Long>): List<IndexedVideoEntity>
 }
 
+@Dao
+interface MediaLibrarySyncStateDao {
+    @Query("SELECT * FROM media_library_sync_state WHERE id = 0")
+    fun state(): MediaLibrarySyncStateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsert(entity: MediaLibrarySyncStateEntity)
+}
+
 @Database(
-    entities = [IndexedVideoEntity::class],
-    version = 2,
+    entities = [
+        IndexedVideoEntity::class,
+        MediaLibrarySyncStateEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 abstract class AsukaMediaLibraryIndexDatabase : RoomDatabase() {
     abstract fun indexedVideoDao(): IndexedVideoDao
+    abstract fun mediaLibrarySyncStateDao(): MediaLibrarySyncStateDao
 
     companion object {
         const val DB_NAME = "asuka_media_library_index.db"
@@ -135,7 +156,7 @@ abstract class AsukaMediaLibraryIndexDatabase : RoomDatabase() {
                 context,
                 AsukaMediaLibraryIndexDatabase::class.java,
                 DB_NAME,
-            ).addMigrations(MIGRATION_1_2)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
         }
 
@@ -151,6 +172,21 @@ abstract class AsukaMediaLibraryIndexDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE media_library_video ADD COLUMN generationAdded INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE media_library_video ADD COLUMN generationModified INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS media_library_sync_state (
+                        id INTEGER NOT NULL,
+                        lastReconciledGeneration INTEGER NOT NULL,
+                        mediaStoreVersion TEXT,
+                        PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
             }
         }
     }

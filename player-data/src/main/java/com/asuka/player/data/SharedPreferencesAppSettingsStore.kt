@@ -123,6 +123,15 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         }
     }
 
+    suspend fun clearLegacyData() {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                prefs.edit().clear().commit()
+                _snapshots.value = AppSettingsSnapshot()
+            }
+        }
+    }
+
     private fun loadCustomThemes(): List<CustomThemeRecord> {
         val raw = prefs.getString(Keys.THEME_CUSTOM_THEMES_JSON, null) ?: return emptyList()
         return runCatching {

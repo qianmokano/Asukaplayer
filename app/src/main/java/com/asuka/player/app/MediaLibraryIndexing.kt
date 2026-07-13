@@ -12,6 +12,7 @@ import com.asuka.player.R
 import com.asuka.player.data.AsukaMediaLibraryIndexDatabase
 import com.asuka.player.data.IndexedVideoDao
 import com.asuka.player.data.IndexedVideoEntity
+import com.asuka.player.data.MediaLibrarySyncStateEntity
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -33,12 +34,14 @@ internal class MediaLibraryIndexingCoordinator(
     private val database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
     scope: CoroutineScope? = null,
     private val currentGenerationReader: () -> Long? = { context.applicationContext.readMediaStoreGeneration() },
+    private val currentMediaStoreVersionReader: () -> String? = { context.applicationContext.readMediaStoreVersion() },
 ) : AutoCloseable {
     private val ownsScope = scope == null
     private val scope: CoroutineScope = scope ?: CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val appContext = context.applicationContext
     private val contentResolver = appContext.contentResolver
     private val dao: IndexedVideoDao = database.indexedVideoDao()
+    private val syncStateDao = database.mediaLibrarySyncStateDao()
     private val syncMutex = Mutex()
     private val _changes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val _syncFailures = MutableSharedFlow<MediaCatalogFailure>(extraBufferCapacity = 1)
@@ -47,17 +50,14 @@ internal class MediaLibraryIndexingCoordinator(
             markObservedChange(emptyList(), requiresFullReconcile = true)
             requestIncrementalSync()
         }
-
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             markObservedChange(listOfNotNull(uri), requiresFullReconcile = uri == null)
             requestIncrementalSync()
         }
-
         override fun onChange(selfChange: Boolean, uri: Uri?, flags: Int) {
             markObservedChange(listOfNotNull(uri), requiresFullReconcile = uri == null)
             requestIncrementalSync()
         }
-
         override fun onChange(selfChange: Boolean, uris: MutableCollection<Uri>, flags: Int) {
             markObservedChange(uris, requiresFullReconcile = uris.isEmpty())
             requestIncrementalSync()
@@ -71,7 +71,6 @@ internal class MediaLibraryIndexingCoordinator(
     private var closed = false
     val changes: Flow<Unit> = _changes.asSharedFlow()
     val syncFailures: Flow<MediaCatalogFailure> = _syncFailures.asSharedFlow()
-
     fun prepareForQueries() {
         registerObserverIfNeeded()
     }
@@ -149,9 +148,14 @@ internal class MediaLibraryIndexingCoordinator(
     ): Boolean {
         return withContext(Dispatchers.IO) {
             val (observedIds, requiresFullReconcile) = consumeObservedChanges()
-            val shouldForce = forceFullRescan || (observedIds.isEmpty() && !requiresFullReconcile && dao.count() == 0)
             val currentGeneration = currentGenerationReader()
+            val currentMediaStoreVersion = currentMediaStoreVersionReader()
             val supportsGenerationTracking = currentGeneration != null
+            val lastSyncState = syncStateDao.state()
+            val mediaStoreVersionChanged = currentMediaStoreVersion != null && (lastSyncState == null || currentMediaStoreVersion != lastSyncState.mediaStoreVersion)
+            val shouldForce = forceFullRescan ||
+                mediaStoreVersionChanged ||
+                (observedIds.isEmpty() && !requiresFullReconcile && dao.count() == 0)
             val generationBaseline = if (shouldForce || !supportsGenerationTracking) {
                 null
             } else {
@@ -188,12 +192,10 @@ internal class MediaLibraryIndexingCoordinator(
                     }
                 }
             }
-
             val shouldReconcileAllIds = shouldForce ||
                 requiresFullReconcile ||
                 (currentGeneration != null &&
-                    generationBaseline != null &&
-                    currentGeneration > maxOf(generationBaseline.addedAfterExclusive, generationBaseline.modifiedAfterExclusive))
+                    (lastSyncState == null || currentGeneration > lastSyncState.lastReconciledGeneration))
             if (shouldReconcileAllIds) {
                 val existingIds = dao.allIds()
                 val currentIds = if (shouldForce) changedVideos.map(IndexedVideoEntity::mediaStoreId).toSet() else queryAllCurrentIds()
@@ -212,6 +214,16 @@ internal class MediaLibraryIndexingCoordinator(
                 if (chunk.isNotEmpty()) {
                     dao.deleteByIds(chunk)
                 }
+            }
+            if (shouldReconcileAllIds && (currentGeneration != null || currentMediaStoreVersion != null)) {
+                syncStateDao.upsert(
+                    MediaLibrarySyncStateEntity(
+                        lastReconciledGeneration = currentGeneration
+                            ?: lastSyncState?.lastReconciledGeneration
+                            ?: 0L,
+                        mediaStoreVersion = currentMediaStoreVersion,
+                    ),
+                )
             }
             hadUpserts || removedIds.isNotEmpty()
         }
@@ -279,21 +291,23 @@ internal class MediaLibraryIndexingCoordinator(
 
     private fun queryExistingIds(ids: Set<Long>): Set<Long> {
         if (ids.isEmpty()) return emptySet()
-        val placeholders = ids.joinToString(",") { "?" }
-        val selection = listOfNotNull(baseSelection(), "${MediaStore.Video.Media._ID} IN ($placeholders)")
-            .joinToString(" AND ")
-        val cursor = contentResolver.query(
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.Video.Media._ID),
-            selection,
-            ids.map(Long::toString).toTypedArray(),
-            null,
-        ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
-        return cursor.use {
-            val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
-            buildSet {
-                while (cursor.moveToNext()) {
-                    add(cursor.getLong(idIdx))
+        return ids.chunked(DELETE_CHUNK_SIZE).flatMapTo(mutableSetOf()) { chunk ->
+            val placeholders = chunk.joinToString(",") { "?" }
+            val selection = listOfNotNull(baseSelection(), "${MediaStore.Video.Media._ID} IN ($placeholders)")
+                .joinToString(" AND ")
+            val cursor = contentResolver.query(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Video.Media._ID),
+                selection,
+                chunk.map(Long::toString).toTypedArray(),
+                null,
+            ) ?: throw IllegalStateException("MediaStore query returned a null cursor.")
+            cursor.use {
+                val idIdx = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID)
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(cursor.getLong(idIdx))
+                    }
                 }
             }
         }
@@ -414,12 +428,3 @@ internal class MediaLibraryIndexingCoordinator(
         private const val DELETE_CHUNK_SIZE = 900
     }
 }
-
-private fun Context.readMediaStoreGeneration(): Long? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        runCatching {
-            MediaStore.getGeneration(this, MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        }.getOrNull()
-    } else {
-        null
-    }
