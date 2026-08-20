@@ -21,6 +21,7 @@ class PlaybackStateUiPersistence(
     private val scope: CoroutineScope,
 ) : PlaybackUiPersistence {
     private val brightnessWriteMutex = Mutex()
+    private val volumeWriteMutex = Mutex()
 
     override suspend fun readZoom(mediaId: String): Float? {
         if (mediaId.isTransientPlaybackMediaId()) return null
@@ -38,6 +39,16 @@ class PlaybackStateUiPersistence(
         scope.launch(Dispatchers.IO) {
             brightnessWriteMutex.withLock {
                 playbackBehaviorRepository.setRememberedBrightness(brightness)
+            }
+        }
+    }
+
+    override fun readRememberedVolumePercent(): Int? = playbackBehaviorRepository.rememberedVolumePercent
+
+    override fun saveRememberedVolumePercent(volumePercent: Int) {
+        scope.launch(Dispatchers.IO) {
+            volumeWriteMutex.withLock {
+                playbackBehaviorRepository.setRememberedVolumePercent(volumePercent)
             }
         }
     }

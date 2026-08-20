@@ -101,6 +101,8 @@ class PlaybackBehaviorRepository(
 
     val rememberedBrightness: Float?
         get() = settings.value.rememberedBrightness
+    val rememberedVolumePercent: Int?
+        get() = settings.value.rememberedVolumePercent
 
     suspend fun setKeepConnectionInBackground(value: Boolean) {
         if (settings.value.keepConnectionInBackground == value) return
@@ -114,6 +116,14 @@ class PlaybackBehaviorRepository(
         if (settings.value.rememberedBrightness == clamped) return
         store.updateSnapshot { snap ->
             snap.copy(playbackBehavior = snap.playbackBehavior.copy(rememberedBrightness = clamped))
+        }
+    }
+
+    suspend fun setRememberedVolumePercent(value: Int?) {
+        val clamped = value?.coerceIn(0, 100)
+        if (settings.value.rememberedVolumePercent == clamped) return
+        store.updateSnapshot { snap ->
+            snap.copy(playbackBehavior = snap.playbackBehavior.copy(rememberedVolumePercent = clamped))
         }
     }
 }
@@ -226,6 +236,10 @@ private fun PlayerSettingsRecord.toPlayerSettings(): PlayerSettings {
         autoPip = autoPip,
         autoBackgroundPlay = autoBackgroundPlay,
         rememberBrightness = rememberBrightness,
+        rememberVolume = rememberVolume,
+        volumeBoostPercent = volumeBoostPercent,
+        volumeNormalizerEnabled = volumeNormalizerEnabled,
+        videoSharpness = videoSharpness,
         rememberSelections = rememberSelections,
     )
 }
@@ -251,6 +265,10 @@ private fun PlayerSettings.toPlayerSettingsRecord(): PlayerSettingsRecord {
         autoPip = autoPip,
         autoBackgroundPlay = autoBackgroundPlay,
         rememberBrightness = rememberBrightness,
+        rememberVolume = rememberVolume,
+        volumeBoostPercent = volumeBoostPercent,
+        volumeNormalizerEnabled = volumeNormalizerEnabled,
+        videoSharpness = videoSharpness,
         rememberSelections = rememberSelections,
     )
 }

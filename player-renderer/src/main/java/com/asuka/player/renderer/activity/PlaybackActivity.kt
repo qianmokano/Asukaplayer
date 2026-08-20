@@ -75,6 +75,10 @@ class PlaybackActivity : ComponentActivity() {
             }
         }
         windowChromeController.applyRememberedBrightnessIfNeeded(viewModel.state.value.runtimeSettings)
+        windowChromeController.applyRememberedVolumeIfNeeded(
+            settings = viewModel.state.value.runtimeSettings,
+            deviceController = playbackDeviceController,
+        )
         windowChromeController.applySystemBarsForOrientation(resources.configuration.orientation)
         viewModel.sessionHost.ensureControllerReady(intent)
 
@@ -114,6 +118,10 @@ class PlaybackActivity : ComponentActivity() {
 
     override fun onStop() {
         windowChromeController.saveRememberedBrightnessIfNeeded(viewModel.state.value.runtimeSettings)
+        windowChromeController.saveRememberedVolumeIfNeeded(
+            settings = viewModel.state.value.runtimeSettings,
+            deviceController = playbackDeviceController,
+        )
         val retainSession = viewModel.activityBehavior.shouldRetainSessionOnStop()
         viewModel.sessionHost.onStop(
             retainSession = retainSession,

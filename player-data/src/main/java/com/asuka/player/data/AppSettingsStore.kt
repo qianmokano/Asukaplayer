@@ -43,12 +43,17 @@ data class PlayerSettingsRecord(
     val autoPip: Boolean = true,
     val autoBackgroundPlay: Boolean = false,
     val rememberBrightness: Boolean = false,
+    val rememberVolume: Boolean = false,
+    val volumeBoostPercent: Int = 100,
+    val volumeNormalizerEnabled: Boolean = false,
+    val videoSharpness: Float = 0f,
     val rememberSelections: Boolean = true,
 )
 
 data class PlaybackBehaviorRecord(
     val keepConnectionInBackground: Boolean = true,
     val rememberedBrightness: Float? = null,
+    val rememberedVolumePercent: Int? = null,
 )
 
 data class AppSettingsSnapshot(
@@ -110,12 +115,15 @@ internal fun PlayerSettingsRecord.normalized(): PlayerSettingsRecord {
         longPressSpeed = longPressSpeed.coerceIn(0.2f, 4.0f),
         controllerTimeoutSec = controllerTimeoutSec.coerceIn(1, 60),
         defaultPlaybackSpeed = defaultPlaybackSpeed.coerceIn(0.2f, 4.0f),
+        volumeBoostPercent = volumeBoostPercent.coerceIn(100, 300),
+        videoSharpness = videoSharpness.coerceIn(0f, 1f),
     )
 }
 
 internal fun PlaybackBehaviorRecord.normalized(): PlaybackBehaviorRecord {
     return copy(
         rememberedBrightness = rememberedBrightness?.coerceIn(0f, 1f),
+        rememberedVolumePercent = rememberedVolumePercent?.coerceIn(0, 100),
     )
 }
 
@@ -212,6 +220,10 @@ internal object AppSettingsSnapshotJsonCodec {
             put(PlayerKeys.AUTO_PIP, record.autoPip)
             put(PlayerKeys.AUTO_BACKGROUND_PLAY, record.autoBackgroundPlay)
             put(PlayerKeys.REMEMBER_BRIGHTNESS, record.rememberBrightness)
+            put(PlayerKeys.REMEMBER_VOLUME, record.rememberVolume)
+            put(PlayerKeys.VOLUME_BOOST_PERCENT, record.volumeBoostPercent)
+            put(PlayerKeys.VOLUME_NORMALIZER_ENABLED, record.volumeNormalizerEnabled)
+            put(PlayerKeys.VIDEO_SHARPNESS, record.videoSharpness)
             put(PlayerKeys.REMEMBER_SELECTIONS, record.rememberSelections)
         }
     }
@@ -237,6 +249,10 @@ internal object AppSettingsSnapshotJsonCodec {
             autoPip = obj?.optBoolean(PlayerKeys.AUTO_PIP, true) ?: true,
             autoBackgroundPlay = obj?.optBoolean(PlayerKeys.AUTO_BACKGROUND_PLAY, false) ?: false,
             rememberBrightness = obj?.optBoolean(PlayerKeys.REMEMBER_BRIGHTNESS, false) ?: false,
+            rememberVolume = obj?.optBoolean(PlayerKeys.REMEMBER_VOLUME, false) ?: false,
+            volumeBoostPercent = obj?.optInt(PlayerKeys.VOLUME_BOOST_PERCENT, 100) ?: 100,
+            volumeNormalizerEnabled = obj?.optBoolean(PlayerKeys.VOLUME_NORMALIZER_ENABLED, false) ?: false,
+            videoSharpness = obj?.optDouble(PlayerKeys.VIDEO_SHARPNESS, 0.0)?.toFloat() ?: 0.0f,
             rememberSelections = obj?.optBoolean(PlayerKeys.REMEMBER_SELECTIONS, true) ?: true,
         ).normalized()
     }
@@ -246,6 +262,9 @@ internal object AppSettingsSnapshotJsonCodec {
             put(BehaviorKeys.KEEP_CONNECTION_IN_BACKGROUND, record.keepConnectionInBackground)
             if (record.rememberedBrightness != null) {
                 put(BehaviorKeys.REMEMBERED_BRIGHTNESS, record.rememberedBrightness)
+            }
+            if (record.rememberedVolumePercent != null) {
+                put(BehaviorKeys.REMEMBERED_VOLUME_PERCENT, record.rememberedVolumePercent)
             }
         }
     }
@@ -257,6 +276,9 @@ internal object AppSettingsSnapshotJsonCodec {
                 ?.takeIf { it.has(BehaviorKeys.REMEMBERED_BRIGHTNESS) }
                 ?.optDouble(BehaviorKeys.REMEMBERED_BRIGHTNESS, 0.0)
                 ?.toFloat(),
+            rememberedVolumePercent = obj
+                ?.takeIf { it.has(BehaviorKeys.REMEMBERED_VOLUME_PERCENT) }
+                ?.optInt(BehaviorKeys.REMEMBERED_VOLUME_PERCENT, 50),
         ).normalized()
     }
 
@@ -328,11 +350,16 @@ internal object AppSettingsSnapshotJsonCodec {
         const val AUTO_PIP = "autoPip"
         const val AUTO_BACKGROUND_PLAY = "autoBackgroundPlay"
         const val REMEMBER_BRIGHTNESS = "rememberBrightness"
+        const val REMEMBER_VOLUME = "rememberVolume"
+        const val VOLUME_BOOST_PERCENT = "volumeBoostPercent"
+        const val VOLUME_NORMALIZER_ENABLED = "volumeNormalizerEnabled"
+        const val VIDEO_SHARPNESS = "videoSharpness"
         const val REMEMBER_SELECTIONS = "rememberSelections"
     }
 
     private object BehaviorKeys {
         const val KEEP_CONNECTION_IN_BACKGROUND = "keepConnectionInBackground"
         const val REMEMBERED_BRIGHTNESS = "rememberedBrightness"
+        const val REMEMBERED_VOLUME_PERCENT = "rememberedVolumePercent"
     }
 }

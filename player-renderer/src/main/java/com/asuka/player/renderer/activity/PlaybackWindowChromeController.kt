@@ -9,6 +9,7 @@ import android.view.Window
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.asuka.player.contract.PlaybackDeviceController
 import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.contract.PlaybackUiPersistence
 
@@ -47,11 +48,28 @@ internal class PlaybackWindowChromeController(
         window.attributes = attrs
     }
 
+    fun applyRememberedVolumeIfNeeded(
+        settings: PlayerSettings,
+        deviceController: PlaybackDeviceController,
+    ) {
+        if (!settings.rememberVolume) return
+        val remembered = playbackUiPersistence.readRememberedVolumePercent() ?: return
+        deviceController.setVolumePercent(remembered.coerceIn(0, 100))
+    }
+
     fun saveRememberedBrightnessIfNeeded(settings: PlayerSettings) {
         if (!settings.rememberBrightness) return
         val brightness = window.attributes.screenBrightness
         if (brightness >= 0f) {
             playbackUiPersistence.saveRememberedBrightness(brightness)
+        }
+
+        fun saveRememberedVolumeIfNeeded(
+            settings: PlayerSettings,
+            deviceController: PlaybackDeviceController,
+        ) {
+            if (!settings.rememberVolume) return
+            playbackUiPersistence.saveRememberedVolumePercent(deviceController.currentVolumePercent())
         }
     }
 

@@ -51,6 +51,10 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     autoPip = prefs.getBoolean(Keys.PLAYER_AUTO_PIP, true),
                     autoBackgroundPlay = prefs.getBoolean(Keys.PLAYER_AUTO_BACKGROUND_PLAY, false),
                     rememberBrightness = prefs.getBoolean(Keys.PLAYER_REMEMBER_BRIGHTNESS, false),
+                    rememberVolume = prefs.getBoolean(Keys.PLAYER_REMEMBER_VOLUME, false),
+                    volumeBoostPercent = prefs.getInt(Keys.PLAYER_VOLUME_BOOST_PERCENT, 100),
+                    volumeNormalizerEnabled = prefs.getBoolean(Keys.PLAYER_VOLUME_NORMALIZER_ENABLED, false),
+                    videoSharpness = prefs.getFloat(Keys.PLAYER_VIDEO_SHARPNESS, 0f),
                     rememberSelections = prefs.getBoolean(Keys.PLAYER_REMEMBER_SELECTIONS, true),
                 ),
                 playbackBehavior = PlaybackBehaviorRecord(
@@ -58,6 +62,9 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     rememberedBrightness = prefs
                         .takeIf { it.contains(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS) }
                         ?.getFloat(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS, 0f),
+                    rememberedVolumePercent = prefs
+                        .takeIf { it.contains(Keys.PLAYBACK_REMEMBERED_VOLUME_PERCENT) }
+                        ?.getInt(Keys.PLAYBACK_REMEMBERED_VOLUME_PERCENT, 50),
                 ),
             ).normalized()
         }
@@ -97,6 +104,10 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     .putBoolean(Keys.PLAYER_AUTO_PIP, normalized.playerSettings.autoPip)
                     .putBoolean(Keys.PLAYER_AUTO_BACKGROUND_PLAY, normalized.playerSettings.autoBackgroundPlay)
                     .putBoolean(Keys.PLAYER_REMEMBER_BRIGHTNESS, normalized.playerSettings.rememberBrightness)
+                    .putBoolean(Keys.PLAYER_REMEMBER_VOLUME, normalized.playerSettings.rememberVolume)
+                    .putInt(Keys.PLAYER_VOLUME_BOOST_PERCENT, normalized.playerSettings.volumeBoostPercent)
+                    .putBoolean(Keys.PLAYER_VOLUME_NORMALIZER_ENABLED, normalized.playerSettings.volumeNormalizerEnabled)
+                    .putFloat(Keys.PLAYER_VIDEO_SHARPNESS, normalized.playerSettings.videoSharpness)
                     .putBoolean(Keys.PLAYER_REMEMBER_SELECTIONS, normalized.playerSettings.rememberSelections)
                     .putBoolean(Keys.KEEP_CONNECTION_IN_BACKGROUND, normalized.playbackBehavior.keepConnectionInBackground)
                     .apply {
@@ -109,6 +120,11 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                             putFloat(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS, normalized.playbackBehavior.rememberedBrightness)
                         } else {
                             remove(Keys.PLAYBACK_REMEMBERED_BRIGHTNESS)
+                        }
+                        if (normalized.playbackBehavior.rememberedVolumePercent != null) {
+                            putInt(Keys.PLAYBACK_REMEMBERED_VOLUME_PERCENT, normalized.playbackBehavior.rememberedVolumePercent)
+                        } else {
+                            remove(Keys.PLAYBACK_REMEMBERED_VOLUME_PERCENT)
                         }
                     }
                     .apply()
@@ -194,10 +210,15 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         const val PLAYER_AUTO_PIP = "player_auto_pip"
         const val PLAYER_AUTO_BACKGROUND_PLAY = "player_auto_background_play"
         const val PLAYER_REMEMBER_BRIGHTNESS = "player_remember_brightness"
+        const val PLAYER_REMEMBER_VOLUME = "player_remember_volume"
+        const val PLAYER_VOLUME_BOOST_PERCENT = "player_volume_boost_percent"
+        const val PLAYER_VOLUME_NORMALIZER_ENABLED = "player_volume_normalizer_enabled"
+        const val PLAYER_VIDEO_SHARPNESS = "player_video_sharpness"
         const val PLAYER_REMEMBER_SELECTIONS = "player_remember_selections"
 
         const val KEEP_CONNECTION_IN_BACKGROUND = "keep_connection_in_background"
         const val PLAYBACK_REMEMBERED_BRIGHTNESS = "playback_remembered_brightness"
+        const val PLAYBACK_REMEMBERED_VOLUME_PERCENT = "playback_remembered_volume_percent"
     }
 
     companion object {
