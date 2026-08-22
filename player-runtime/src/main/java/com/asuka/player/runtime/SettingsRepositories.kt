@@ -5,7 +5,6 @@ import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.data.AppSettingsStore
 import com.asuka.player.data.CustomThemeRecord
 import com.asuka.player.data.PlaybackBehaviorRecord
-import com.asuka.player.data.PlayerSettingsRecord
 import com.asuka.player.data.UiSettingsRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,6 +101,14 @@ class PlaybackBehaviorRepository(
     val rememberedBrightness: Float?
         get() = settings.value.rememberedBrightness
 
+    val rememberedVolumePercent: Int?
+        get() = settings.value.rememberedVolumePercent
+
+    suspend fun readRememberedVolumePercent(): Int? {
+        store.awaitLoaded()
+        return store.loadSnapshot().playbackBehavior.rememberedVolumePercent
+    }
+
     suspend fun setKeepConnectionInBackground(value: Boolean) {
         if (settings.value.keepConnectionInBackground == value) return
         store.updateSnapshot { snap ->
@@ -114,6 +121,14 @@ class PlaybackBehaviorRepository(
         if (settings.value.rememberedBrightness == clamped) return
         store.updateSnapshot { snap ->
             snap.copy(playbackBehavior = snap.playbackBehavior.copy(rememberedBrightness = clamped))
+        }
+    }
+
+    suspend fun setRememberedVolumePercent(value: Int?) {
+        val clamped = value?.coerceIn(0, 100)
+        if (settings.value.rememberedVolumePercent == clamped) return
+        store.updateSnapshot { snap ->
+            snap.copy(playbackBehavior = snap.playbackBehavior.copy(rememberedVolumePercent = clamped))
         }
     }
 }
@@ -204,69 +219,3 @@ private fun List<CustomThemeEntry>.toCustomThemeRecords(): List<CustomThemeRecor
         )
     }
 }
-
-private fun PlayerSettingsRecord.toPlayerSettings(): PlayerSettings {
-    return PlayerSettings(
-        seekGestureEnabled = seekGestureEnabled,
-        brightnessGestureEnabled = brightnessGestureEnabled,
-        volumeGestureEnabled = volumeGestureEnabled,
-        zoomGestureEnabled = zoomGestureEnabled,
-        panGestureEnabled = panGestureEnabled,
-        doubleTapGestureEnabled = doubleTapGestureEnabled,
-        doubleTapAction = doubleTapAction.toDoubleTapAction(),
-        longPressGestureEnabled = longPressGestureEnabled,
-        seekIncrementSec = seekIncrementSec,
-        seekSensitivity = seekSensitivity,
-        longPressSpeed = longPressSpeed,
-        controllerTimeoutSec = controllerTimeoutSec,
-        hideButtonsBackground = hideButtonsBackground,
-        resumePlayback = resumePlayback,
-        defaultPlaybackSpeed = defaultPlaybackSpeed,
-        autoplay = autoplay,
-        autoPip = autoPip,
-        autoBackgroundPlay = autoBackgroundPlay,
-        rememberBrightness = rememberBrightness,
-        rememberSelections = rememberSelections,
-    )
-}
-
-private fun PlayerSettings.toPlayerSettingsRecord(): PlayerSettingsRecord {
-    return PlayerSettingsRecord(
-        seekGestureEnabled = seekGestureEnabled,
-        brightnessGestureEnabled = brightnessGestureEnabled,
-        volumeGestureEnabled = volumeGestureEnabled,
-        zoomGestureEnabled = zoomGestureEnabled,
-        panGestureEnabled = panGestureEnabled,
-        doubleTapGestureEnabled = doubleTapGestureEnabled,
-        doubleTapAction = doubleTapAction.value,
-        longPressGestureEnabled = longPressGestureEnabled,
-        seekIncrementSec = seekIncrementSec,
-        seekSensitivity = seekSensitivity,
-        longPressSpeed = longPressSpeed,
-        controllerTimeoutSec = controllerTimeoutSec,
-        hideButtonsBackground = hideButtonsBackground,
-        resumePlayback = resumePlayback,
-        defaultPlaybackSpeed = defaultPlaybackSpeed,
-        autoplay = autoplay,
-        autoPip = autoPip,
-        autoBackgroundPlay = autoBackgroundPlay,
-        rememberBrightness = rememberBrightness,
-        rememberSelections = rememberSelections,
-    )
-}
-
-private fun String?.toDoubleTapAction(): PlayerSettings.DoubleTapAction {
-    return when (this) {
-        "seek" -> PlayerSettings.DoubleTapAction.Seek
-        "toggle_play_pause" -> PlayerSettings.DoubleTapAction.TogglePlayPause
-        "both" -> PlayerSettings.DoubleTapAction.Both
-        else -> PlayerSettings.DoubleTapAction.TogglePlayPause
-    }
-}
-
-private val PlayerSettings.DoubleTapAction.value: String
-    get() = when (this) {
-        PlayerSettings.DoubleTapAction.Seek -> "seek"
-        PlayerSettings.DoubleTapAction.TogglePlayPause -> "toggle_play_pause"
-        PlayerSettings.DoubleTapAction.Both -> "both"
-    }

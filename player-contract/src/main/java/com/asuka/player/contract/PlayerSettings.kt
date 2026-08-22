@@ -20,6 +20,7 @@ data class PlayerSettings(
     val autoPip: Boolean = true,
     val autoBackgroundPlay: Boolean = false,
     val rememberBrightness: Boolean = false,
+    val rememberVolume: Boolean = false,
     val rememberSelections: Boolean = true,
     val keepSessionConnectionInBackground: Boolean = true,
 ) {

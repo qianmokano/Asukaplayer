@@ -2,75 +2,6 @@ package com.asuka.player.data
 
 import kotlinx.coroutines.flow.StateFlow
 
-data class CustomThemeRecord(
-    val id: String,
-    val name: String,
-    val seedArgb: Int,
-    val monochrome: Boolean,
-)
-
-data class UiSettingsRecord(
-    val themeMode: String = "Monochrome",
-    val themeAppearance: String = "System",
-    val customSeedArgb: Int? = null,
-    val customThemeId: String? = null,
-    val customMonochrome: Boolean = false,
-    val pureBlack: Boolean = true,
-    val fontScale: Float = 1.0f,
-    val fontScaleEnabled: Boolean = false,
-    val customThemes: List<CustomThemeRecord> = emptyList(),
-    val navDurationMs: Int = 300,
-    val hapticFeedbackEnabled: Boolean = true,
-)
-
-data class PlayerSettingsRecord(
-    val seekGestureEnabled: Boolean = true,
-    val brightnessGestureEnabled: Boolean = true,
-    val volumeGestureEnabled: Boolean = true,
-    val zoomGestureEnabled: Boolean = true,
-    val panGestureEnabled: Boolean = true,
-    val doubleTapGestureEnabled: Boolean = true,
-    val doubleTapAction: String = "toggle_play_pause",
-    val longPressGestureEnabled: Boolean = true,
-    val seekIncrementSec: Int = 10,
-    val seekSensitivity: Float = 1.0f,
-    val longPressSpeed: Float = 2.0f,
-    val controllerTimeoutSec: Int = 3,
-    val hideButtonsBackground: Boolean = false,
-    val resumePlayback: Boolean = true,
-    val defaultPlaybackSpeed: Float = 1.0f,
-    val autoplay: Boolean = true,
-    val autoPip: Boolean = true,
-    val autoBackgroundPlay: Boolean = false,
-    val rememberBrightness: Boolean = false,
-    val rememberSelections: Boolean = true,
-)
-
-data class PlaybackBehaviorRecord(
-    val keepConnectionInBackground: Boolean = true,
-    val rememberedBrightness: Float? = null,
-)
-
-data class AppSettingsSnapshot(
-    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
-    val uiSettings: UiSettingsRecord = UiSettingsRecord(),
-    val playerSettings: PlayerSettingsRecord = PlayerSettingsRecord(),
-    val playbackBehavior: PlaybackBehaviorRecord = PlaybackBehaviorRecord(),
-) {
-    fun normalized(): AppSettingsSnapshot {
-        return copy(
-            schemaVersion = CURRENT_SCHEMA_VERSION,
-            uiSettings = uiSettings.normalized(),
-            playerSettings = playerSettings.normalized(),
-            playbackBehavior = playbackBehavior.normalized(),
-        )
-    }
-
-    companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
-    }
-}
-
 interface AppSettingsStore {
     val snapshots: StateFlow<AppSettingsSnapshot>
 
@@ -93,34 +24,6 @@ interface AppSettingsStore {
     suspend fun savePlaybackBehavior(record: PlaybackBehaviorRecord) {
         updateSnapshot { it.copy(playbackBehavior = record).normalized() }
     }
-}
-
-internal fun UiSettingsRecord.normalized(): UiSettingsRecord {
-    return copy(
-        fontScale = fontScale.coerceIn(0.85f, 1.3f),
-        customThemes = customThemes.normalized(),
-        navDurationMs = navDurationMs.coerceIn(0, 2000),
-    )
-}
-
-internal fun PlayerSettingsRecord.normalized(): PlayerSettingsRecord {
-    return copy(
-        seekIncrementSec = seekIncrementSec.coerceIn(1, 60),
-        seekSensitivity = seekSensitivity.coerceIn(0.1f, 2.0f),
-        longPressSpeed = longPressSpeed.coerceIn(0.2f, 4.0f),
-        controllerTimeoutSec = controllerTimeoutSec.coerceIn(1, 60),
-        defaultPlaybackSpeed = defaultPlaybackSpeed.coerceIn(0.2f, 4.0f),
-    )
-}
-
-internal fun PlaybackBehaviorRecord.normalized(): PlaybackBehaviorRecord {
-    return copy(
-        rememberedBrightness = rememberedBrightness?.coerceIn(0f, 1f),
-    )
-}
-
-private fun List<CustomThemeRecord>.normalized(): List<CustomThemeRecord> {
-    return filter { it.id.isNotBlank() && it.name.isNotBlank() }
 }
 
 internal object AppSettingsSnapshotJsonCodec {
@@ -212,6 +115,7 @@ internal object AppSettingsSnapshotJsonCodec {
             put(PlayerKeys.AUTO_PIP, record.autoPip)
             put(PlayerKeys.AUTO_BACKGROUND_PLAY, record.autoBackgroundPlay)
             put(PlayerKeys.REMEMBER_BRIGHTNESS, record.rememberBrightness)
+            put(PlayerKeys.REMEMBER_VOLUME, record.rememberVolume)
             put(PlayerKeys.REMEMBER_SELECTIONS, record.rememberSelections)
         }
     }
@@ -237,6 +141,7 @@ internal object AppSettingsSnapshotJsonCodec {
             autoPip = obj?.optBoolean(PlayerKeys.AUTO_PIP, true) ?: true,
             autoBackgroundPlay = obj?.optBoolean(PlayerKeys.AUTO_BACKGROUND_PLAY, false) ?: false,
             rememberBrightness = obj?.optBoolean(PlayerKeys.REMEMBER_BRIGHTNESS, false) ?: false,
+            rememberVolume = obj?.optBoolean(PlayerKeys.REMEMBER_VOLUME, false) ?: false,
             rememberSelections = obj?.optBoolean(PlayerKeys.REMEMBER_SELECTIONS, true) ?: true,
         ).normalized()
     }
@@ -246,6 +151,9 @@ internal object AppSettingsSnapshotJsonCodec {
             put(BehaviorKeys.KEEP_CONNECTION_IN_BACKGROUND, record.keepConnectionInBackground)
             if (record.rememberedBrightness != null) {
                 put(BehaviorKeys.REMEMBERED_BRIGHTNESS, record.rememberedBrightness)
+            }
+            if (record.rememberedVolumePercent != null) {
+                put(BehaviorKeys.REMEMBERED_VOLUME_PERCENT, record.rememberedVolumePercent)
             }
         }
     }
@@ -257,6 +165,9 @@ internal object AppSettingsSnapshotJsonCodec {
                 ?.takeIf { it.has(BehaviorKeys.REMEMBERED_BRIGHTNESS) }
                 ?.optDouble(BehaviorKeys.REMEMBERED_BRIGHTNESS, 0.0)
                 ?.toFloat(),
+            rememberedVolumePercent = obj
+                ?.takeIf { it.has(BehaviorKeys.REMEMBERED_VOLUME_PERCENT) }
+                ?.optInt(BehaviorKeys.REMEMBERED_VOLUME_PERCENT, 0),
         ).normalized()
     }
 
@@ -328,11 +239,13 @@ internal object AppSettingsSnapshotJsonCodec {
         const val AUTO_PIP = "autoPip"
         const val AUTO_BACKGROUND_PLAY = "autoBackgroundPlay"
         const val REMEMBER_BRIGHTNESS = "rememberBrightness"
+        const val REMEMBER_VOLUME = "rememberVolume"
         const val REMEMBER_SELECTIONS = "rememberSelections"
     }
 
     private object BehaviorKeys {
         const val KEEP_CONNECTION_IN_BACKGROUND = "keepConnectionInBackground"
         const val REMEMBERED_BRIGHTNESS = "rememberedBrightness"
+        const val REMEMBERED_VOLUME_PERCENT = "rememberedVolumePercent"
     }
 }

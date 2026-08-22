@@ -5,4 +5,6 @@ interface PlaybackUiPersistence {
     suspend fun saveZoom(mediaId: String, zoom: Float)
     fun readRememberedBrightness(): Float?
     fun saveRememberedBrightness(brightness: Float)
+    suspend fun readRememberedVolumePercent(): Int?
+    fun saveRememberedVolumePercent(volumePercent: Int)
 }

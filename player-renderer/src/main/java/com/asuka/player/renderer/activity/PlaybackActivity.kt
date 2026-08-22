@@ -61,6 +61,12 @@ class PlaybackActivity : ComponentActivity() {
     private val playbackDeviceController by lazy(LazyThreadSafetyMode.NONE) {
         playbackDependencies.playbackDeviceControllerFactory.create(this)
     }
+    private val playbackVolumeMemoryController by lazy(LazyThreadSafetyMode.NONE) {
+        PlaybackVolumeMemoryController(
+            playbackUiPersistence = playbackUiPersistence,
+            playbackDeviceController = playbackDeviceController,
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,6 +119,7 @@ class PlaybackActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        playbackVolumeMemoryController.saveIfNeeded(viewModel.state.value.runtimeSettings)
         windowChromeController.saveRememberedBrightnessIfNeeded(viewModel.state.value.runtimeSettings)
         val retainSession = viewModel.activityBehavior.shouldRetainSessionOnStop()
         viewModel.sessionHost.onStop(
@@ -158,6 +165,12 @@ class PlaybackActivity : ComponentActivity() {
             return
         }
         val isControllerConnected by controller.isConnected.collectAsState()
+        LaunchedEffect(isControllerConnected, state.runtimeSettings.rememberVolume) {
+            playbackVolumeMemoryController.restoreIfNeeded(
+                settings = state.runtimeSettings,
+                isPlaybackReady = isControllerConnected,
+            )
+        }
         PlayerScreen(
             model = PlaybackScreenModel(
                 surfaceState = state.surfaceState,

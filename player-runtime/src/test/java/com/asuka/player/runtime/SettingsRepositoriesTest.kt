@@ -109,6 +109,15 @@ class SettingsRepositoriesTest {
     }
 
     @Test
+    fun playbackBehaviorRepository_persistsClampedRememberedVolume() = runBlocking {
+        val repository = PlaybackBehaviorRepository(freshStore(), testScope())
+
+        repository.setRememberedVolumePercent(140)
+
+        assertEquals(100, repository.readRememberedVolumePercent())
+    }
+
+    @Test
     fun repositories_publishBestAvailableSnapshot_withoutBlockingAndAdoptLoadedValues() = runBlocking {
         val store = DeferredLoadingAppSettingsStore(
             loadedSnapshot = AppSettingsSnapshot(

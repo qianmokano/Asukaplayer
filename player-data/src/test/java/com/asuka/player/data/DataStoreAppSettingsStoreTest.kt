@@ -44,10 +44,12 @@ class DataStoreAppSettingsStoreTest {
                 controllerTimeoutSec = 9,
                 autoplay = false,
                 autoBackgroundPlay = true,
+                rememberVolume = true,
             ),
             playbackBehavior = PlaybackBehaviorRecord(
                 keepConnectionInBackground = false,
                 rememberedBrightness = 0.42f,
+                rememberedVolumePercent = 64,
             ),
         ).normalized()
 
@@ -78,10 +80,12 @@ class DataStoreAppSettingsStoreTest {
                 playerSettings = PlayerSettingsRecord(
                     autoplay = false,
                     defaultPlaybackSpeed = 1.5f,
+                    rememberVolume = true,
                 ),
                 playbackBehavior = PlaybackBehaviorRecord(
                     keepConnectionInBackground = false,
                     rememberedBrightness = 0.33f,
+                    rememberedVolumePercent = 47,
                 ),
             ),
         )
@@ -95,8 +99,10 @@ class DataStoreAppSettingsStoreTest {
         assertEquals(512, migrated.uiSettings.navDurationMs)
         assertEquals(false, migrated.playerSettings.autoplay)
         assertEquals(1.5f, migrated.playerSettings.defaultPlaybackSpeed)
+        assertEquals(true, migrated.playerSettings.rememberVolume)
         assertEquals(false, migrated.playbackBehavior.keepConnectionInBackground)
         assertEquals(0.33f, migrated.playbackBehavior.rememberedBrightness)
+        assertEquals(47, migrated.playbackBehavior.rememberedVolumePercent)
     }
 
     private fun dataStore(

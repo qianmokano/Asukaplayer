@@ -80,6 +80,8 @@ class PlaybackSessionHostTest {
                 override suspend fun saveZoom(mediaId: String, zoom: Float) {}
                 override fun readRememberedBrightness(): Float? = null
                 override fun saveRememberedBrightness(brightness: Float) {}
+                override suspend fun readRememberedVolumePercent(): Int? = null
+                override fun saveRememberedVolumePercent(volumePercent: Int) {}
             }
             override val playbackPreviewFrameProvider = object : PlaybackPreviewFrameProvider {
                 override suspend fun loadPreviewFrame(
