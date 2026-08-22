@@ -294,6 +294,11 @@ private class FakeQueueHistoryStore : com.asuka.player.contract.QueueHistoryStor
     }
 
     override suspend fun items(): List<String> = items.toList()
+
+    override suspend fun replace(items: List<String>) {
+        this.items.clear()
+        this.items += items
+    }
 }
 
 private object FakePlaybackControllerConnectorFactory : PlaybackControllerConnectorFactory {

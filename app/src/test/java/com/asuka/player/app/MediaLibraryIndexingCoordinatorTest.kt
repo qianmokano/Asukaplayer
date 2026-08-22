@@ -39,6 +39,7 @@ class MediaLibraryIndexingCoordinatorTest {
             context = context,
             database = database,
             scope = callerScope,
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
         )
 
         try {
@@ -61,6 +62,7 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
         )
 
         val failure = CompletableDeferred<MediaCatalogFailure>()
@@ -130,6 +132,7 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
         )
 
         try {
@@ -211,12 +214,13 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
         )
 
         try {
             coordinator.syncNow(forceFullRescan = false)
             coordinator.recordObservedChangeForTest(
-                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 42L),
+                testMediaStoreItemUri(42L),
             )
             coordinator.syncNow(forceFullRescan = false)
 
@@ -289,13 +293,14 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { null },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> null },
         )
 
         try {
             coordinator.syncNow(forceFullRescan = false)
             coordinator.recordObservedChangeForTest(
-                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 42L),
+                testMediaStoreItemUri(42L),
             )
             coordinator.syncNow(forceFullRescan = false)
 
@@ -391,12 +396,13 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
         )
 
         try {
             coordinator.syncNow(forceFullRescan = false)
             coordinator.recordObservedChangeForTest(
-                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 43L),
+                testMediaStoreItemUri(43L),
             )
             coordinator.syncNow(forceFullRescan = false)
 
@@ -487,12 +493,13 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { 10L },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> 10L },
         )
 
         try {
             coordinator.recordObservedChangeForTest(
-                android.content.ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, 42L),
+                testMediaStoreItemUri(42L),
             )
             coordinator.syncNow(forceFullRescan = false)
 
@@ -564,7 +571,8 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { 11L },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> 11L },
         )
 
         try {
@@ -622,7 +630,8 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { 11L },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> 11L },
         )
 
         try {
@@ -702,8 +711,9 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { 1L },
-            currentMediaStoreVersionReader = { "after-reset" },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> 1L },
+            currentMediaStoreVersionReader = { _ -> "after-reset" },
         )
 
         try {
@@ -761,16 +771,14 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { null },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> null },
         )
 
         try {
             (1L..901L).forEach { mediaStoreId ->
                 coordinator.recordObservedChangeForTest(
-                    android.content.ContentUris.withAppendedId(
-                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                        mediaStoreId,
-                    ),
+                    testMediaStoreItemUri(mediaStoreId),
                 )
             }
 
@@ -847,7 +855,8 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { 101L },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> 101L },
         )
 
         try {
@@ -901,7 +910,8 @@ class MediaLibraryIndexingCoordinatorTest {
         val coordinator = MediaLibraryIndexingCoordinator(
             context = context,
             database = database,
-            currentGenerationReader = { null },
+            mediaStoreVolumeNamesReader = ::testMediaStoreVolumeNames,
+            currentGenerationReader = { _ -> null },
         )
 
         try {
@@ -941,6 +951,17 @@ class MediaLibraryIndexingCoordinatorTest {
                     selectionArgs: Array<out String>?,
                 ): Int = 0
             },
+        )
+    }
+
+    private fun testMediaStoreVolumeNames(): Set<String> {
+        return setOf(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+    }
+
+    private fun testMediaStoreItemUri(mediaStoreId: Long): Uri {
+        return android.content.ContentUris.withAppendedId(
+            MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            mediaStoreId,
         )
     }
 

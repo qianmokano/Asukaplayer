@@ -151,6 +151,11 @@ private class RecordingQueueHistoryStore(
     }
 
     override suspend fun items(): List<String> = pushedMediaIds.toList()
+
+    override suspend fun replace(items: List<String>) {
+        pushedMediaIds.clear()
+        pushedMediaIds.addAll(items)
+    }
 }
 
 private inline fun <reified T> PlaybackService.readPrivateField(name: String): T? {

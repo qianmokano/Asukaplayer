@@ -9,6 +9,14 @@ internal data class GenerationBaseline(
     val modifiedAfterExclusive: Long,
 )
 
+internal fun Context.readMediaStoreVolumeNames(): Set<String> {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        runCatching { MediaStore.getExternalVolumeNames(this) }.getOrDefault(emptySet())
+    } else {
+        setOf(MediaStore.VOLUME_EXTERNAL)
+    }
+}
+
 internal fun buildSelection(
     base: String?,
     generationBaseline: GenerationBaseline?,
@@ -60,16 +68,16 @@ private fun StringBuilder.appendBaseSelection(base: String?) {
     }
 }
 
-internal fun Context.readMediaStoreGeneration(): Long? =
+internal fun Context.readMediaStoreGeneration(volumeName: String): Long? =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        runCatching { MediaStore.getGeneration(this, MediaStore.VOLUME_EXTERNAL_PRIMARY) }.getOrNull()
+        runCatching { MediaStore.getGeneration(this, volumeName) }.getOrNull()
     } else {
         null
     }
 
-internal fun Context.readMediaStoreVersion(): String? =
+internal fun Context.readMediaStoreVersion(volumeName: String): String? =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        runCatching { MediaStore.getVersion(this, MediaStore.VOLUME_EXTERNAL_PRIMARY) }.getOrNull()
+        runCatching { MediaStore.getVersion(this, volumeName) }.getOrNull()
     } else {
         null
     }

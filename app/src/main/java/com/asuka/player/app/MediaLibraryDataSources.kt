@@ -83,12 +83,16 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
     context: Context,
     database: AsukaMediaLibraryIndexDatabase = AsukaMediaLibraryIndexDatabase.open(context),
     private val playbackStateRepositoryProvider: (() -> PlaybackStateRepository)? = null,
+    mediaStoreVolumeNamesReader: () -> Set<String> = {
+        context.applicationContext.readMediaStoreVolumeNames()
+    },
 ) : LocalVideoCatalogDataSource {
     private val appContext = context.applicationContext
     private val dao = database.indexedVideoDao()
     private val indexingCoordinator = MediaLibraryIndexingCoordinator(
         context = appContext,
         database = database,
+        mediaStoreVolumeNamesReader = mediaStoreVolumeNamesReader,
     )
 
     override val changes: Flow<Unit> = indexingCoordinator.changes
@@ -137,10 +141,15 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
     override suspend fun resolveMediaIds(mediaIds: List<String>): Map<String, LocalVideoItem> {
         return withContext(Dispatchers.IO) {
             indexingCoordinator.prepareForQueries()
-            val ids = mediaIds.mapNotNull(::parseMediaStoreId).distinct()
-            if (ids.isEmpty()) return@withContext emptyMap()
+            val stableIds = mediaIds.mapNotNull(::parseVolumeQualifiedMediaStoreId).distinct()
+            val legacyIds = mediaIds.mapNotNull(::parseLegacyMediaStoreId).distinct()
+            if (stableIds.isEmpty() && legacyIds.isEmpty()) return@withContext emptyMap()
+            val rows = buildList {
+                if (stableIds.isNotEmpty()) addAll(dao.findByStableIds(stableIds))
+                if (legacyIds.isNotEmpty()) addAll(dao.findByIds(legacyIds))
+            }.distinctBy(IndexedVideoEntity::stableId)
             enrichWithResumePositions(
-                items = dao.findByIds(ids).map(IndexedVideoEntity::toLocalVideoItem),
+                items = rows.map(IndexedVideoEntity::toLocalVideoItem),
                 playbackStateRepositoryProvider = playbackStateRepositoryProvider,
             ).associateBy { item ->
                 item.playbackMediaId
@@ -178,7 +187,18 @@ internal class AndroidMediaStoreVideoCatalogDataSource(
         indexingCoordinator.close()
     }
 
-    private fun parseMediaStoreId(mediaId: String): Long? {
+    private fun parseVolumeQualifiedMediaStoreId(mediaId: String): String? {
+        val raw = mediaId.removePrefix(MEDIA_STORE_ID_PREFIX)
+            .takeIf { mediaId.startsWith(MEDIA_STORE_ID_PREFIX) }
+            ?: return null
+        val separatorIndex = raw.lastIndexOf(':')
+        if (separatorIndex <= 0) return null
+        val volumeName = raw.substring(0, separatorIndex)
+        val mediaStoreId = raw.substring(separatorIndex + 1).toLongOrNull() ?: return null
+        return "$volumeName:$mediaStoreId"
+    }
+
+    private fun parseLegacyMediaStoreId(mediaId: String): Long? {
         return mediaId.removePrefix(MEDIA_STORE_ID_PREFIX)
             .takeIf { mediaId.startsWith(MEDIA_STORE_ID_PREFIX) }
             ?.toLongOrNull()
@@ -223,10 +243,9 @@ private fun IndexedVideoEntity.toLocalVideoItem(): LocalVideoItem {
         folderPath = folderPath,
         folderId = folderId,
         dateAddedSec = dateAddedSec,
+        mediaStoreVolume = volumeName,
     )
 }
-
-private fun IndexedVideoEntity.toPlaybackMediaId(): String = "$MEDIA_STORE_ID_PREFIX$mediaStoreId"
 
 internal suspend fun PlaybackStateRepository.resolveResumePositionMs(
     item: LocalVideoItem,

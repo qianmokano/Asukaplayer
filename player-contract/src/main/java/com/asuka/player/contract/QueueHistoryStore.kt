@@ -8,4 +8,5 @@ package com.asuka.player.contract
 interface QueueHistoryStore {
     suspend fun push(mediaId: String)
     suspend fun items(): List<String>
+    suspend fun replace(items: List<String>)
 }

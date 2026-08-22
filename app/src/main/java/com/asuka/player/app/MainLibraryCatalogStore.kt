@@ -70,30 +70,17 @@ internal class MainLibraryCatalogStore(
     }
 
     fun onPermissionResult() {
-        val lostAccess = updateVideoAccessState()
-        if (!lostAccess && canReadLibrary()) {
-            val reloadFolders = foldersSlice.state.value.hasLoadedOnce
-            val reloadAllVideos = allVideosSlice.state.value.hasLoadedOnce
-            val reloadFolderId = currentFolderSlice.currentFolderId.value
-                ?.takeIf { currentFolderSlice.state.value.hasLoadedOnce }
-            if (reloadFolders) {
-                foldersSlice.resetForAccessChange()
-                ensureFoldersLoaded()
-            }
-            if (reloadAllVideos) {
-                allVideosSlice.resetForAccessChange()
-                ensureAllVideosLoaded()
-            }
-            if (reloadFolderId != null) {
-                currentFolderSlice.resetForAccessChange()
-                refreshFolder(reloadFolderId)
-            }
-            recentSlice.refreshIfLoaded()
-        }
+        updateVideoAccessAndReloadCatalogs(forceReload = true)
     }
 
     fun refreshVideoAccessState() {
-        updateVideoAccessState()
+        val wasLimited = _userSelectedPermissionGranted.value
+        val accessChanged = updateVideoAccessState()
+        // Android 14 can change the selected-media set without changing either
+        // permission boolean. Rebuild the index whenever limited access is active.
+        if (canReadLibrary() && (accessChanged || wasLimited || _userSelectedPermissionGranted.value)) {
+            reloadCatalogsForAccessChange()
+        }
     }
 
     fun ensureFoldersLoaded() = foldersSlice.ensureLoaded()
@@ -138,7 +125,38 @@ internal class MainLibraryCatalogStore(
         currentFolderSlice.refreshLoadedFromIndex()
     }
 
+    private fun updateVideoAccessAndReloadCatalogs(forceReload: Boolean) {
+        val accessChanged = updateVideoAccessState()
+        if (canReadLibrary() && (forceReload || accessChanged)) {
+            reloadCatalogsForAccessChange()
+        }
+    }
+
+    private fun reloadCatalogsForAccessChange() {
+        val reloadFolders = foldersSlice.state.value.hasLoadedOnce
+        val reloadAllVideos = allVideosSlice.state.value.hasLoadedOnce
+        val reloadFolderId = currentFolderSlice.currentFolderId.value
+            ?.takeIf { currentFolderSlice.state.value.hasLoadedOnce }
+        if (reloadFolders) {
+            foldersSlice.resetForAccessChange()
+            ensureFoldersLoaded()
+        }
+        if (reloadAllVideos) {
+            allVideosSlice.resetForAccessChange()
+            ensureAllVideosLoaded()
+        }
+        if (reloadFolderId != null) {
+            currentFolderSlice.resetForAccessChange()
+            refreshFolder(reloadFolderId)
+        }
+        recentSlice.refreshIfLoaded()
+    }
+
     private fun updateVideoAccessState(): Boolean {
+        val previous = VideoAccessState(
+            permissionGranted = _permissionGranted.value,
+            userSelectedPermissionGranted = _userSelectedPermissionGranted.value,
+        )
         val accessState = resolveVideoAccess()
         _permissionGranted.value = accessState.permissionGranted
         _userSelectedPermissionGranted.value = accessState.userSelectedPermissionGranted
@@ -147,9 +165,9 @@ internal class MainLibraryCatalogStore(
             allVideosSlice.resetForPermissionLoss()
             currentFolderSlice.resetForPermissionLoss()
             recentSlice.resetForPermissionLoss()
-            return true
+            return previous != accessState
         }
-        return false
+        return previous != accessState
     }
 
     private fun canReadLibrary(): Boolean {

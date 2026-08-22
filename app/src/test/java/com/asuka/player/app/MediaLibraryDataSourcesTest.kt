@@ -74,6 +74,7 @@ class MediaLibraryDataSourcesTest {
         }
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = RuntimeEnvironment.getApplication(),
+            mediaStoreVolumeNamesReader = { setOf(MediaStore.VOLUME_EXTERNAL_PRIMARY) },
         )
 
         assertFailsWith<SecurityException> {
@@ -88,6 +89,7 @@ class MediaLibraryDataSourcesTest {
         registerMediaStoreProvider { _, _, _, _, _ -> null }
         val dataSource = AndroidMediaStoreVideoCatalogDataSource(
             context = RuntimeEnvironment.getApplication(),
+            mediaStoreVolumeNamesReader = { setOf(MediaStore.VOLUME_EXTERNAL_PRIMARY) },
         )
 
         val error = assertFailsWith<IllegalStateException> {

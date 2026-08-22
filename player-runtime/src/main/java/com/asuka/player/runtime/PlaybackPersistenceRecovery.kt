@@ -45,12 +45,19 @@ internal class PlaybackPersistenceResolver(
             if (shouldRetryRecovery()) {
                 lastRecoveryAttemptAtMs = nowMs()
                 createStoresSafely("Persistence recovery failed; keeping in-memory stores")?.let { recovered ->
-                    if (migrateFallbackStateSafely(fallback, recovered)) {
+                    val migrated = try {
+                        migrateFallbackStateSafely(fallback, recovered)
+                    } catch (cancellation: CancellationException) {
+                        recovered.closeSafely()
+                        throw cancellation
+                    }
+                    if (migrated) {
                         stores = recovered
                         fallbackState = null
                         _degraded.value = false
                         return recovered
                     }
+                    recovered.closeSafely()
                 }
             }
             return fallback.stores
@@ -103,9 +110,12 @@ internal class PlaybackPersistenceResolver(
             playbackSnapshot.subtitleTrackIds[mediaId]?.let { resolved.playbackStore.saveSubtitleTrackId(mediaId, it) }
             playbackSnapshot.zooms[mediaId]?.let { resolved.playbackStore.saveZoom(mediaId, it) }
         }
-        fallbackState.queueHistoryStore.snapshot().forEach { mediaId ->
-            resolved.queueHistoryStore.push(mediaId)
-        }
+        val fallbackHistory = fallbackState.queueHistoryStore.snapshot()
+        val mergedHistory = mergeHistory(
+            existing = resolved.queueHistoryStore.items(),
+            fallback = fallbackHistory,
+        )
+        resolved.queueHistoryStore.replace(mergedHistory)
     }
 
     private suspend fun migrateFallbackStateSafely(
@@ -135,6 +145,25 @@ internal class PlaybackPersistenceResolver(
     private companion object {
         private const val TAG = "PersistenceResolver"
     }
+}
+
+private fun PlaybackPersistenceStores.closeSafely() {
+    runCatching { close() }
+        .onFailure { error -> Log.w("PersistenceResolver", "Failed to close rejected persistence stores", error) }
+}
+
+private fun mergeHistory(
+    existing: List<String>,
+    fallback: List<String>,
+): List<String> {
+    val overlap = (minOf(existing.size, fallback.size) downTo 1)
+        .firstOrNull { size -> existing.takeLast(size) == fallback.take(size) }
+        ?: 0
+    return buildList {
+        (existing + fallback.drop(overlap)).forEach { mediaId ->
+            if (lastOrNull() != mediaId) add(mediaId)
+        }
+    }.takeLast(50)
 }
 
 private data class PlaybackStoreSnapshot(
@@ -228,6 +257,18 @@ private class RecoverableInMemoryQueueHistoryStore : QueueHistoryStore {
     override suspend fun items(): List<String> {
         synchronized(lock) {
             return deque.toList()
+        }
+    }
+
+    override suspend fun replace(items: List<String>) {
+        synchronized(lock) {
+            deque.clear()
+            items.forEach { mediaId ->
+                if (deque.lastOrNull() != mediaId) deque.addLast(mediaId)
+            }
+            while (deque.size > 50) {
+                deque.removeFirst()
+            }
         }
     }
 

@@ -27,6 +27,18 @@ class InMemoryQueueHistoryStore(private val maxSize: Int = 50) : QueueHistorySto
             return deque.toList()
         }
     }
+
+    override suspend fun replace(items: List<String>) {
+        synchronized(lock) {
+            deque.clear()
+            items.forEach { mediaId ->
+                if (deque.lastOrNull() != mediaId) deque.addLast(mediaId)
+            }
+            while (deque.size > maxSize) {
+                deque.removeFirst()
+            }
+        }
+    }
 }
 
 /**
@@ -68,6 +80,21 @@ class SharedPreferencesQueueHistoryStore(
         }
     }
 
+    override suspend fun replace(items: List<String>) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val normalized = normalize(items)
+                cachedItems = normalized.toMutableList()
+                prefs.edit()
+                    .putString(
+                        KEY_HISTORY,
+                        SharedPreferencesPlaybackStore.MediaIdListCodec.encode(normalized),
+                    )
+                    .apply()
+            }
+        }
+    }
+
     private fun getOrLoadItemsLocked(): MutableList<String> {
         cachedItems?.let { return it }
         val raw = prefs.getString(KEY_HISTORY, "") ?: ""
@@ -75,6 +102,14 @@ class SharedPreferencesQueueHistoryStore(
             .toMutableList()
         cachedItems = parsed
         return parsed
+    }
+
+    private fun normalize(items: List<String>): List<String> {
+        return buildList {
+            items.forEach { mediaId ->
+                if (lastOrNull() != mediaId) add(mediaId)
+            }
+        }.takeLast(maxSize)
     }
 
     private companion object {

@@ -49,10 +49,15 @@ internal data class LocalVideoItem(
     val folderPath: String,
     val folderId: Long,
     val dateAddedSec: Long,
+    val mediaStoreVolume: String = "external_primary",
     val resumePositionMs: Long = 0L,
 ) {
     val playbackMediaId: String
-        get() = "media-store:$id"
+        get() = if (mediaStoreVolume == "external_primary" || mediaStoreVolume == "external") {
+            "media-store:$id"
+        } else {
+            "media-store:$mediaStoreVolume:$id"
+        }
 
     val durationLabel: String
         get() = formatDuration(durationMs)

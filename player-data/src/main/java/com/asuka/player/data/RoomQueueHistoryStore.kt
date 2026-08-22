@@ -30,4 +30,17 @@ class RoomQueueHistoryStore(
             }
         }
     }
+
+    override suspend fun replace(items: List<String>) {
+        withContext(Dispatchers.IO) {
+            synchronized(lock) {
+                val normalized = buildList {
+                    items.forEach { mediaId ->
+                        if (lastOrNull() != mediaId) add(mediaId)
+                    }
+                }.takeLast(maxSize)
+                queueHistoryDao.replaceAll(normalized.map { mediaId -> QueueHistoryEntity(mediaId = mediaId) })
+            }
+        }
+    }
 }

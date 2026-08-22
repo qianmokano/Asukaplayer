@@ -9,7 +9,10 @@ import kotlinx.coroutines.withContext
 data class PlaybackPersistenceStores(
     val playbackStore: PlaybackStore,
     val queueHistoryStore: QueueHistoryStore,
-)
+    private val closeAction: () -> Unit = {},
+) : AutoCloseable {
+    override fun close() = closeAction()
+}
 
 object PlaybackPersistenceStoresFactory {
     suspend fun create(context: Context): PlaybackPersistenceStores {
@@ -26,6 +29,7 @@ object PlaybackPersistenceStoresFactory {
             PlaybackPersistenceStores(
                 playbackStore = RoomPlaybackStore(database.playbackStateDao()),
                 queueHistoryStore = RoomQueueHistoryStore(database.queueHistoryDao()),
+                closeAction = database::close,
             )
         }
     }

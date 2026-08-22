@@ -118,6 +118,10 @@ private class DeferredQueueHistoryStore(
 
     override suspend fun items(): List<String> =
         persistenceResolver.withQueueHistoryStore { it.items() }
+
+    override suspend fun replace(items: List<String>) {
+        persistenceResolver.withQueueHistoryStore { it.replace(items) }
+    }
 }
 
 private class MediaMetadataPreviewFrameProvider(

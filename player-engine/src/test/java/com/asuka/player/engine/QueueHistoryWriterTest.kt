@@ -98,4 +98,6 @@ private class SlowQueueHistoryStore : QueueHistoryStore {
     }
 
     override suspend fun items(): List<String> = emptyList()
+
+    override suspend fun replace(items: List<String>) = Unit
 }

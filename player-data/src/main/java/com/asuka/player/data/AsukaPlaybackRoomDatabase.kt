@@ -11,6 +11,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 @Entity(tableName = "playback_state")
 data class PlaybackStateEntity(
     @PrimaryKey
@@ -77,6 +78,15 @@ interface QueueHistoryDao {
 
     @Query("SELECT COUNT(*) FROM queue_history")
     fun count(): Int
+
+    @Query("DELETE FROM queue_history")
+    fun clear()
+
+    @Transaction
+    fun replaceAll(entities: List<QueueHistoryEntity>) {
+        clear()
+        if (entities.isNotEmpty()) insertAll(entities)
+    }
 
     @Query(
         """

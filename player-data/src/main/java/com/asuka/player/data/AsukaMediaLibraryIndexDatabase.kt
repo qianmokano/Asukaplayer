@@ -17,14 +17,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Entity(
     tableName = "media_library_video",
     indices = [
+        Index(value = ["volumeName", "mediaStoreId"], unique = true),
         Index("folderId"),
         Index("dateAddedSec"),
         Index("dateModifiedSec"),
     ],
 )
 data class IndexedVideoEntity(
-    @PrimaryKey
+    val volumeName: String = "external_primary",
     val mediaStoreId: Long,
+    @PrimaryKey
+    val stableId: String = "$volumeName:$mediaStoreId",
     val uri: String,
     val title: String,
     val durationMs: Long,
@@ -41,7 +44,7 @@ data class IndexedVideoEntity(
 @Entity(tableName = "media_library_sync_state")
 data class MediaLibrarySyncStateEntity(
     @PrimaryKey
-    val id: Int = 0,
+    val volumeName: String = "external_primary",
     val lastReconciledGeneration: Long,
     val mediaStoreVersion: String? = null,
 )
@@ -62,20 +65,44 @@ interface IndexedVideoDao {
     @Query("SELECT mediaStoreId FROM media_library_video")
     fun allIds(): List<Long>
 
+    @Query("SELECT mediaStoreId FROM media_library_video WHERE volumeName = :volumeName")
+    fun allMediaStoreIds(volumeName: String): List<Long>
+
     @Query("DELETE FROM media_library_video WHERE mediaStoreId IN (:ids)")
     fun deleteByIds(ids: List<Long>)
+
+    @Query("DELETE FROM media_library_video WHERE volumeName = :volumeName AND mediaStoreId IN (:ids)")
+    fun deleteByMediaStoreIds(volumeName: String, ids: List<Long>)
+
+    @Query("DELETE FROM media_library_video WHERE volumeName NOT IN (:volumeNames)")
+    fun deleteByMissingVolumes(volumeNames: List<String>): Int
+
+    @Query("DELETE FROM media_library_video")
+    fun deleteAll(): Int
 
     @Query("SELECT MAX(dateModifiedSec) FROM media_library_video")
     fun maxDateModifiedSec(): Long?
 
+    @Query("SELECT MAX(dateModifiedSec) FROM media_library_video WHERE volumeName = :volumeName")
+    fun maxDateModifiedSec(volumeName: String): Long?
+
     @Query("SELECT MAX(generationModified) FROM media_library_video")
     fun maxGenerationModified(): Long?
+
+    @Query("SELECT MAX(generationModified) FROM media_library_video WHERE volumeName = :volumeName")
+    fun maxGenerationModified(volumeName: String): Long?
 
     @Query("SELECT MAX(generationAdded) FROM media_library_video")
     fun maxGenerationAdded(): Long?
 
+    @Query("SELECT MAX(generationAdded) FROM media_library_video WHERE volumeName = :volumeName")
+    fun maxGenerationAdded(volumeName: String): Long?
+
     @Query("SELECT COUNT(*) FROM media_library_video")
     fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM media_library_video WHERE volumeName = :volumeName")
+    fun count(volumeName: String): Int
 
     @Query("SELECT COUNT(*) FROM (SELECT 1 FROM media_library_video GROUP BY folderId)")
     fun folderCount(): Int
@@ -121,6 +148,14 @@ interface IndexedVideoDao {
     @Query(
         """
         SELECT * FROM media_library_video
+        WHERE stableId IN (:ids)
+        """,
+    )
+    fun findByStableIds(ids: List<String>): List<IndexedVideoEntity>
+
+    @Query(
+        """
+        SELECT * FROM media_library_video
         WHERE mediaStoreId IN (:ids)
         """,
     )
@@ -129,8 +164,14 @@ interface IndexedVideoDao {
 
 @Dao
 interface MediaLibrarySyncStateDao {
-    @Query("SELECT * FROM media_library_sync_state WHERE id = 0")
-    fun state(): MediaLibrarySyncStateEntity?
+    @Query("SELECT * FROM media_library_sync_state WHERE volumeName = :volumeName")
+    fun state(volumeName: String = "external_primary"): MediaLibrarySyncStateEntity?
+
+    @Query("DELETE FROM media_library_sync_state WHERE volumeName NOT IN (:volumeNames)")
+    fun deleteByMissingVolumes(volumeNames: List<String>): Int
+
+    @Query("DELETE FROM media_library_sync_state")
+    fun deleteAll(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsert(entity: MediaLibrarySyncStateEntity)
@@ -141,7 +182,7 @@ interface MediaLibrarySyncStateDao {
         IndexedVideoEntity::class,
         MediaLibrarySyncStateEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class AsukaMediaLibraryIndexDatabase : RoomDatabase() {
@@ -156,7 +197,7 @@ abstract class AsukaMediaLibraryIndexDatabase : RoomDatabase() {
                 context,
                 AsukaMediaLibraryIndexDatabase::class.java,
                 DB_NAME,
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
         }
 
@@ -184,6 +225,62 @@ abstract class AsukaMediaLibraryIndexDatabase : RoomDatabase() {
                         lastReconciledGeneration INTEGER NOT NULL,
                         mediaStoreVersion TEXT,
                         PRIMARY KEY(id)
+                    )
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Rows from the merged external volume have no trustworthy source-volume key.
+                // Rebuild this cache so every row can be keyed by its specific MediaStore volume.
+                db.execSQL("DROP TABLE IF EXISTS media_library_video")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS media_library_video (
+                        volumeName TEXT NOT NULL,
+                        mediaStoreId INTEGER NOT NULL,
+                        stableId TEXT NOT NULL,
+                        uri TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        durationMs INTEGER NOT NULL,
+                        sizeBytes INTEGER NOT NULL,
+                        folderName TEXT NOT NULL,
+                        folderPath TEXT NOT NULL,
+                        folderId INTEGER NOT NULL,
+                        dateAddedSec INTEGER NOT NULL,
+                        dateModifiedSec INTEGER NOT NULL,
+                        generationAdded INTEGER NOT NULL,
+                        generationModified INTEGER NOT NULL,
+                        PRIMARY KEY(stableId)
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_media_library_video_volumeName_mediaStoreId " +
+                        "ON media_library_video(volumeName, mediaStoreId)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_library_video_folderId " +
+                        "ON media_library_video(folderId)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_library_video_dateAddedSec " +
+                        "ON media_library_video(dateAddedSec)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_media_library_video_dateModifiedSec " +
+                        "ON media_library_video(dateModifiedSec)",
+                )
+                db.execSQL("DROP TABLE IF EXISTS media_library_sync_state")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS media_library_sync_state (
+                        volumeName TEXT NOT NULL,
+                        lastReconciledGeneration INTEGER NOT NULL,
+                        mediaStoreVersion TEXT,
+                        PRIMARY KEY(volumeName)
                     )
                     """.trimIndent(),
                 )
