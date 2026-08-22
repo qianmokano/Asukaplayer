@@ -105,12 +105,16 @@ class GestureCoordinatorTest {
         val feedback = mutableListOf<Long>()
         val c = coordinator(
             controller = controller,
-            config = GestureConfig(doubleTapAction = PlayerSettings.DoubleTapAction.Seek, doubleTapSeekDeltaMs = 10_000L),
+            config = GestureConfig(
+                doubleTapAction = PlayerSettings.DoubleTapAction.Seek,
+                doubleTapSeekBackwardMs = 5_000L,
+                doubleTapSeekForwardMs = 15_000L,
+            ),
             onDoubleTapFeedback = { feedback += it },
         )
         c.onDoubleTap(Offset(50f, 100f), IntSize(400, 300))
-        assertEquals(listOf(-10_000L), controller.seekByCalls)
-        assertEquals(listOf(-10_000L), feedback)
+        assertEquals(listOf(-5_000L), controller.seekByCalls)
+        assertEquals(listOf(-5_000L), feedback)
     }
 
     @Test
@@ -119,12 +123,16 @@ class GestureCoordinatorTest {
         val feedback = mutableListOf<Long>()
         val c = coordinator(
             controller = controller,
-            config = GestureConfig(doubleTapAction = PlayerSettings.DoubleTapAction.Seek, doubleTapSeekDeltaMs = 10_000L),
+            config = GestureConfig(
+                doubleTapAction = PlayerSettings.DoubleTapAction.Seek,
+                doubleTapSeekBackwardMs = 5_000L,
+                doubleTapSeekForwardMs = 15_000L,
+            ),
             onDoubleTapFeedback = { feedback += it },
         )
         c.onDoubleTap(Offset(350f, 100f), IntSize(400, 300))
-        assertEquals(listOf(10_000L), controller.seekByCalls)
-        assertEquals(listOf(10_000L), feedback)
+        assertEquals(listOf(15_000L), controller.seekByCalls)
+        assertEquals(listOf(15_000L), feedback)
     }
 
     // -- doubleTap: Both --
@@ -146,7 +154,11 @@ class GestureCoordinatorTest {
         val controller = RecordingPlaybackController()
         val c = coordinator(
             controller = controller,
-            config = GestureConfig(doubleTapAction = PlayerSettings.DoubleTapAction.Both, doubleTapSeekDeltaMs = 5_000L),
+            config = GestureConfig(
+                doubleTapAction = PlayerSettings.DoubleTapAction.Both,
+                doubleTapSeekBackwardMs = 5_000L,
+                doubleTapSeekForwardMs = 15_000L,
+            ),
         )
         c.onDoubleTap(Offset(50f, 100f), IntSize(600, 400))
         assertEquals(listOf(-5_000L), controller.seekByCalls)

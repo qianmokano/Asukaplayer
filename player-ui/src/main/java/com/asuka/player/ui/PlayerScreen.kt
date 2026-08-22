@@ -22,12 +22,14 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asuka.player.contract.SeekIntervalPolicy
 import com.asuka.player.ui.components.OverlayType
 import com.asuka.player.ui.controller.GestureConfig
 import com.asuka.player.ui.controller.GestureCoordinator
 import com.asuka.player.ui.controller.OverlayActions
 import com.asuka.player.ui.controller.OverlayTrackActions
 import com.asuka.player.ui.controller.PointerGestureDetector
+import com.asuka.player.ui.controller.PlaybackSeekActions
 import com.asuka.player.ui.controller.QueueActions
 import com.asuka.player.ui.state.ControlsState
 import com.asuka.player.ui.state.LongPressSpeedState
@@ -84,6 +86,13 @@ fun PlayerScreen(
         dependencies.trackSelectionController?.let(::OverlayTrackActions)
     }
     val queueActions = remember(controller) { QueueActions(controller) }
+    val seekActions = remember(controller, settings.seekBackwardSec, settings.seekForwardSec) {
+        PlaybackSeekActions(
+            controller = controller,
+            seekBackwardSec = settings.seekBackwardSec,
+            seekForwardSec = settings.seekForwardSec,
+        )
+    }
     val pointerDetector = remember(settings.seekSensitivity, deviceController) {
         PointerGestureDetector(
             seekSensitivity = settings.seekSensitivity.coerceIn(0.1f, 2.0f),
@@ -131,7 +140,8 @@ fun PlayerScreen(
                 enableDoubleTapGesture = settings.doubleTapGestureEnabled,
                 doubleTapAction = settings.doubleTapAction,
                 enableLongPressGesture = settings.longPressGestureEnabled,
-                doubleTapSeekDeltaMs = settings.seekIncrementSec.coerceIn(1, 60) * 1000L,
+                doubleTapSeekBackwardMs = SeekIntervalPolicy.toMilliseconds(settings.seekBackwardSec),
+                doubleTapSeekForwardMs = SeekIntervalPolicy.toMilliseconds(settings.seekForwardSec),
                 longPressSpeed = settings.longPressSpeed.coerceIn(0.2f, 4.0f),
             ),
         )
@@ -220,6 +230,7 @@ fun PlayerScreen(
             landscapeCutoutPadding = landscapeCutoutPadding,
             displayedPositionMs = displayedPositionMs,
             queueActions = queueActions,
+            seekActions = seekActions,
             onBack = onBack,
             onPip = onPip,
             onBackground = onBackground,

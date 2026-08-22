@@ -5,6 +5,8 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import com.asuka.player.contract.PlaybackController
+import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.ui.state.PlayerUiState
 import kotlin.math.abs
 import org.junit.Assert.assertTrue
@@ -103,12 +105,16 @@ class PlayerScreenTest {
         }
 
         val rootBounds = composeRule.onRoot().fetchSemanticsNode().boundsInRoot
+        val backwardCenter = composeRule.onNodeWithTag("btn_seek_backward").fetchSemanticsNode().boundsInRoot.center
         val playPauseCenter = composeRule.onNodeWithTag("btn_play_pause").fetchSemanticsNode().boundsInRoot.center
+        val forwardCenter = composeRule.onNodeWithTag("btn_seek_forward").fetchSemanticsNode().boundsInRoot.center
         val nextCenter = composeRule.onNodeWithTag("btn_next").fetchSemanticsNode().boundsInRoot.center
 
         composeRule.onNodeWithTag("btn_prev").assertDoesNotExist()
         assertTrue(playPauseCenter.y > rootBounds.center.y)
-        assertTrue(nextCenter.x > playPauseCenter.x)
+        assertTrue(backwardCenter.x < playPauseCenter.x)
+        assertTrue(forwardCenter.x > playPauseCenter.x)
+        assertTrue(nextCenter.x > forwardCenter.x)
     }
 
     @Test
@@ -155,5 +161,38 @@ class PlayerScreenTest {
         }
 
         composeRule.onNodeWithTag("play_pause_loading_ring").assertExists()
+    }
+
+    @Test
+    fun seekButtons_useConfiguredBackwardAndForwardIntervals() {
+        val controller = RecordingSeekController()
+        composeRule.setContent {
+            PlayerScreen(
+                model = testPlaybackScreenModel().copy(
+                    settings = PlayerSettings(
+                        seekBackwardSec = 5,
+                        seekForwardSec = 15,
+                    ),
+                ),
+                uiStateFlow = testUiStateFlow(PlayerUiState(title = "Test")),
+                dependencies = testPlaybackScreenDependencies(controller),
+                onBack = {},
+                onPip = {},
+                onBackground = {},
+            )
+        }
+
+        composeRule.onNodeWithTag("btn_seek_backward").performClick()
+        composeRule.onNodeWithTag("btn_seek_forward").performClick()
+
+        assertTrue(controller.seekByCalls == listOf(-5_000L, 15_000L))
+    }
+}
+
+private class RecordingSeekController : PlaybackController by TestPlaybackController {
+    val seekByCalls = mutableListOf<Long>()
+
+    override fun seekBy(deltaMs: Long) {
+        seekByCalls += deltaMs
     }
 }

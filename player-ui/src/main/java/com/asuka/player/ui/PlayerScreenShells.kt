@@ -37,6 +37,7 @@ import com.asuka.player.ui.controller.OverlayActions
 import com.asuka.player.ui.controller.OverlayTrackActions
 import com.asuka.player.ui.controller.PlaybackTrackUiState
 import com.asuka.player.ui.controller.PointerGestureDetector
+import com.asuka.player.ui.controller.PlaybackSeekActions
 import com.asuka.player.ui.controller.QueueActions
 import com.asuka.player.ui.state.ControlsState
 import com.asuka.player.ui.state.LongPressSpeedState
@@ -134,6 +135,7 @@ internal fun PlayerScreenLayoutShell(
     landscapeCutoutPadding: LandscapeCutoutPadding,
     displayedPositionMs: Long,
     queueActions: QueueActions,
+    seekActions: PlaybackSeekActions,
     onBack: () -> Unit,
     onPip: () -> Unit,
     onBackground: () -> Unit,
@@ -176,6 +178,8 @@ internal fun PlayerScreenLayoutShell(
                 isPlaying = uiState.isPlaying,
                 isBuffering = uiState.isBuffering,
                 onSeekBarDragChange = controlsState::setInteractionVisibilityHold,
+                onSeekBackward = seekActions::backward,
+                onSeekForward = seekActions::forward,
                 onNext = { queueActions.next() },
                 onSpeed = { onOpenOverlay(OverlayType.SPEED) },
                 onSubtitle = { onOpenOverlay(OverlayType.SUBTITLE) },

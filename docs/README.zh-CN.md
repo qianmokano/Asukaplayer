@@ -28,6 +28,7 @@ English README: [README](../README.md)
 - 从应用内媒体库直接打开视频
 - 通过 `ACTION_VIEW`、`ACTION_SEND`、`ACTION_SEND_MULTIPLE` 和 `ClipData` 启动播放
 - 使用手势和进度条进行 seek
+- 为控制按钮与双击手势分别配置快退/快进间隔（1–60 秒，默认 10 秒）
 - 调整亮度、音量、缩放、平移、画面比例、字幕、音轨和播放速度
 - 恢复续播位置、速度设置和轨道选择
 

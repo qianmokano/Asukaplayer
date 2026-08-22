@@ -14,6 +14,8 @@
     <string name="shuffle">Shuffle</string>
     <string name="prev">Prev</string>
     <string name="play_pause">Play/Pause</string>
+    <string name="seek_backward">Seek backward</string>
+    <string name="seek_forward">Seek forward</string>
     <string name="next">Next</string>
     <string name="retry">Retry</string>
     <string name="dismiss">Dismiss</string>

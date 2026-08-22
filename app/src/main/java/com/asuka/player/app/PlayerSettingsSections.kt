@@ -9,13 +9,13 @@ import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.DoubleArrow
 import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Headset
 import androidx.compose.material.icons.rounded.HideSource
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.PanToolAlt
 import androidx.compose.material.icons.rounded.Pinch
 import androidx.compose.material.icons.rounded.PlayCircle
-import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.ResetTv
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Swipe
@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.asuka.player.contract.PlayerSettings
+import com.asuka.player.contract.SeekIntervalPolicy
 import com.asuka.player.R
 import java.util.Locale
 
@@ -42,7 +43,8 @@ internal fun PlayerGestureSettingsGroup(
         PlayerSettings.DoubleTapAction.Both -> stringResource(R.string.action_seek_and_play_pause)
         PlayerSettings.DoubleTapAction.Seek -> stringResource(R.string.action_seek)
     }
-    val seekIncrementSec = playerSettings.seekIncrementSec.toFloat()
+    val seekBackwardSec = playerSettings.seekBackwardSec.toFloat()
+    val seekForwardSec = playerSettings.seekForwardSec.toFloat()
 
     SplicedColumnGroup(title = stringResource(R.string.settings_group_gesture)) {
         item {
@@ -140,17 +142,42 @@ internal fun PlayerGestureSettingsGroup(
         }
         item {
             SettingsSliderItem(
-                icon = Icons.Rounded.Replay10,
-                title = stringResource(R.string.gesture_seek_increment_title),
-                description = stringResource(R.string.gesture_seek_increment_desc, seekIncrementSec.toInt()),
-                value = seekIncrementSec,
-                valueRange = 1f..60f,
-                steps = 58,
-                enabled = playerSettings.seekGestureEnabled,
+                icon = Icons.Rounded.FastRewind,
+                title = stringResource(R.string.seek_backward_interval_title),
+                description = stringResource(R.string.seek_interval_desc, seekBackwardSec.toInt()),
+                value = seekBackwardSec,
+                valueRange = SeekIntervalPolicy.MIN_SECONDS.toFloat()..SeekIntervalPolicy.MAX_SECONDS.toFloat(),
+                steps = SeekIntervalPolicy.MAX_SECONDS - SeekIntervalPolicy.MIN_SECONDS - 1,
                 onValueChange = {
-                    onPlayerSettingsChange(playerSettings.copy(seekIncrementSec = it.toInt().coerceIn(1, 60)))
+                    onPlayerSettingsChange(
+                        playerSettings.copy(seekBackwardSec = SeekIntervalPolicy.normalizeSeconds(it.toInt())),
+                    )
                 },
-                onReset = { onPlayerSettingsChange(playerSettings.copy(seekIncrementSec = 10)) },
+                onReset = {
+                    onPlayerSettingsChange(
+                        playerSettings.copy(seekBackwardSec = SeekIntervalPolicy.DEFAULT_SECONDS),
+                    )
+                },
+            )
+        }
+        item {
+            SettingsSliderItem(
+                icon = Icons.Rounded.FastForward,
+                title = stringResource(R.string.seek_forward_interval_title),
+                description = stringResource(R.string.seek_interval_desc, seekForwardSec.toInt()),
+                value = seekForwardSec,
+                valueRange = SeekIntervalPolicy.MIN_SECONDS.toFloat()..SeekIntervalPolicy.MAX_SECONDS.toFloat(),
+                steps = SeekIntervalPolicy.MAX_SECONDS - SeekIntervalPolicy.MIN_SECONDS - 1,
+                onValueChange = {
+                    onPlayerSettingsChange(
+                        playerSettings.copy(seekForwardSec = SeekIntervalPolicy.normalizeSeconds(it.toInt())),
+                    )
+                },
+                onReset = {
+                    onPlayerSettingsChange(
+                        playerSettings.copy(seekForwardSec = SeekIntervalPolicy.DEFAULT_SECONDS),
+                    )
+                },
             )
         }
         item {

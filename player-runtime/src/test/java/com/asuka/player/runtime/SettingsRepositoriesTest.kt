@@ -68,14 +68,16 @@ class SettingsRepositoriesTest {
 
         playerSettingsRepository.setPlayerSettings(playerSettingsRepository.settings.value.copy(
             autoPip = false,
-            seekIncrementSec = 15,
+            seekBackwardSec = 5,
+            seekForwardSec = 15,
             controllerTimeoutSec = 7,
         ))
         behaviorRepository.setKeepConnectionInBackground(false)
 
         val runtime = source.current()
         assertFalse(runtime.autoPip)
-        assertEquals(15, runtime.seekIncrementSec)
+        assertEquals(5, runtime.seekBackwardSec)
+        assertEquals(15, runtime.seekForwardSec)
         assertEquals(7, runtime.controllerTimeoutSec)
         assertFalse(runtime.keepSessionConnectionInBackground)
         assertFalse(runtime.hideButtonsBackground)

@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.asuka.player.contract.PlaybackController
 import com.asuka.player.contract.PlayerSettings
+import com.asuka.player.contract.SeekIntervalPolicy
 import com.asuka.player.domain.GestureAlgorithms
 import com.asuka.player.domain.GestureStateMachine
 import com.asuka.player.ui.state.ControlsState
@@ -27,7 +28,8 @@ data class GestureConfig(
     val enableDoubleTapGesture: Boolean = true,
     val doubleTapAction: PlayerSettings.DoubleTapAction = PlayerSettings.DoubleTapAction.TogglePlayPause,
     val enableLongPressGesture: Boolean = true,
-    val doubleTapSeekDeltaMs: Long = 10_000L,
+    val doubleTapSeekBackwardMs: Long = SeekIntervalPolicy.toMilliseconds(SeekIntervalPolicy.DEFAULT_SECONDS),
+    val doubleTapSeekForwardMs: Long = SeekIntervalPolicy.toMilliseconds(SeekIntervalPolicy.DEFAULT_SECONDS),
     val longPressSpeed: Float = 2.0f,
     val minSeekDeltaMs: Long = 250L,
 )
@@ -58,7 +60,6 @@ class GestureCoordinator(
     val config: GestureConfig = GestureConfig(),
 ) {
     private val machine = GestureStateMachine()
-
     private var seekStartPositionMs: Long = 0L
     private var seekStartX: Float = 0f
     private var lastSeekDeltaMs: Long = 0L
@@ -82,7 +83,6 @@ class GestureCoordinator(
             return
         }
         val center = size.width / 2f
-        val delta = config.doubleTapSeekDeltaMs
         if (config.doubleTapAction == PlayerSettings.DoubleTapAction.Both) {
             val centerBandHalfWidth = size.width / 6f
             if (abs(offset.x - center) <= centerBandHalfWidth) {
@@ -91,11 +91,11 @@ class GestureCoordinator(
             }
         }
         if (offset.x < center) {
-            controller.seekBy(-delta)
-            onDoubleTapFeedback(-delta)
+            controller.seekBy(-config.doubleTapSeekBackwardMs)
+            onDoubleTapFeedback(-config.doubleTapSeekBackwardMs)
         } else {
-            controller.seekBy(delta)
-            onDoubleTapFeedback(delta)
+            controller.seekBy(config.doubleTapSeekForwardMs)
+            onDoubleTapFeedback(config.doubleTapSeekForwardMs)
         }
     }
 

@@ -2,8 +2,10 @@ package com.asuka.player.ui
 
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import com.asuka.player.ui.controller.PlaybackSeekActions
 import com.asuka.player.ui.controller.QueueActions
 import com.asuka.player.ui.state.ControlsState
 import com.asuka.player.ui.state.PlayerUiState
@@ -20,14 +22,14 @@ class GestureSeekOverlayTest {
 
     @Test
     fun seekOnlyLayout_keepsSeekBarPositionAndHidesControlContent() {
-        var normalSeekBarCenterY = 0f
+        val gestureSeekOverlayVisible = mutableStateOf(false)
 
         composeRule.setContent {
             val scope = rememberCoroutineScope()
             val controlsState = remember { ControlsState(scope = scope, autoHideDelay = 3.seconds) }
             PlayerScreenLayoutShell(
                 controlsVisible = true,
-                gestureSeekOverlayVisible = false,
+                gestureSeekOverlayVisible = gestureSeekOverlayVisible.value,
                 isInPip = false,
                 settings = testPlaybackScreenModel().settings,
                 uiState = PlayerUiState(
@@ -39,6 +41,7 @@ class GestureSeekOverlayTest {
                 landscapeCutoutPadding = LandscapeCutoutPadding.None,
                 displayedPositionMs = 45_000L,
                 queueActions = QueueActions(TestPlaybackController),
+                seekActions = PlaybackSeekActions(TestPlaybackController, 10, 10),
                 onBack = {},
                 onPip = {},
                 onBackground = {},
@@ -51,35 +54,14 @@ class GestureSeekOverlayTest {
             )
         }
         composeRule.waitForIdle()
-        normalSeekBarCenterY = composeRule.onNodeWithTag("bottom_seek_bar").fetchSemanticsNode().boundsInRoot.center.y
+        val normalSeekBarCenterY = composeRule.onNodeWithTag("bottom_seek_bar")
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .center
+            .y
 
-        composeRule.setContent {
-            val scope = rememberCoroutineScope()
-            val controlsState = remember { ControlsState(scope = scope, autoHideDelay = 3.seconds) }
-            PlayerScreenLayoutShell(
-                controlsVisible = true,
-                gestureSeekOverlayVisible = true,
-                isInPip = false,
-                settings = testPlaybackScreenModel().settings,
-                uiState = PlayerUiState(
-                    title = "Test",
-                    durationMs = 120_000L,
-                    positionMs = 30_000L,
-                ),
-                controller = TestPlaybackController,
-                landscapeCutoutPadding = LandscapeCutoutPadding.None,
-                displayedPositionMs = 45_000L,
-                queueActions = QueueActions(TestPlaybackController),
-                onBack = {},
-                onPip = {},
-                onBackground = {},
-                onOpenOverlay = {},
-                onRotate = {},
-                controlsState = controlsState,
-                onProgressBarSeekStart = {},
-                onProgressBarSeekPreview = { _, _ -> },
-                onProgressBarSeekEnd = {},
-            )
+        composeRule.runOnIdle {
+            gestureSeekOverlayVisible.value = true
         }
         composeRule.waitForIdle()
 
