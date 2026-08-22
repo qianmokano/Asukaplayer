@@ -88,6 +88,7 @@ class ControlsLockTest {
         }
 
         composeRule.onNodeWithTag("btn_lock").assertExists().performClick()
+        composeRule.mainClock.advanceTimeBy(500L)
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("btn_unlock_controls").assertExists()
 
@@ -95,7 +96,9 @@ class ControlsLockTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("btn_unlock_controls").assertDoesNotExist()
 
+        composeRule.mainClock.autoAdvance = true
         composeRule.onRoot().performTouchInput { click(center) }
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("btn_unlock_controls").assertExists()
     }

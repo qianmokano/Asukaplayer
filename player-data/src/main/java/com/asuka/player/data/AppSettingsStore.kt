@@ -1,5 +1,6 @@
 package com.asuka.player.data
 
+import com.asuka.player.contract.SeekIntervalPolicy
 import kotlinx.coroutines.flow.StateFlow
 
 interface AppSettingsStore {
@@ -104,7 +105,8 @@ internal object AppSettingsSnapshotJsonCodec {
             put(PlayerKeys.DOUBLE_TAP_GESTURE_ENABLED, record.doubleTapGestureEnabled)
             put(PlayerKeys.DOUBLE_TAP_ACTION, record.doubleTapAction)
             put(PlayerKeys.LONG_PRESS_GESTURE_ENABLED, record.longPressGestureEnabled)
-            put(PlayerKeys.SEEK_INCREMENT_SEC, record.seekIncrementSec)
+            put(PlayerKeys.SEEK_BACKWARD_SEC, record.seekBackwardSec)
+            put(PlayerKeys.SEEK_FORWARD_SEC, record.seekForwardSec)
             put(PlayerKeys.SEEK_SENSITIVITY, record.seekSensitivity)
             put(PlayerKeys.LONG_PRESS_SPEED, record.longPressSpeed)
             put(PlayerKeys.CONTROLLER_TIMEOUT_SEC, record.controllerTimeoutSec)
@@ -130,7 +132,8 @@ internal object AppSettingsSnapshotJsonCodec {
             doubleTapGestureEnabled = obj?.optBoolean(PlayerKeys.DOUBLE_TAP_GESTURE_ENABLED, true) ?: true,
             doubleTapAction = obj?.optString(PlayerKeys.DOUBLE_TAP_ACTION, "toggle_play_pause") ?: "toggle_play_pause",
             longPressGestureEnabled = obj?.optBoolean(PlayerKeys.LONG_PRESS_GESTURE_ENABLED, true) ?: true,
-            seekIncrementSec = obj?.optInt(PlayerKeys.SEEK_INCREMENT_SEC, 10) ?: 10,
+            seekBackwardSec = obj.readSeekInterval(PlayerKeys.SEEK_BACKWARD_SEC),
+            seekForwardSec = obj.readSeekInterval(PlayerKeys.SEEK_FORWARD_SEC),
             seekSensitivity = obj?.optDouble(PlayerKeys.SEEK_SENSITIVITY, 1.0)?.toFloat() ?: 1.0f,
             longPressSpeed = obj?.optDouble(PlayerKeys.LONG_PRESS_SPEED, 2.0)?.toFloat() ?: 2.0f,
             controllerTimeoutSec = obj?.optInt(PlayerKeys.CONTROLLER_TIMEOUT_SEC, 3) ?: 3,
@@ -228,7 +231,9 @@ internal object AppSettingsSnapshotJsonCodec {
         const val DOUBLE_TAP_GESTURE_ENABLED = "doubleTapGestureEnabled"
         const val DOUBLE_TAP_ACTION = "doubleTapAction"
         const val LONG_PRESS_GESTURE_ENABLED = "longPressGestureEnabled"
-        const val SEEK_INCREMENT_SEC = "seekIncrementSec"
+        const val SEEK_BACKWARD_SEC = "seekBackwardSec"
+        const val SEEK_FORWARD_SEC = "seekForwardSec"
+        const val LEGACY_SEEK_INCREMENT_SEC = "seekIncrementSec"
         const val SEEK_SENSITIVITY = "seekSensitivity"
         const val LONG_PRESS_SPEED = "longPressSpeed"
         const val CONTROLLER_TIMEOUT_SEC = "controllerTimeoutSec"
@@ -247,5 +252,16 @@ internal object AppSettingsSnapshotJsonCodec {
         const val KEEP_CONNECTION_IN_BACKGROUND = "keepConnectionInBackground"
         const val REMEMBERED_BRIGHTNESS = "rememberedBrightness"
         const val REMEMBERED_VOLUME_PERCENT = "rememberedVolumePercent"
+    }
+
+    private fun org.json.JSONObject?.readSeekInterval(key: String): Int {
+        if (this == null) return SeekIntervalPolicy.DEFAULT_SECONDS
+        return when {
+            has(key) -> optInt(key, SeekIntervalPolicy.DEFAULT_SECONDS)
+            has(PlayerKeys.LEGACY_SEEK_INCREMENT_SEC) -> {
+                optInt(PlayerKeys.LEGACY_SEEK_INCREMENT_SEC, SeekIntervalPolicy.DEFAULT_SECONDS)
+            }
+            else -> SeekIntervalPolicy.DEFAULT_SECONDS
+        }
     }
 }

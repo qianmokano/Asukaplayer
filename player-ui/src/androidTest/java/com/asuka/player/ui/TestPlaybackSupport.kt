@@ -107,9 +107,11 @@ internal fun testUiStateFlow(
     uiState: PlayerUiState = PlayerUiState(),
 ): StateFlow<PlayerUiState> = MutableStateFlow(uiState)
 
-internal fun testPlaybackScreenDependencies(): PlaybackScreenDependencies {
+internal fun testPlaybackScreenDependencies(
+    controller: PlaybackController = TestPlaybackController,
+): PlaybackScreenDependencies {
     return PlaybackScreenDependencies(
-        controller = TestPlaybackController,
+        controller = controller,
         trackSelectionController = TestPlaybackTrackSelectionController,
         playbackPersistence = testPlaybackUiPersistence(),
         previewFrameProvider = TestPlaybackPreviewFrameProvider,

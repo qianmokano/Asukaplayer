@@ -38,7 +38,8 @@ class DataStoreAppSettingsStoreTest {
                 hapticFeedbackEnabled = false,
             ),
             playerSettings = PlayerSettingsRecord(
-                seekIncrementSec = 15,
+                seekBackwardSec = 5,
+                seekForwardSec = 15,
                 seekSensitivity = 1.7f,
                 longPressSpeed = 3.0f,
                 controllerTimeoutSec = 9,

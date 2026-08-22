@@ -77,8 +77,9 @@
     <string name="gesture_double_tap_desc_off">已关闭</string>
     <string name="gesture_long_press_title">长按手势</string>
     <string name="gesture_long_press_desc">长按临时加速播放（%.1fx）</string>
-    <string name="gesture_seek_increment_title">快进步长</string>
-    <string name="gesture_seek_increment_desc">%1$d 秒</string>
+    <string name="seek_backward_interval_title">快退间隔</string>
+    <string name="seek_forward_interval_title">快进间隔</string>
+    <string name="seek_interval_desc">%1$d 秒（控制按钮与双击手势，默认 10 秒）</string>
     <string name="gesture_seek_sensitivity_title">快进灵敏度</string>
     <string name="settings_group_ui">界面</string>
     <string name="settings_controller_timeout_title">控制层自动隐藏</string>

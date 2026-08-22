@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.ScreenRotation
@@ -77,6 +79,8 @@ internal fun BottomBar(
     isPlaying: Boolean,
     isBuffering: Boolean,
     onSeekBarDragChange: (Boolean) -> Unit = {},
+    onSeekBackward: () -> Unit,
+    onSeekForward: () -> Unit,
     onNext: () -> Unit,
     onSpeed: () -> Unit,
     onSubtitle: () -> Unit,
@@ -230,9 +234,18 @@ internal fun BottomBar(
         ) {
             if (showActionRow) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    SimpleButton(
+                        label = stringResource(id = R.string.seek_backward),
+                        icon = Icons.Rounded.FastRewind,
+                        onClick = onSeekBackward,
+                        tag = "btn_seek_backward",
+                        showBackground = showButtonBackground,
+                        size = bottomBarButtonSize,
+                        iconSize = bottomBarButtonIconSize,
+                    )
                     Box(
                         modifier = Modifier.size(bottomBarButtonSize + 4.dp),
                         contentAlignment = Alignment.Center,
@@ -257,6 +270,15 @@ internal fun BottomBar(
                         )
                     }
                     SimpleButton(
+                        label = stringResource(id = R.string.seek_forward),
+                        icon = Icons.Rounded.FastForward,
+                        onClick = onSeekForward,
+                        tag = "btn_seek_forward",
+                        showBackground = showButtonBackground,
+                        size = bottomBarButtonSize,
+                        iconSize = bottomBarButtonIconSize,
+                    )
+                    SimpleButton(
                         label = stringResource(id = R.string.next),
                         icon = Icons.Rounded.SkipNext,
                         onClick = onNext,
@@ -268,7 +290,7 @@ internal fun BottomBar(
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SimpleButton(

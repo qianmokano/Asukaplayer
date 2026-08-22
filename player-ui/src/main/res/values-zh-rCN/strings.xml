@@ -14,6 +14,8 @@
     <string name="shuffle">随机</string>
     <string name="prev">上一项</string>
     <string name="play_pause">播放/暂停</string>
+    <string name="seek_backward">快退</string>
+    <string name="seek_forward">快进</string>
     <string name="next">下一项</string>
     <string name="retry">重试</string>
     <string name="dismiss">关闭</string>

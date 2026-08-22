@@ -1,6 +1,7 @@
 package com.asuka.player.data
 
 import android.content.Context
+import com.asuka.player.contract.SeekIntervalPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +41,8 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     doubleTapGestureEnabled = prefs.getBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, true),
                     doubleTapAction = prefs.getString(Keys.PLAYER_DOUBLE_TAP_ACTION, "toggle_play_pause") ?: "toggle_play_pause",
                     longPressGestureEnabled = prefs.getBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, true),
-                    seekIncrementSec = prefs.getInt(Keys.PLAYER_SEEK_INCREMENT_SEC, 10),
+                    seekBackwardSec = readSeekInterval(Keys.PLAYER_SEEK_BACKWARD_SEC),
+                    seekForwardSec = readSeekInterval(Keys.PLAYER_SEEK_FORWARD_SEC),
                     seekSensitivity = prefs.getFloat(Keys.PLAYER_SEEK_SENSITIVITY, 1.0f),
                     longPressSpeed = prefs.getFloat(Keys.PLAYER_LONG_PRESS_SPEED, 2.0f),
                     controllerTimeoutSec = prefs.getInt(Keys.PLAYER_CONTROLLER_TIMEOUT_SEC, 3),
@@ -90,7 +92,9 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     .putBoolean(Keys.PLAYER_DOUBLE_TAP_GESTURE_ENABLED, normalized.playerSettings.doubleTapGestureEnabled)
                     .putString(Keys.PLAYER_DOUBLE_TAP_ACTION, normalized.playerSettings.doubleTapAction)
                     .putBoolean(Keys.PLAYER_LONG_PRESS_GESTURE_ENABLED, normalized.playerSettings.longPressGestureEnabled)
-                    .putInt(Keys.PLAYER_SEEK_INCREMENT_SEC, normalized.playerSettings.seekIncrementSec)
+                    .putInt(Keys.PLAYER_SEEK_BACKWARD_SEC, normalized.playerSettings.seekBackwardSec)
+                    .putInt(Keys.PLAYER_SEEK_FORWARD_SEC, normalized.playerSettings.seekForwardSec)
+                    .remove(Keys.PLAYER_LEGACY_SEEK_INCREMENT_SEC)
                     .putFloat(Keys.PLAYER_SEEK_SENSITIVITY, normalized.playerSettings.seekSensitivity)
                     .putFloat(Keys.PLAYER_LONG_PRESS_SPEED, normalized.playerSettings.longPressSpeed)
                     .putInt(Keys.PLAYER_CONTROLLER_TIMEOUT_SEC, normalized.playerSettings.controllerTimeoutSec)
@@ -134,6 +138,17 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         synchronized(lock) {
             return prefs.all.isNotEmpty()
         }
+    }
+
+    private fun readSeekInterval(key: String): Int {
+        val storedKey = when {
+            prefs.contains(key) -> key
+            prefs.contains(Keys.PLAYER_LEGACY_SEEK_INCREMENT_SEC) -> Keys.PLAYER_LEGACY_SEEK_INCREMENT_SEC
+            else -> return SeekIntervalPolicy.DEFAULT_SECONDS
+        }
+        return runCatching {
+            prefs.getInt(storedKey, SeekIntervalPolicy.DEFAULT_SECONDS)
+        }.getOrDefault(SeekIntervalPolicy.DEFAULT_SECONDS)
     }
 
     private fun loadCustomThemes(): List<CustomThemeRecord> {
@@ -196,7 +211,9 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         const val PLAYER_DOUBLE_TAP_GESTURE_ENABLED = "player_double_tap_gesture_enabled"
         const val PLAYER_DOUBLE_TAP_ACTION = "player_double_tap_action"
         const val PLAYER_LONG_PRESS_GESTURE_ENABLED = "player_long_press_gesture_enabled"
-        const val PLAYER_SEEK_INCREMENT_SEC = "player_seek_increment_sec"
+        const val PLAYER_SEEK_BACKWARD_SEC = "player_seek_backward_sec"
+        const val PLAYER_SEEK_FORWARD_SEC = "player_seek_forward_sec"
+        const val PLAYER_LEGACY_SEEK_INCREMENT_SEC = "player_seek_increment_sec"
         const val PLAYER_SEEK_SENSITIVITY = "player_seek_sensitivity"
         const val PLAYER_LONG_PRESS_SPEED = "player_long_press_speed"
         const val PLAYER_CONTROLLER_TIMEOUT_SEC = "player_controller_timeout_sec"

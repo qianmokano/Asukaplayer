@@ -28,6 +28,7 @@ Chinese README: [简体中文](docs/README.zh-CN.md)
 - Open videos from the in-app library
 - Launch playback from `ACTION_VIEW`, `ACTION_SEND`, `ACTION_SEND_MULTIPLE`, and `ClipData`
 - Seek with gestures and the progress bar
+- Configure independent backward/forward seek intervals (1–60 seconds, default 10 seconds) for controls and double taps
 - Control brightness, volume, zoom, pan, aspect ratio, subtitles, audio tracks, and playback speed
 - Continue playback with resume state, restored speed, and restored track selections
 

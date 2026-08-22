@@ -1,5 +1,7 @@
 package com.asuka.player.data
 
+import com.asuka.player.contract.SeekIntervalPolicy
+
 data class CustomThemeRecord(
     val id: String,
     val name: String,
@@ -30,7 +32,8 @@ data class PlayerSettingsRecord(
     val doubleTapGestureEnabled: Boolean = true,
     val doubleTapAction: String = "toggle_play_pause",
     val longPressGestureEnabled: Boolean = true,
-    val seekIncrementSec: Int = 10,
+    val seekBackwardSec: Int = SeekIntervalPolicy.DEFAULT_SECONDS,
+    val seekForwardSec: Int = SeekIntervalPolicy.DEFAULT_SECONDS,
     val seekSensitivity: Float = 1.0f,
     val longPressSpeed: Float = 2.0f,
     val controllerTimeoutSec: Int = 3,
@@ -67,7 +70,7 @@ data class AppSettingsSnapshot(
     }
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
     }
 }
 
@@ -81,7 +84,8 @@ internal fun UiSettingsRecord.normalized(): UiSettingsRecord {
 
 internal fun PlayerSettingsRecord.normalized(): PlayerSettingsRecord {
     return copy(
-        seekIncrementSec = seekIncrementSec.coerceIn(1, 60),
+        seekBackwardSec = SeekIntervalPolicy.normalizeSeconds(seekBackwardSec),
+        seekForwardSec = SeekIntervalPolicy.normalizeSeconds(seekForwardSec),
         seekSensitivity = seekSensitivity.coerceIn(0.1f, 2.0f),
         longPressSpeed = longPressSpeed.coerceIn(0.2f, 4.0f),
         controllerTimeoutSec = controllerTimeoutSec.coerceIn(1, 60),
