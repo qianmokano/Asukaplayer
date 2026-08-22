@@ -110,6 +110,8 @@
     <string name="settings_background_play_desc">切后台后继续播放</string>
     <string name="settings_remember_brightness_title">记住亮度</string>
     <string name="settings_remember_brightness_desc">记住播放器亮度级别</string>
+    <string name="settings_remember_volume_title">记住音量</string>
+    <string name="settings_remember_volume_desc">在播放会话之间恢复媒体音量</string>
     <string name="settings_remember_tracks_title">记住轨道选择</string>
     <string name="settings_remember_tracks_desc">记住音轨和字幕选择</string>
 

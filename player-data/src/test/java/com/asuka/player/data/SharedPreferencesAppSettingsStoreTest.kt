@@ -57,9 +57,13 @@ class SharedPreferencesAppSettingsStoreTest {
             autoPip = false,
             autoBackgroundPlay = true,
             rememberBrightness = true,
+            rememberVolume = true,
             rememberSelections = false,
         )
-        val behaviorRecord = PlaybackBehaviorRecord(keepConnectionInBackground = false)
+        val behaviorRecord = PlaybackBehaviorRecord(
+            keepConnectionInBackground = false,
+            rememberedVolumePercent = 64,
+        )
 
         store.saveUiSettings(uiRecord)
         store.savePlayerSettings(playerRecord)

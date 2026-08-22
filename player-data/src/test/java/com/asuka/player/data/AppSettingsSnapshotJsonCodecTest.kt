@@ -31,7 +31,9 @@ class AppSettingsSnapshotJsonCodecTest {
         assertEquals(1.5f, snapshot.playerSettings.defaultPlaybackSpeed)
         assertEquals("toggle_play_pause", snapshot.playerSettings.doubleTapAction)
         assertEquals(true, snapshot.playerSettings.autoplay)
+        assertEquals(false, snapshot.playerSettings.rememberVolume)
         assertEquals(true, snapshot.playbackBehavior.keepConnectionInBackground)
+        assertEquals(null, snapshot.playbackBehavior.rememberedVolumePercent)
     }
 
     @Test
@@ -51,7 +53,8 @@ class AppSettingsSnapshotJsonCodecTest {
                 "defaultPlaybackSpeed": 99.0
               },
               "playbackBehavior": {
-                "rememberedBrightness": 9.0
+                "rememberedBrightness": 9.0,
+                "rememberedVolumePercent": 999
               }
             }
             """.trimIndent(),
@@ -63,5 +66,6 @@ class AppSettingsSnapshotJsonCodecTest {
         assertEquals(1, snapshot.playerSettings.seekIncrementSec)
         assertEquals(4.0f, snapshot.playerSettings.defaultPlaybackSpeed)
         assertEquals(1.0f, snapshot.playbackBehavior.rememberedBrightness)
+        assertEquals(100, snapshot.playbackBehavior.rememberedVolumePercent)
     }
 }

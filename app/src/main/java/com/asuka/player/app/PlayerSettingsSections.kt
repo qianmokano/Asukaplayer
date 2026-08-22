@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.BrightnessHigh
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.DoubleArrow
@@ -265,6 +266,15 @@ internal fun PlayerPlaybackSettingsGroup(
                 description = stringResource(R.string.settings_remember_brightness_desc),
                 checked = playerSettings.rememberBrightness,
                 onCheckedChange = { onPlayerSettingsChange(playerSettings.copy(rememberBrightness = it)) },
+            )
+        }
+        item {
+            SettingsToggleItem(
+                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                title = stringResource(R.string.settings_remember_volume_title),
+                description = stringResource(R.string.settings_remember_volume_desc),
+                checked = playerSettings.rememberVolume,
+                onCheckedChange = { onPlayerSettingsChange(playerSettings.copy(rememberVolume = it)) },
             )
         }
         item {

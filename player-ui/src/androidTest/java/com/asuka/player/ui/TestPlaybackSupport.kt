@@ -63,6 +63,10 @@ internal fun testPlaybackUiPersistence(): PlaybackUiPersistence {
         override fun readRememberedBrightness(): Float? = null
 
         override fun saveRememberedBrightness(brightness: Float) {}
+
+        override suspend fun readRememberedVolumePercent(): Int? = null
+
+        override fun saveRememberedVolumePercent(volumePercent: Int) {}
     }
 }
 
