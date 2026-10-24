@@ -88,6 +88,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_17)

@@ -141,6 +141,7 @@ internal fun MainLibraryScreen(
                 onLoadMoreFolder = vm::loadMoreFolder,
                 onRefreshRecent = { vm.refreshRecentMediaIds() },
                 onHapticFeedbackEnabledChange = { vm.setHapticFeedbackEnabled(it) },
+                onAppLanguageChange = { vm.setAppLanguage(it) },
                 onPlayerSettingsChange = { vm.setPlayerSettings(it) },
                 onThemeConfigChange = { vm.setThemeConfig(it) },
                 onCustomThemesChange = { vm.setCustomThemes(it) },

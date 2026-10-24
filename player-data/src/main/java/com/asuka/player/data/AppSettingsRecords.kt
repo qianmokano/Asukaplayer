@@ -21,7 +21,10 @@ data class UiSettingsRecord(
     val customThemes: List<CustomThemeRecord> = emptyList(),
     val navDurationMs: Int = 300,
     val hapticFeedbackEnabled: Boolean = true,
+    val appLanguage: String = APP_LANGUAGE_SYSTEM,
 )
+
+const val APP_LANGUAGE_SYSTEM = "system"
 
 data class PlayerSettingsRecord(
     val seekGestureEnabled: Boolean = true,

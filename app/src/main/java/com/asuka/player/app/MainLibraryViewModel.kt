@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.asuka.player.contract.PlayerSettings
+import com.asuka.player.runtime.AppLanguagePreference
 import com.asuka.player.runtime.CustomThemeEntry
 import com.asuka.player.runtime.PlayerSettingsRepository
 import com.asuka.player.runtime.ThemeConfig
@@ -85,6 +86,11 @@ internal class MainLibraryViewModel(
     fun setHapticFeedbackEnabled(value: Boolean) {
         if (uiSettings.value.hapticFeedbackEnabled == value) return
         viewModelScope.launch { uiSettingsRepository.setHapticFeedbackEnabled(value) }
+    }
+
+    fun setAppLanguage(value: AppLanguagePreference) {
+        if (uiSettings.value.appLanguage == value) return
+        viewModelScope.launch { uiSettingsRepository.setAppLanguage(value) }
     }
 
     fun setPlayerSettings(value: PlayerSettings) {

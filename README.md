@@ -38,6 +38,7 @@ Chinese README: [简体中文](docs/README.zh-CN.md)
 - Persist playback speed, audio/subtitle choices, zoom state, and queue history
 - Use Picture-in-Picture and background playback retention
 - Avoid blocking player callbacks with serialized asynchronous persistence
+- Choose the app language in settings: system default, English, 简体中文, or Español (works on Android 6.0+ and integrates with the system per-app language setting on Android 13+)
 
 ## Project Status
 

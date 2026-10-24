@@ -18,6 +18,7 @@ data class UiSettingsState(
     val customThemes: List<CustomThemeEntry>,
     val navDurationMs: Int,
     val hapticFeedbackEnabled: Boolean,
+    val appLanguage: AppLanguagePreference = AppLanguagePreference.System,
 )
 
 class UiSettingsRepository(
@@ -59,6 +60,13 @@ class UiSettingsRepository(
         if (settings.value.hapticFeedbackEnabled == value) return
         store.updateSnapshot { snap ->
             snap.copy(uiSettings = snap.uiSettings.copy(hapticFeedbackEnabled = value))
+        }
+    }
+
+    suspend fun setAppLanguage(value: AppLanguagePreference) {
+        if (settings.value.appLanguage == value) return
+        store.updateSnapshot { snap ->
+            snap.copy(uiSettings = snap.uiSettings.copy(appLanguage = value.storageKey))
         }
     }
 }
@@ -165,6 +173,7 @@ private fun UiSettingsRecord.toUiSettingsState(): UiSettingsState {
         customThemes = customThemes.toCustomThemeEntries(),
         navDurationMs = navDurationMs,
         hapticFeedbackEnabled = hapticFeedbackEnabled,
+        appLanguage = AppLanguagePreference.fromStorageKey(appLanguage),
     )
 }
 
@@ -181,6 +190,7 @@ private fun UiSettingsState.toUiSettingsRecord(): UiSettingsRecord {
         customThemes = customThemes.toCustomThemeRecords(),
         navDurationMs = navDurationMs,
         hapticFeedbackEnabled = hapticFeedbackEnabled,
+        appLanguage = appLanguage.storageKey,
     )
 }
 

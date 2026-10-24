@@ -16,7 +16,7 @@
     <string name="empty_folder_video_list">No videos found in this folder.</string>
     <string name="empty_folder_video_list_limited">No selected videos found in this folder. Manage access to choose more videos.</string>
     <string name="empty_video_list_limited">No selected videos found. Grant full access or pick a local video.</string>
-    <string name="folder_meta_no_size">%1$d 视频 • %2$s</string>
+    <string name="folder_meta_no_size">%1$d videos • %2$s</string>
     <string name="unknown_folder">Unknown folder</string>
     <string name="tab_all_videos">All Videos</string>
     <string name="back_to_folders">Back to folders</string>
@@ -24,14 +24,14 @@
     <string name="limited_access_title">Limited access</string>
     <string name="limited_access_banner_title">Selected videos only</string>
     <string name="limited_access_banner_body">Only videos selected in Android are shown here. Manage access to choose more videos or allow the full library.</string>
-    <string name="folders_group_title">文件夹（%1$d）</string>
-    <string name="videos_group_title">全部视频（%1$d）</string>
-    <string name="selected_folder_group_title">视频（%1$d）</string>
+    <string name="folders_group_title">Folders (%1$d)</string>
+    <string name="videos_group_title">All videos (%1$d)</string>
+    <string name="selected_folder_group_title">Videos (%1$d)</string>
     <string name="settings_title">Settings</string>
     <string name="settings_general_title">General</string>
     <string name="settings_about_title">About Asuka Player</string>
     <string name="settings_about_desc">Version %1$s</string>
-    <string name="refresh_done">刷新完成：%1$d 个视频</string>
+    <string name="refresh_done">Refreshed: %1$d videos</string>
     <string name="media_library_refresh_error_title">Library refresh failed</string>
     <string name="media_library_refresh_error_permission">Video access is no longer available. Grant permission and try again.</string>
     <string name="media_library_refresh_error_provider">The media provider is temporarily unavailable. Try again in a moment.</string>
@@ -42,150 +42,153 @@
     <string name="recent_unknown_source">Unavailable source</string>
 
     <!-- Theme preset names -->
-    <string name="theme_preset_dynamic">动态</string>
-    <string name="theme_preset_violet">紫罗兰</string>
-    <string name="theme_preset_teal">青绿</string>
-    <string name="theme_preset_red">红宝石</string>
-    <string name="theme_preset_sandstone">砂岩</string>
-    <string name="theme_preset_neutral">石板灰</string>
-    <string name="theme_preset_monochrome">黑白</string>
-    <string name="theme_preset_custom">自定义</string>
+    <string name="theme_preset_dynamic">Dynamic</string>
+    <string name="theme_preset_violet">Violet</string>
+    <string name="theme_preset_teal">Teal</string>
+    <string name="theme_preset_red">Ruby</string>
+    <string name="theme_preset_sandstone">Sandstone</string>
+    <string name="theme_preset_neutral">Slate</string>
+    <string name="theme_preset_monochrome">Monochrome</string>
+    <string name="theme_preset_custom">Custom</string>
 
     <!-- Settings page titles -->
-    <string name="settings_player_title">播放器</string>
-    <string name="settings_theme_title">主题</string>
+    <string name="settings_player_title">Player</string>
+    <string name="settings_theme_title">Theme</string>
 
     <!-- Settings main page -->
-    <string name="settings_group_playback">播放</string>
-    <string name="settings_player_desc">手势、界面与播放偏好</string>
-    <string name="settings_group_appearance">外观</string>
-    <string name="settings_theme_desc">主题色彩、深色模式和文本缩放</string>
-    <string name="settings_group_interaction">交互</string>
-    <string name="settings_haptic_title">振动</string>
-    <string name="settings_haptic_desc">控制操作时的振动反馈</string>
+    <string name="settings_group_playback">Playback</string>
+    <string name="settings_player_desc">Gestures, interface and playback preferences</string>
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_theme_desc">Theme colors, dark mode and text scaling</string>
+    <string name="settings_group_interaction">Interaction</string>
+    <string name="settings_haptic_title">Haptics</string>
+    <string name="settings_haptic_desc">Vibration feedback on interactions</string>
+    <string name="settings_language_title">Language</string>
+    <string name="language_system_default">System default</string>
 
     <!-- Double tap action labels -->
-    <string name="action_play_pause">播放/暂停</string>
-    <string name="action_seek">快进/快退</string>
-    <string name="action_seek_and_play_pause">快进/快退 + 播放/暂停</string>
+    <string name="action_play_pause">Play/Pause</string>
+    <string name="action_seek">Seek forward/backward</string>
+    <string name="action_seek_and_play_pause">Seek + Play/Pause</string>
 
     <!-- Player settings - Gesture section -->
-    <string name="settings_group_gesture">手势</string>
-    <string name="gesture_seek_title">拖动快进手势</string>
-    <string name="gesture_seek_desc">启用左右滑动快进/快退</string>
-    <string name="gesture_brightness_title">亮度手势</string>
-    <string name="gesture_brightness_desc">启用亮度上下滑动调节</string>
-    <string name="gesture_volume_title">音量手势</string>
-    <string name="gesture_volume_desc">启用音量上下滑动调节</string>
-    <string name="gesture_zoom_title">缩放手势</string>
-    <string name="gesture_zoom_desc">启用双指缩放</string>
-    <string name="gesture_pan_title">平移手势</string>
-    <string name="gesture_pan_desc_enabled">缩放后可拖动画面</string>
-    <string name="gesture_pan_desc_disabled">需先启用缩放手势</string>
-    <string name="gesture_double_tap_title">双击手势</string>
-    <string name="gesture_double_tap_desc_on">双击动作：%1$s</string>
-    <string name="gesture_double_tap_desc_off">已关闭</string>
-    <string name="gesture_long_press_title">长按手势</string>
-    <string name="gesture_long_press_desc">长按临时加速播放（%.1fx）</string>
-    <string name="seek_backward_interval_title">快退间隔</string>
-    <string name="seek_forward_interval_title">快进间隔</string>
-    <string name="seek_interval_desc">%1$d 秒（控制按钮与双击手势，默认 10 秒）</string>
-    <string name="gesture_seek_sensitivity_title">快进灵敏度</string>
+    <string name="settings_group_gesture">Gestures</string>
+    <string name="gesture_seek_title">Drag-to-seek gesture</string>
+    <string name="gesture_seek_desc">Swipe horizontally to seek</string>
+    <string name="gesture_brightness_title">Brightness gesture</string>
+    <string name="gesture_brightness_desc">Swipe vertically to adjust brightness</string>
+    <string name="gesture_volume_title">Volume gesture</string>
+    <string name="gesture_volume_desc">Swipe vertically to adjust volume</string>
+    <string name="gesture_zoom_title">Zoom gesture</string>
+    <string name="gesture_zoom_desc">Pinch to zoom the video</string>
+    <string name="gesture_pan_title">Pan gesture</string>
+    <string name="gesture_pan_desc_enabled">Drag the video after zooming</string>
+    <string name="gesture_pan_desc_disabled">Requires the zoom gesture</string>
+    <string name="gesture_double_tap_title">Double-tap gesture</string>
+    <string name="gesture_double_tap_desc_on">Double-tap action: %1$s</string>
+    <string name="gesture_double_tap_desc_off">Off</string>
+    <string name="gesture_long_press_title">Long-press gesture</string>
+    <string name="gesture_long_press_desc">Hold to speed up playback (%.1fx)</string>
+    <string name="seek_backward_interval_title">Seek-backward interval</string>
+    <string name="seek_forward_interval_title">Seek-forward interval</string>
+    <string name="seek_interval_desc">%1$d seconds (controls and double-tap, default 10)</string>
+    <string name="gesture_seek_sensitivity_title">Seek sensitivity</string>
 
     <!-- Player settings - UI section -->
-    <string name="settings_group_ui">界面</string>
-    <string name="settings_controller_timeout_title">控制层自动隐藏</string>
-    <string name="settings_controller_timeout_desc">%1$d 秒</string>
-    <string name="settings_hide_button_bg_title">隐藏按钮背景</string>
-    <string name="settings_hide_button_bg_desc">减少按钮背景遮挡</string>
+    <string name="settings_group_ui">Interface</string>
+    <string name="settings_controller_timeout_title">Auto-hide controls</string>
+    <string name="settings_controller_timeout_desc">%1$d s</string>
+    <string name="settings_hide_button_bg_title">Hide button backgrounds</string>
+    <string name="settings_hide_button_bg_desc">Reduce background shading on buttons</string>
 
     <!-- Player settings - Playback section -->
-    <string name="settings_resume_title">续播</string>
-    <string name="settings_resume_desc">自动恢复上次播放位置</string>
-    <string name="settings_default_speed_title">默认播放速度</string>
-    <string name="settings_autoplay_title">自动播放</string>
-    <string name="settings_autoplay_desc">播放结束后自动播放下一个</string>
-    <string name="settings_auto_pip_title">自动进入画中画</string>
-    <string name="settings_auto_pip_desc">离开播放器时进入画中画</string>
-    <string name="settings_background_play_title">后台播放</string>
-    <string name="settings_background_play_desc">切后台后继续播放</string>
-    <string name="settings_remember_brightness_title">记住亮度</string>
-    <string name="settings_remember_brightness_desc">记住播放器亮度级别</string>
-    <string name="settings_remember_volume_title">记住音量</string>
-    <string name="settings_remember_volume_desc">在播放会话之间恢复媒体音量</string>
-    <string name="settings_remember_tracks_title">记住轨道选择</string>
-    <string name="settings_remember_tracks_desc">记住音轨和字幕选择</string>
+    <string name="settings_resume_title">Resume playback</string>
+    <string name="settings_resume_desc">Resume from the last position</string>
+    <string name="settings_default_speed_title">Default playback speed</string>
+    <string name="settings_autoplay_title">Autoplay</string>
+    <string name="settings_autoplay_desc">Play the next video automatically</string>
+    <string name="settings_auto_pip_title">Auto picture-in-picture</string>
+    <string name="settings_auto_pip_desc">Enter PiP when leaving the player</string>
+    <string name="settings_background_play_title">Background playback</string>
+    <string name="settings_background_play_desc">Keep playing in the background</string>
+    <string name="settings_remember_brightness_title">Remember brightness</string>
+    <string name="settings_remember_brightness_desc">Restore the player brightness level</string>
+    <string name="settings_remember_volume_title">Remember volume</string>
+    <string name="settings_remember_volume_desc">Restore media volume across sessions</string>
+    <string name="settings_remember_tracks_title">Remember track selection</string>
+    <string name="settings_remember_tracks_desc">Remember audio and subtitle tracks</string>
 
     <!-- Dialog titles and buttons -->
-    <string name="dialog_double_tap_action_title">双击动作</string>
-    <string name="dialog_long_press_title">长按手势</string>
-    <string name="dialog_cancel">取消</string>
-    <string name="dialog_done">完成</string>
+    <string name="dialog_double_tap_action_title">Double-tap action</string>
+    <string name="dialog_long_press_title">Long-press gesture</string>
+    <string name="dialog_language_title">App language</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_done">Done</string>
     <string name="dialog_play">Play</string>
-    <string name="dialog_delete">删除</string>
-    <string name="dialog_save_and_apply">保存并启用</string>
+    <string name="dialog_delete">Delete</string>
+    <string name="dialog_save_and_apply">Save &amp; apply</string>
 
     <!-- Slider reset content description -->
-    <string name="content_desc_reset">重置</string>
+    <string name="content_desc_reset">Reset</string>
 
     <!-- Theme settings - Theme mode section -->
-    <string name="settings_group_theme_mode">主题模式</string>
-    <string name="settings_appearance_title">外观</string>
-    <string name="settings_appearance_desc">选择浅色、深色或跟随系统</string>
-    <string name="appearance_auto">自动</string>
-    <string name="appearance_light">浅色</string>
-    <string name="appearance_dark">深色</string>
+    <string name="settings_group_theme_mode">Theme mode</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_appearance_desc">Choose light, dark or follow system</string>
+    <string name="appearance_auto">Auto</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
 
     <!-- Theme settings - Color scheme section -->
-    <string name="settings_group_theme_color">主题色彩</string>
-    <string name="settings_color_scheme_title">色彩方案</string>
-    <string name="settings_color_scheme_dynamic_supported">已支持动态主题（Android 12+），可随系统壁纸变化。</string>
-    <string name="settings_color_scheme_dynamic_unsupported">当前系统不支持动态主题（Android 12+），将使用预设主题色。</string>
+    <string name="settings_group_theme_color">Theme colors</string>
+    <string name="settings_color_scheme_title">Color scheme</string>
+    <string name="settings_color_scheme_dynamic_supported">Dynamic color is supported (Android 12+) and follows your wallpaper.</string>
+    <string name="settings_color_scheme_dynamic_unsupported">Dynamic color isn\'t supported on this system (Android 12+); preset colors will be used.</string>
 
     <!-- Theme settings - Display section -->
-    <string name="settings_group_display">显示</string>
-    <string name="settings_pure_black_title">纯黑模式</string>
-    <string name="settings_pure_black_desc">深色下使用 AMOLED 纯黑背景</string>
-    <string name="settings_font_scale_title">文本缩放</string>
-    <string name="settings_font_scale_desc">关闭后使用默认字号</string>
-    <string name="settings_font_scale_ratio_title">缩放比例</string>
-    <string name="settings_font_scale_ratio_desc">当前 %1$d%%</string>
+    <string name="settings_group_display">Display</string>
+    <string name="settings_pure_black_title">Pure black mode</string>
+    <string name="settings_pure_black_desc">AMOLED black background in dark mode</string>
+    <string name="settings_font_scale_title">Font scale</string>
+    <string name="settings_font_scale_desc">Use the default size when off</string>
+    <string name="settings_font_scale_ratio_title">Scale ratio</string>
+    <string name="settings_font_scale_ratio_desc">Current %1$d%%</string>
 
     <!-- Delete custom theme dialog -->
-    <string name="dialog_delete_custom_theme_title">删除自定义主题？</string>
-    <string name="dialog_delete_custom_theme_message">此操作无法撤回。</string>
+    <string name="dialog_delete_custom_theme_title">Delete custom theme?</string>
+    <string name="dialog_delete_custom_theme_message">This cannot be undone.</string>
 
     <!-- Custom theme sheet -->
-    <string name="custom_theme_title">自定义主题</string>
-    <string name="custom_theme_name_label">主题名称</string>
-    <string name="custom_theme_hex_label">输入 #RRGGBB</string>
-    <string name="custom_theme_hex_error">请输入合法的十六进制颜色</string>
-    <string name="custom_theme_hex_hint">示例: #2E6CF6 或 #34D6A6</string>
-    <string name="custom_theme_preview_primary">主色</string>
-    <string name="custom_theme_preview_container">容器</string>
-    <string name="custom_theme_preview_accent">强调</string>
-    <string name="custom_theme_default_name">自定义主题 %1$d</string>
+    <string name="custom_theme_title">Custom theme</string>
+    <string name="custom_theme_name_label">Theme name</string>
+    <string name="custom_theme_hex_label">Enter #RRGGBB</string>
+    <string name="custom_theme_hex_error">Enter a valid hexadecimal color</string>
+    <string name="custom_theme_hex_hint">e.g. #2E6CF6 or #34D6A6</string>
+    <string name="custom_theme_preview_primary">Primary</string>
+    <string name="custom_theme_preview_container">Container</string>
+    <string name="custom_theme_preview_accent">Accent</string>
+    <string name="custom_theme_default_name">Custom theme %1$d</string>
 
     <!-- RGB slider labels -->
-    <string name="color_red">红色</string>
-    <string name="color_green">绿色</string>
-    <string name="color_blue">蓝色</string>
+    <string name="color_red">Red</string>
+    <string name="color_green">Green</string>
+    <string name="color_blue">Blue</string>
 
     <!-- Custom palette mode labels -->
-    <string name="palette_mode_grid">网格</string>
-    <string name="palette_mode_spectrum">光谱</string>
-    <string name="palette_mode_sliders">滑块</string>
+    <string name="palette_mode_grid">Grid</string>
+    <string name="palette_mode_spectrum">Spectrum</string>
+    <string name="palette_mode_sliders">Sliders</string>
 
     <!-- Motion settings -->
-    <string name="settings_group_motion">动画</string>
-    <string name="motion_transition_duration_title">过渡时长</string>
-    <string name="motion_transition_duration_desc">当前 %1$d ms</string>
-    <string name="motion_transition_hint">提示：0ms 表示无过渡（瞬切）。默认值：350ms。若系统\u201C动画时长比例\u201D为 0，系统可能强制关闭动画。</string>
+    <string name="settings_group_motion">Motion</string>
+    <string name="motion_transition_duration_title">Transition duration</string>
+    <string name="motion_transition_duration_desc">Current %1$d ms</string>
+    <string name="motion_transition_hint">Tip: 0 ms means no transition (instant). Default: 350 ms. If the system "animation duration scale" is 0, animations may be disabled by the system.</string>
 
     <!-- Theme mode labels -->
-    <string name="theme_mode_monochrome">黑白模式</string>
-    <string name="theme_mode_color">彩色模式</string>
+    <string name="theme_mode_monochrome">Monochrome mode</string>
+    <string name="theme_mode_color">Color mode</string>
 
     <!-- Folder path -->
-    <string name="internal_storage">手机存储</string>
+    <string name="internal_storage">Internal storage</string>
 </resources>

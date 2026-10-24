@@ -36,6 +36,7 @@ class DataStoreAppSettingsStoreTest {
                 ),
                 navDurationMs = 480,
                 hapticFeedbackEnabled = false,
+                appLanguage = "es",
             ),
             playerSettings = PlayerSettingsRecord(
                 seekBackwardSec = 5,

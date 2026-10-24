@@ -29,6 +29,7 @@ class AppSettingsSnapshotJsonCodecTest {
         assertEquals("Custom", snapshot.uiSettings.themeMode)
         assertEquals("System", snapshot.uiSettings.themeAppearance)
         assertEquals(300, snapshot.uiSettings.navDurationMs)
+        assertEquals("system", snapshot.uiSettings.appLanguage)
         assertEquals(1.5f, snapshot.playerSettings.defaultPlaybackSpeed)
         assertEquals("toggle_play_pause", snapshot.playerSettings.doubleTapAction)
         assertEquals(10, snapshot.playerSettings.seekBackwardSec)
@@ -107,5 +108,16 @@ class AppSettingsSnapshotJsonCodecTest {
         assertEquals(5, decoded.playerSettings.seekBackwardSec)
         assertEquals(15, decoded.playerSettings.seekForwardSec)
         assertFalse(encoded.contains("\"seekIncrementSec\""))
+    }
+
+    @Test
+    fun appLanguage_roundTripsThroughSnapshot() {
+        val snapshot = AppSettingsSnapshot(
+            uiSettings = UiSettingsRecord(appLanguage = "es"),
+        )
+
+        val decoded = AppSettingsSnapshotJsonCodec.decode(AppSettingsSnapshotJsonCodec.encode(snapshot))
+
+        assertEquals("es", decoded.uiSettings.appLanguage)
     }
 }

@@ -17,6 +17,9 @@ import com.asuka.player.runtime.AsukaAppGraph
 import com.asuka.player.runtime.PlaybackPlatformBindings
 import com.asuka.player.runtime.ThemeAppearanceMode
 import com.asuka.player.engine.R as EngineR
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, PlaybackDependenciesProvider, PlaybackThemeProvider {
     /**
@@ -70,5 +73,9 @@ class AsuraPlayerApp : Application(), MainActivityDependenciesProvider, Playback
         // for the initial window background. All runtime theming is handled in
         // Compose via AsukaTheme; no further setDefaultNightMode calls are needed.
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        AppLanguageController(
+            uiSettingsRepository = graph.settings.uiSettingsRepository,
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        ).start()
     }
 }

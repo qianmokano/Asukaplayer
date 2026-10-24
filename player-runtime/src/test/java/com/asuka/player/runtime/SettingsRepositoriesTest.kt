@@ -8,6 +8,7 @@ import com.asuka.player.data.DataStoreAppSettingsStore
 import com.asuka.player.data.PlaybackBehaviorRecord
 import com.asuka.player.data.PlayerSettingsRecord
 import com.asuka.player.data.SharedPreferencesAppSettingsStore
+import com.asuka.player.data.UiSettingsRecord
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -53,6 +54,29 @@ class SettingsRepositoriesTest {
         assertTrue(state.themeConfig.fontScaleEnabled)
         assertEquals(480, state.navDurationMs)
         assertFalse(state.hapticFeedbackEnabled)
+    }
+
+    @Test
+    fun uiSettingsRepository_roundTripsAppLanguage() = runBlocking {
+        val store = freshStore()
+        val repository = UiSettingsRepository(store, testScope())
+
+        repository.setAppLanguage(AppLanguagePreference.Spanish)
+
+        assertEquals(AppLanguagePreference.Spanish, repository.settings.value.appLanguage)
+        assertEquals("es", store.loadSnapshot().uiSettings.appLanguage)
+    }
+
+    @Test
+    fun uiSettingsRepository_unknownAppLanguageFallsBackToSystem() = runBlocking {
+        val store = freshStore()
+        store.saveSnapshot(
+            AppSettingsSnapshot(uiSettings = UiSettingsRecord(appLanguage = "klingon")),
+        )
+
+        val repository = UiSettingsRepository(store, testScope())
+
+        assertEquals(AppLanguagePreference.System, repository.settings.value.appLanguage)
     }
 
     @Test
