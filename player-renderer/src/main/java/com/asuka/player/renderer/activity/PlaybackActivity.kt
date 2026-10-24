@@ -4,9 +4,9 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +32,7 @@ import com.asuka.player.ui.PlayerScreen
 import com.asuka.player.ui.R as PlayerUiR
 import com.asuka.player.ui.theme.PlayerUiTokens
 
-class PlaybackActivity : ComponentActivity() {
+class PlaybackActivity : AppCompatActivity() {
     private val playbackDependencies: PlaybackActivityDependencies by lazy(LazyThreadSafetyMode.NONE) {
         PlaybackDependenciesProvider.from(application).playbackActivityDependencies
     }

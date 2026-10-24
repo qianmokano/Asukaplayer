@@ -73,6 +73,7 @@ internal object AppSettingsSnapshotJsonCodec {
             })
             put(UiKeys.NAV_DURATION_MS, record.navDurationMs)
             put(UiKeys.HAPTIC_FEEDBACK_ENABLED, record.hapticFeedbackEnabled)
+            put(UiKeys.APP_LANGUAGE, record.appLanguage)
         }
     }
 
@@ -92,6 +93,8 @@ internal object AppSettingsSnapshotJsonCodec {
             customThemes = decodeCustomThemes(obj?.optJSONArray(UiKeys.CUSTOM_THEMES)),
             navDurationMs = obj?.optInt(UiKeys.NAV_DURATION_MS, 300) ?: 300,
             hapticFeedbackEnabled = obj?.optBoolean(UiKeys.HAPTIC_FEEDBACK_ENABLED, true) ?: true,
+            appLanguage = obj?.optString(UiKeys.APP_LANGUAGE, UiSettingsRecord().appLanguage)
+                ?: UiSettingsRecord().appLanguage,
         ).normalized()
     }
 
@@ -213,6 +216,7 @@ internal object AppSettingsSnapshotJsonCodec {
         const val CUSTOM_THEMES = "customThemes"
         const val NAV_DURATION_MS = "navDurationMs"
         const val HAPTIC_FEEDBACK_ENABLED = "hapticFeedbackEnabled"
+        const val APP_LANGUAGE = "appLanguage"
     }
 
     private object ThemeKeys {

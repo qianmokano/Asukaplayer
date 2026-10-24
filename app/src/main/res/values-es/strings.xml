@@ -1,0 +1,194 @@
+<resources>
+    <string name="app_name">Asuka Player</string>
+    <string name="launcher_title">Asuka Player</string>
+    <string name="open_local_video">Abrir vídeo local</string>
+    <string name="open_network_stream">Abrir transmisión de red</string>
+    <string name="open_network_stream_hint">Introduce una URL de transmisión (p. ej. https://example.com/video.mp4)</string>
+    <string name="open_network_stream_invalid">Introduce una URL válida con esquema (http/https/rtsp…)</string>
+    <string name="permission_hint">Permite el acceso a los vídeos para crear tu biblioteca local.</string>
+    <string name="grant_permission">Conceder permiso</string>
+    <string name="manage_media_access">Gestionar acceso</string>
+    <string name="refresh">Actualizar</string>
+    <string name="recent_playback">Reproducidos recientemente</string>
+    <string name="recent_group_title">Reproducidos recientemente (%1$d)</string>
+    <string name="empty_recent_list">Aún no hay vídeos recientes</string>
+    <string name="empty_video_list">No se encontraron vídeos locales.</string>
+    <string name="empty_folder_video_list">No hay vídeos en esta carpeta.</string>
+    <string name="empty_folder_video_list_limited">No hay vídeos seleccionados en esta carpeta. Gestiona el acceso para elegir más vídeos.</string>
+    <string name="empty_video_list_limited">No se encontraron vídeos seleccionados. Concede acceso completo o abre un vídeo local.</string>
+    <string name="folder_meta_no_size">%1$d vídeos • %2$s</string>
+    <string name="unknown_folder">Carpeta desconocida</string>
+    <string name="tab_all_videos">Todos los vídeos</string>
+    <string name="back_to_folders">Volver a carpetas</string>
+    <string name="permission_required_title">Permiso necesario</string>
+    <string name="limited_access_title">Acceso limitado</string>
+    <string name="limited_access_banner_title">Solo vídeos seleccionados</string>
+    <string name="limited_access_banner_body">Aquí solo se muestran los vídeos seleccionados en Android. Gestiona el acceso para elegir más vídeos o permitir la biblioteca completa.</string>
+    <string name="folders_group_title">Carpetas (%1$d)</string>
+    <string name="videos_group_title">Todos los vídeos (%1$d)</string>
+    <string name="selected_folder_group_title">Vídeos (%1$d)</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_general_title">General</string>
+    <string name="settings_about_title">Acerca de Asuka Player</string>
+    <string name="settings_about_desc">Versión %1$s</string>
+    <string name="refresh_done">Actualizado: %1$d vídeos</string>
+    <string name="media_library_refresh_error_title">Error al actualizar la biblioteca</string>
+    <string name="media_library_refresh_error_permission">El acceso a los vídeos ya no está disponible. Concede el permiso e inténtalo de nuevo.</string>
+    <string name="media_library_refresh_error_provider">El proveedor multimedia no está disponible temporalmente. Inténtalo de nuevo en un momento.</string>
+    <string name="media_library_refresh_error_unknown">No se pudo actualizar la biblioteca multimedia. Inténtalo de nuevo.</string>
+    <string name="media_library_refresh_retry">Reintentar</string>
+    <string name="media_library_append_error_title">No se pudieron cargar más</string>
+    <string name="media_library_append_retry">Cargar más de nuevo</string>
+    <string name="recent_unknown_source">Origen no disponible</string>
+
+    <!-- Theme preset names -->
+    <string name="theme_preset_dynamic">Dinámico</string>
+    <string name="theme_preset_violet">Violeta</string>
+    <string name="theme_preset_teal">Verde azulado</string>
+    <string name="theme_preset_red">Rubí</string>
+    <string name="theme_preset_sandstone">Arenisca</string>
+    <string name="theme_preset_neutral">Pizarra</string>
+    <string name="theme_preset_monochrome">Monocromo</string>
+    <string name="theme_preset_custom">Personalizado</string>
+
+    <!-- Settings page titles -->
+    <string name="settings_player_title">Reproductor</string>
+    <string name="settings_theme_title">Tema</string>
+
+    <!-- Settings main page -->
+    <string name="settings_group_playback">Reproducción</string>
+    <string name="settings_player_desc">Gestos, interfaz y preferencias de reproducción</string>
+    <string name="settings_group_appearance">Apariencia</string>
+    <string name="settings_theme_desc">Colores del tema, modo oscuro y escala de texto</string>
+    <string name="settings_group_interaction">Interacción</string>
+    <string name="settings_haptic_title">Vibración</string>
+    <string name="settings_haptic_desc">Respuesta de vibración al interactuar</string>
+    <string name="settings_language_title">Idioma</string>
+    <string name="language_system_default">Predeterminado del sistema</string>
+
+    <!-- Double tap action labels -->
+    <string name="action_play_pause">Reproducir/Pausar</string>
+    <string name="action_seek">Avanzar/Retroceder</string>
+    <string name="action_seek_and_play_pause">Avanzar/Retroceder + Reproducir/Pausar</string>
+
+    <!-- Player settings - Gesture section -->
+    <string name="settings_group_gesture">Gestos</string>
+    <string name="gesture_seek_title">Gesto de búsqueda</string>
+    <string name="gesture_seek_desc">Desliza horizontalmente para buscar</string>
+    <string name="gesture_brightness_title">Gesto de brillo</string>
+    <string name="gesture_brightness_desc">Desliza verticalmente para ajustar el brillo</string>
+    <string name="gesture_volume_title">Gesto de volumen</string>
+    <string name="gesture_volume_desc">Desliza verticalmente para ajustar el volumen</string>
+    <string name="gesture_zoom_title">Gesto de zoom</string>
+    <string name="gesture_zoom_desc">Pellizca para ampliar el vídeo</string>
+    <string name="gesture_pan_title">Gesto de desplazamiento</string>
+    <string name="gesture_pan_desc_enabled">Arrastra el vídeo tras ampliarlo</string>
+    <string name="gesture_pan_desc_disabled">Requiere el gesto de zoom</string>
+    <string name="gesture_double_tap_title">Gesto de doble toque</string>
+    <string name="gesture_double_tap_desc_on">Acción de doble toque: %1$s</string>
+    <string name="gesture_double_tap_desc_off">Desactivado</string>
+    <string name="gesture_long_press_title">Gesto de pulsación larga</string>
+    <string name="gesture_long_press_desc">Mantén pulsado para acelerar la reproducción (%.1fx)</string>
+    <string name="seek_backward_interval_title">Intervalo de retroceso</string>
+    <string name="seek_forward_interval_title">Intervalo de avance</string>
+    <string name="seek_interval_desc">%1$d segundos (controles y doble toque, 10 por defecto)</string>
+    <string name="gesture_seek_sensitivity_title">Sensibilidad de búsqueda</string>
+
+    <!-- Player settings - UI section -->
+    <string name="settings_group_ui">Interfaz</string>
+    <string name="settings_controller_timeout_title">Ocultar controles automáticamente</string>
+    <string name="settings_controller_timeout_desc">%1$d s</string>
+    <string name="settings_hide_button_bg_title">Ocultar fondos de botones</string>
+    <string name="settings_hide_button_bg_desc">Reduce el sombreado de los botones</string>
+
+    <!-- Player settings - Playback section -->
+    <string name="settings_resume_title">Reanudar reproducción</string>
+    <string name="settings_resume_desc">Reanuda desde la última posición</string>
+    <string name="settings_default_speed_title">Velocidad de reproducción predeterminada</string>
+    <string name="settings_autoplay_title">Reproducción automática</string>
+    <string name="settings_autoplay_desc">Reproduce el siguiente vídeo automáticamente</string>
+    <string name="settings_auto_pip_title">Picture-in-picture automático</string>
+    <string name="settings_auto_pip_desc">Entra en PiP al salir del reproductor</string>
+    <string name="settings_background_play_title">Reproducción en segundo plano</string>
+    <string name="settings_background_play_desc">Sigue reproduciendo en segundo plano</string>
+    <string name="settings_remember_brightness_title">Recordar brillo</string>
+    <string name="settings_remember_brightness_desc">Restaura el nivel de brillo del reproductor</string>
+    <string name="settings_remember_volume_title">Recordar volumen</string>
+    <string name="settings_remember_volume_desc">Restaura el volumen multimedia entre sesiones</string>
+    <string name="settings_remember_tracks_title">Recordar selección de pistas</string>
+    <string name="settings_remember_tracks_desc">Recuerda las pistas de audio y subtítulos</string>
+
+    <!-- Dialog titles and buttons -->
+    <string name="dialog_double_tap_action_title">Acción de doble toque</string>
+    <string name="dialog_long_press_title">Gesto de pulsación larga</string>
+    <string name="dialog_language_title">Idioma de la aplicación</string>
+    <string name="dialog_cancel">Cancelar</string>
+    <string name="dialog_done">Hecho</string>
+    <string name="dialog_play">Reproducir</string>
+    <string name="dialog_delete">Eliminar</string>
+    <string name="dialog_save_and_apply">Guardar y aplicar</string>
+
+    <!-- Slider reset content description -->
+    <string name="content_desc_reset">Restablecer</string>
+
+    <!-- Theme settings - Theme mode section -->
+    <string name="settings_group_theme_mode">Modo del tema</string>
+    <string name="settings_appearance_title">Apariencia</string>
+    <string name="settings_appearance_desc">Elige claro, oscuro o según el sistema</string>
+    <string name="appearance_auto">Automático</string>
+    <string name="appearance_light">Claro</string>
+    <string name="appearance_dark">Oscuro</string>
+
+    <!-- Theme settings - Color scheme section -->
+    <string name="settings_group_theme_color">Colores del tema</string>
+    <string name="settings_color_scheme_title">Esquema de color</string>
+    <string name="settings_color_scheme_dynamic_supported">El color dinámico es compatible (Android 12+) y sigue tu fondo de pantalla.</string>
+    <string name="settings_color_scheme_dynamic_unsupported">El color dinámico no es compatible con este sistema (Android 12+); se usarán colores predefinidos.</string>
+
+    <!-- Theme settings - Display section -->
+    <string name="settings_group_display">Pantalla</string>
+    <string name="settings_pure_black_title">Modo negro puro</string>
+    <string name="settings_pure_black_desc">Fondo negro AMOLED en modo oscuro</string>
+    <string name="settings_font_scale_title">Escala de fuente</string>
+    <string name="settings_font_scale_desc">Usa el tamaño predeterminado al desactivarlo</string>
+    <string name="settings_font_scale_ratio_title">Proporción de escala</string>
+    <string name="settings_font_scale_ratio_desc">Actual %1$d%%</string>
+
+    <!-- Delete custom theme dialog -->
+    <string name="dialog_delete_custom_theme_title">¿Eliminar tema personalizado?</string>
+    <string name="dialog_delete_custom_theme_message">Esta acción no se puede deshacer.</string>
+
+    <!-- Custom theme sheet -->
+    <string name="custom_theme_title">Tema personalizado</string>
+    <string name="custom_theme_name_label">Nombre del tema</string>
+    <string name="custom_theme_hex_label">Introduce #RRGGBB</string>
+    <string name="custom_theme_hex_error">Introduce un color hexadecimal válido</string>
+    <string name="custom_theme_hex_hint">p. ej. #2E6CF6 o #34D6A6</string>
+    <string name="custom_theme_preview_primary">Primario</string>
+    <string name="custom_theme_preview_container">Contenedor</string>
+    <string name="custom_theme_preview_accent">Acento</string>
+    <string name="custom_theme_default_name">Tema personalizado %1$d</string>
+
+    <!-- RGB slider labels -->
+    <string name="color_red">Rojo</string>
+    <string name="color_green">Verde</string>
+    <string name="color_blue">Azul</string>
+
+    <!-- Custom palette mode labels -->
+    <string name="palette_mode_grid">Cuadrícula</string>
+    <string name="palette_mode_spectrum">Espectro</string>
+    <string name="palette_mode_sliders">Deslizadores</string>
+
+    <!-- Motion settings -->
+    <string name="settings_group_motion">Animación</string>
+    <string name="motion_transition_duration_title">Duración de transición</string>
+    <string name="motion_transition_duration_desc">Actual %1$d ms</string>
+    <string name="motion_transition_hint">Consejo: 0 ms significa sin transición (instantáneo). Predeterminado: 350 ms. Si la «escala de duración de animación» del sistema es 0, el sistema puede desactivar las animaciones.</string>
+
+    <!-- Theme mode labels -->
+    <string name="theme_mode_monochrome">Modo monocromo</string>
+    <string name="theme_mode_color">Modo color</string>
+
+    <!-- Folder path -->
+    <string name="internal_storage">Almacenamiento interno</string>
+</resources>

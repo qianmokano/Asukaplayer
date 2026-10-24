@@ -21,6 +21,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.asuka.player.contract.PlayerSettings
 import com.asuka.player.R
+import com.asuka.player.runtime.AppLanguagePreference
 import com.asuka.player.runtime.CustomThemeEntry
 import com.asuka.player.runtime.ThemeConfig
 import soup.compose.material.motion.animation.materialSharedAxisX
@@ -50,6 +51,7 @@ internal fun MainLibraryNavHost(
     onLoadMoreFolder: (Long) -> Unit,
     onRefreshRecent: () -> Unit,
     onHapticFeedbackEnabledChange: (Boolean) -> Unit,
+    onAppLanguageChange: (AppLanguagePreference) -> Unit,
     onPlayerSettingsChange: (PlayerSettings) -> Unit,
     onThemeConfigChange: (ThemeConfig) -> Unit,
     onCustomThemesChange: (List<CustomThemeEntry>) -> Unit,
@@ -246,6 +248,8 @@ internal fun MainLibraryNavHost(
                             appVersion = state.appVersion,
                             hapticFeedbackEnabled = state.uiSettings.hapticFeedbackEnabled,
                             onHapticFeedbackEnabledChange = onHapticFeedbackEnabledChange,
+                            appLanguage = state.uiSettings.appLanguage,
+                            onAppLanguageChange = onAppLanguageChange,
                             onOpenPlayer = { navigateTo(ROUTE_SETTINGS_PLAYER, false) },
                             onOpenTheme = { navigateTo(ROUTE_SETTINGS_THEME, false) },
                         )

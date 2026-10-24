@@ -31,6 +31,8 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     customThemes = loadCustomThemes(),
                     navDurationMs = prefs.getInt(Keys.NAV_DURATION_MS, 300),
                     hapticFeedbackEnabled = prefs.getBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, true),
+                    appLanguage = prefs.getString(Keys.APP_LANGUAGE, UiSettingsRecord().appLanguage)
+                        ?: UiSettingsRecord().appLanguage,
                 ),
                 playerSettings = PlayerSettingsRecord(
                     seekGestureEnabled = prefs.getBoolean(Keys.PLAYER_SEEK_GESTURE_ENABLED, true),
@@ -83,6 +85,7 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
                     .putBoolean(Keys.THEME_CUSTOM_MONO, normalized.uiSettings.customMonochrome)
                     .putInt(Keys.NAV_DURATION_MS, normalized.uiSettings.navDurationMs)
                     .putBoolean(Keys.HAPTIC_FEEDBACK_ENABLED, normalized.uiSettings.hapticFeedbackEnabled)
+                    .putString(Keys.APP_LANGUAGE, normalized.uiSettings.appLanguage)
                     .putString(Keys.THEME_CUSTOM_THEMES_JSON, encodeCustomThemes(normalized.uiSettings.customThemes))
                     .putBoolean(Keys.PLAYER_SEEK_GESTURE_ENABLED, normalized.playerSettings.seekGestureEnabled)
                     .putBoolean(Keys.PLAYER_BRIGHTNESS_GESTURE_ENABLED, normalized.playerSettings.brightnessGestureEnabled)
@@ -202,6 +205,7 @@ class SharedPreferencesAppSettingsStore(context: Context) : AppSettingsStore {
         const val THEME_CUSTOM_THEMES_JSON = "theme_custom_themes_json"
         const val NAV_DURATION_MS = "nav_duration_ms"
         const val HAPTIC_FEEDBACK_ENABLED = "haptic_feedback_enabled"
+        const val APP_LANGUAGE = "app_language"
 
         const val PLAYER_SEEK_GESTURE_ENABLED = "player_seek_gesture_enabled"
         const val PLAYER_BRIGHTNESS_GESTURE_ENABLED = "player_brightness_gesture_enabled"

@@ -36,6 +36,7 @@ class SharedPreferencesAppSettingsStoreTest {
             ),
             navDurationMs = 480,
             hapticFeedbackEnabled = false,
+            appLanguage = "es",
         )
         val playerRecord = PlayerSettingsRecord(
             seekGestureEnabled = false,
